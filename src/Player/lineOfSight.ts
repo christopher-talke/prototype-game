@@ -1,70 +1,63 @@
 import { getAngle } from '../Utilities/getAngle';
-import { app } from '../main';
 import { getDistance } from '../Utilities/getDistance';
-import { FOV } from './player';
+import { app } from '../main';
+import { FOV, HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 
-export function lineOfSight(xypath: coordinates[], targetPlayerInfo: player_info, sourcePlayerInfo: player_info, targetPlayerEl?: HTMLElement) {
-    const startingPoint = xypath[0];
-    const targetPoint = xypath[xypath.length - 1];
-    const angleToTarget = getAngle(startingPoint.x, startingPoint.y, targetPoint.x, targetPoint.y);
+function normalizeAngle(a: number): number {
+    a = a % 360;
+    if (a > 180) a -= 360;
+    if (a <= -180) a += 360;
+    return a;
+}
 
-    let facingTarget = false;
-    let lowerLimitFov = sourcePlayerInfo.current_position.rotation > (angleToTarget + 90) - FOV;
-    let higherLimitFov = sourcePlayerInfo.current_position.rotation < (angleToTarget + 90) + FOV;
+function isFacingTarget(sourcePlayerInfo: player_info, targetPlayerInfo: player_info): boolean {
+    const angleToTarget = getAngle(
+        sourcePlayerInfo.current_position.x, sourcePlayerInfo.current_position.y,
+        targetPlayerInfo.current_position.x, targetPlayerInfo.current_position.y
+    );
+    const facingAngle = sourcePlayerInfo.current_position.rotation - ROTATION_OFFSET;
+    const diff = normalizeAngle(angleToTarget - facingAngle);
+    return diff > -FOV && diff < FOV;
+}
 
-    const canSeePlayer = targetPoint.x - 5 < targetPlayerInfo.current_position.x // If player is 5px to the right of los
-                         && targetPoint.x + 5 > targetPlayerInfo.current_position.x  // If player is 5px to the left of los
-                         && targetPoint.y - 5 < targetPlayerInfo.current_position.y // If player is 5px below the los
-                         && targetPoint.y + 5 > targetPlayerInfo.current_position.y; // If player is 5px above the los
+export function lineOfSight(blocked: boolean, targetPlayerInfo: player_info, sourcePlayerInfo: player_info, targetPlayerEl?: HTMLElement) {
+    const canSee = !blocked && isFacingTarget(sourcePlayerInfo, targetPlayerInfo);
 
-    if (lowerLimitFov && higherLimitFov && canSeePlayer) {
-        facingTarget = true;
-    } else {
-        facingTarget = false;
-    }
-
-    if (facingTarget) {
+    if (canSee) {
         targetPlayerEl?.classList.add('visible');
         targetPlayerEl?.classList.remove('same-team-not-visible');
     } else {
         targetPlayerEl?.classList.remove('visible');
     }
 
-    // Always keep team mates visible if you're not facing them...
-    if (!facingTarget && sourcePlayerInfo.team === targetPlayerInfo.team) {
+    // Always keep teammates visible (but dimmed) even if not facing them
+    if (!canSee && sourcePlayerInfo.team === targetPlayerInfo.team) {
         targetPlayerEl?.classList.add('visible');
         targetPlayerEl?.classList.add('same-team-not-visible');
     }
 }
 
-export function debugLineOfSight(xypath: coordinates[], targetPlayerInfo: player_info, sourcePlayerInfo: player_info, targetPlayerEl?: HTMLElement) {
-    const startingPoint = xypath[0];
-    const targetPoint = xypath[xypath.length - 1];
-    const angleToTarget = getAngle(startingPoint.x, startingPoint.y, targetPoint.x, targetPoint.y);
+export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info, sourcePlayerInfo: player_info, targetPlayerEl?: HTMLElement) {
+    const facing = isFacingTarget(sourcePlayerInfo, targetPlayerInfo);
+    const canSee = !blocked && facing;
 
-    const distance = getDistance(startingPoint.x, startingPoint.y, targetPoint.x, targetPoint.y);
+    const sx = sourcePlayerInfo.current_position.x + HALF_HIT_BOX;
+    const sy = sourcePlayerInfo.current_position.y + HALF_HIT_BOX;
+    const tx = targetPlayerInfo.current_position.x + HALF_HIT_BOX;
+    const ty = targetPlayerInfo.current_position.y + HALF_HIT_BOX;
 
-    let facingTarget = false;
-    let lowerLimitFov = sourcePlayerInfo.current_position.rotation > (angleToTarget + 90) - FOV;
-    let higherLimitFov = sourcePlayerInfo.current_position.rotation < (angleToTarget + 90) + FOV;
-
-    console.log(targetPoint, targetPlayerInfo.current_position)
-
-    if (lowerLimitFov && higherLimitFov) {
-        facingTarget = true;
-    }
+    const angleToTarget = getAngle(sx, sy, tx, ty);
+    const distance = getDistance(sx, sy, tx, ty);
 
     const existingLosEl = document.getElementById(`los-${targetPlayerInfo.id}-${sourcePlayerInfo.id}`);
     if (!existingLosEl) {
 
         const newLosEntity = window.document.createElement('div');
-        const newLosIdentifier = sourcePlayerInfo.id;
-
         newLosEntity.id = `los-${targetPlayerInfo.id}-${sourcePlayerInfo.id}`;
         newLosEntity.classList.add(`los`);
-        newLosEntity.setAttribute('data-los-id', `${newLosIdentifier}`);
+        newLosEntity.setAttribute('data-los-id', `${sourcePlayerInfo.id}`);
 
-        if (facingTarget) {
+        if (canSee) {
             targetPlayerEl?.classList.add('visible');
             newLosEntity.style.backgroundColor = 'green';
         } else {
@@ -72,40 +65,25 @@ export function debugLineOfSight(xypath: coordinates[], targetPlayerInfo: player
             newLosEntity.style.backgroundColor = 'red';
         }
 
-        window.requestAnimationFrame(() => { 
-            newLosEntity.style.width = `${distance}px`;
-            newLosEntity.style.transform = `translate3d(${startingPoint.x + 22}px, ${startingPoint.y + 22}px, 0) rotate(${angleToTarget}deg)`;
-        })
+        newLosEntity.style.width = `${distance}px`;
+        newLosEntity.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
 
         app.appendChild(newLosEntity);
-    }
-
-
-    // If the elements have been previously drawn, then update them...
-    else {
+    } else {
         existingLosEl.style.width = `${distance}px`;
-        
-        if (facingTarget) {
+
+        if (canSee) {
             targetPlayerEl?.classList.add('visible');
             existingLosEl.style.backgroundColor = 'green';
-        } 
-        
-        else {
-
+        } else {
             if (sourcePlayerInfo.team === targetPlayerInfo.team) {
                 targetPlayerEl?.classList.add('visible');
-            } 
-            
-            else {
+            } else {
                 targetPlayerEl?.classList.remove('visible');
                 existingLosEl.style.backgroundColor = 'red';
             }
-
         }
 
-
-        window.requestAnimationFrame(() => {
-            existingLosEl.style.transform = `translate3d(${startingPoint.x + 22}px, ${startingPoint.y + 22}px, 0) rotate(${angleToTarget}deg)`;
-        })
+        existingLosEl.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
     }
 }

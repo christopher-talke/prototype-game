@@ -1,4 +1,4 @@
-export function generateDirectPath(sourceCoords : coordinates, targetCoords : coordinates, collisions : CollissionMap) {
+export function generateDirectPath(sourceCoords: coordinates, targetCoords: coordinates, collisions: CollisionMap) {
     
     let sourceX = Math.floor(sourceCoords.x);
     let sourceY = Math.floor(sourceCoords.y);

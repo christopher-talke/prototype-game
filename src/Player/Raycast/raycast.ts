@@ -1,239 +1,212 @@
 import { environment } from "../../Environment/environment";
-import { app, SETTINGS} from "../../main";
-import { generateDirectPath } from "../../Utilities/generateDirectPath";
+import { app, SETTINGS } from "../../main";
 import { getAngle } from "../../Utilities/getAngle";
 import { getDistance } from "../../Utilities/getDistance";
-import { getNextPosition } from "../../Utilities/getNextPosition";
-import { FOV, PLAYER_HIT_BOX, SPEED } from "../player";
-import * as _ from 'lodash'
+import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from "../../constants";
 
 export enum RaycastTypes {
     SPRAY = 'SPRAY',
     CORNERS = 'CORNERS'
 }
 
-// The Web Work Version
-import MyWorker from './worker?worker'
-export const RaycastWorker = new MyWorker();
-export function generate2dRaycast(data : RaycastWorkerData) {
-    if (RaycastWorker){
-        RaycastWorker.postMessage({ messageType: 'RAY_CAST', payload: data});
-        // @ts-ignore
-        RaycastWorker.onmessage = (e) => {
-            const fogOfWar = document.getElementById('fog-of-war');
-            if (fogOfWar) {
-                window.requestAnimationFrame(() => {
-                    fogOfWar.style.clipPath = `${e.data}`
-                })
-            }
-        }
-    }
+// --- Angle utilities ---
+
+function normalizeAngle(a: number): number {
+    a = a % 360;
+    if (a > 180) a -= 360;
+    if (a <= -180) a += 360;
+    return a;
 }
 
-// The Original Version
-export function generateRayCast(playerInfo : player_info, config : raycast_config ) {
+function isAngleInFOV(angle: number, center: number, halfFov: number): boolean {
+    const diff = normalizeAngle(angle - center);
+    return diff > -halfFov && diff < halfFov;
+}
 
-    let lowerLimit = playerInfo.current_position.rotation - 90 - FOV;
-    let upperLimit = playerInfo.current_position.rotation - 90 + FOV;
-    let lowerLimitPath = getIntersectingPath(playerInfo.current_position.x, playerInfo.current_position.y, SPEED, lowerLimit, environment.collissions,`ray-lower`);
-    let upperLimitPath = getIntersectingPath(playerInfo.current_position.x, playerInfo.current_position.y, SPEED, upperLimit, environment.collissions,`ray-upper`);
+function angleToRadians(deg: number): number {
+    return (Math.PI / 180) * deg;
+}
 
-    let lowerLimitCoords = lowerLimitPath[lowerLimitPath.length - 1]
-    let upperLimitCoords = upperLimitPath[upperLimitPath.length - 1]
+// --- Analytical ray-segment intersection ---
 
-    let startOfRaycastPath = []
-    startOfRaycastPath.push({ x: playerInfo.current_position.x + 22, y: playerInfo.current_position.y + 22 });
-    startOfRaycastPath.push({ x: lowerLimitCoords.x + 22, y: lowerLimitCoords.y + 22 });
+/**
+ * Returns the parametric t value where a ray hits a line segment, or null if no hit.
+ * Ray: origin + t * dir, t >= 0
+ * Segment: p1 + u * (p2 - p1), 0 <= u <= 1
+ */
+function raySegmentIntersect(
+    ox: number, oy: number,
+    dx: number, dy: number,
+    x1: number, y1: number,
+    x2: number, y2: number
+): number | null {
+    const sx = x2 - x1;
+    const sy = y2 - y1;
 
-    // @ts-ignore
-    let raycastPath = [];
+    const denom = dx * sy - dy * sx;
+    if (Math.abs(denom) < 1e-10) return null; // Parallel
+
+    const t = ((x1 - ox) * sy - (y1 - oy) * sx) / denom;
+    const u = ((x1 - ox) * dy - (y1 - oy) * dx) / denom;
+
+    if (t >= 0 && u >= 0 && u <= 1) {
+        return t;
+    }
+    return null;
+}
+
+/**
+ * Cast a single ray from origin at given angle, test against all wall segments.
+ * Returns the nearest intersection point.
+ */
+function castRay(
+    originX: number, originY: number,
+    angleDeg: number,
+    segments: WallSegment[]
+): coordinates {
+    const rad = angleToRadians(angleDeg);
+    const dirX = Math.cos(rad);
+    const dirY = Math.sin(rad);
+
+    let nearestT = Infinity;
+
+    for (const seg of segments) {
+        const t = raySegmentIntersect(
+            originX, originY, dirX, dirY,
+            seg.x1, seg.y1, seg.x2, seg.y2
+        );
+        if (t !== null && t < nearestT) {
+            nearestT = t;
+        }
+    }
+
+    if (nearestT === Infinity) {
+        nearestT = 5000;
+    }
+
+    return {
+        x: originX + dirX * nearestT,
+        y: originY + dirY * nearestT,
+    };
+}
+
+/**
+ * Check if a line segment between two points is blocked by any wall segment.
+ */
+export function isLineBlocked(
+    sx: number, sy: number,
+    tx: number, ty: number,
+    segments: WallSegment[]
+): boolean {
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1e-10) return false;
+
+    const ndx = dx / dist;
+    const ndy = dy / dist;
+
+    for (const seg of segments) {
+        const t = raySegmentIntersect(
+            sx, sy, ndx, ndy,
+            seg.x1, seg.y1, seg.x2, seg.y2
+        );
+        if (t !== null && t > 0.5 && t < dist - 0.5) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// --- Main raycasting ---
+
+export function generateRayCast(playerInfo: player_info, config: raycast_config) {
+
+    const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
+    const centerY = playerInfo.current_position.y + HALF_HIT_BOX;
+
+    const facingAngle = playerInfo.current_position.rotation - 90;
+    const lowerLimit = facingAngle - FOV;
+    const upperLimit = facingAngle + FOV;
+
+    const segments = environment.segments;
+
+    // Boundary rays
+    const lowerHit = castRay(centerX, centerY, lowerLimit, segments);
+    const upperHit = castRay(centerX, centerY, upperLimit, segments);
+
+    const raycastPath: RayPoint[] = [];
+
     if (config.type === 'CORNERS') {
-        const allCorners = {} as CollissionMap
-        Object.keys(environment.corners).forEach( collish => {
-            let [ x, y ] = collish.split(',');
-            let collision_config = environment.corners[collish];
+        for (const corner of environment.corners) {
+            const angleToCorner = getAngle(centerX, centerY, corner.x, corner.y);
+            const visible = isAngleInFOV(angleToCorner, facingAngle, FOV);
 
-            const angleToCorner = getAngle(playerInfo.current_position.x, playerInfo.current_position.y, Number(x), Number(y));
-            collision_config.angleFromPlayer = angleToCorner;
-            collision_config.isVisible = angleToCorner > lowerLimit && angleToCorner < upperLimit;
+            if (visible) {
+                // Cast rays at corner angle +/- offset to capture shadow edges
+                const hitUp = castRay(centerX, centerY, angleToCorner - CORNER_RAY_OFFSET_DEGREES, segments);
+                const hitDown = castRay(centerX, centerY, angleToCorner + CORNER_RAY_OFFSET_DEGREES, segments);
+                const hitCenter = castRay(centerX, centerY, angleToCorner, segments);
 
-            allCorners[collish] = _.cloneDeep(collision_config);
-        });
-        
-        Object.keys(allCorners).forEach((cornerCoord) => {
-            let [ x, y ] = cornerCoord.split(',');
-            let collision_config = allCorners[cornerCoord];
-
-            let path = generateDirectPath({
-                x: playerInfo.current_position.x,
-                y: playerInfo.current_position.y
-            },{
-                x: Number(x),
-                y: Number(y)
-            }, environment.collissions);
-
-            if (collision_config.isVisible && collision_config.angleFromPlayer) {
-
-                // Send a ray -5 degree from current corner
-                let oneUp = getIntersectingPath(
-                    playerInfo.current_position.x,
-                    playerInfo.current_position.y, 
-                    SPEED, 
-                    Math.floor(collision_config.angleFromPlayer) - 5, 
-                    environment.collissions,
-                    `ray-123`, 
+                raycastPath.push(
+                    { x: hitUp.x, y: hitUp.y, d: normalizeAngle(angleToCorner - CORNER_RAY_OFFSET_DEGREES - facingAngle) },
+                    { x: hitCenter.x, y: hitCenter.y, d: normalizeAngle(angleToCorner - facingAngle) },
+                    { x: hitDown.x, y: hitDown.y, d: normalizeAngle(angleToCorner + CORNER_RAY_OFFSET_DEGREES - facingAngle) },
                 );
 
-                // Send a ray +5 degree from the current corner
-                let oneDown = getIntersectingPath(
-                    playerInfo.current_position.x,
-                    playerInfo.current_position.y, 
-                    SPEED, 
-                    Math.floor(collision_config.angleFromPlayer) + 5, 
-                    environment.collissions,
-                    `ray-123`, 
-                );
-
-                let oneUpCoords = oneUp[oneUp.length - 1]
-                let oneDownCoords = oneDown[oneDown.length - 1]
-
-                raycastPath.push({ x: oneUpCoords.x, y: oneUpCoords.y, d: Math.floor(collision_config.angleFromPlayer) - 5})
-                raycastPath.push({ x: oneDownCoords.x, y: oneDownCoords.y, d: Math.floor(collision_config.angleFromPlayer) + 5})
+                if (SETTINGS.debug) {
+                    drawRay(centerX, centerY, hitCenter.x, hitCenter.y, `corner-${corner.x}-${corner.y}`, visible, 'corner');
+                }
             }
-
-            if (collision_config.isVisible) {
-                let lastCoord = path[path.length - 1];
-                raycastPath.push({ x: lastCoord.x, y: lastCoord.y, d: collision_config.angleFromPlayer})
-            }
-
-            if (SETTINGS.debug) {
-                drawRay(path, `corner-${x}-${y}`, collision_config.isVisible, 'corner');
-            }
-
-        });
+        }
     } else if (config.type === 'SPRAY') {
-
         for (let i = lowerLimit; i < upperLimit; i += 10) {
-            const degree = i;
-            let path = getIntersectingPath(
-                playerInfo.current_position.x,
-                playerInfo.current_position.y, 
-                SPEED, 
-                Math.floor(degree),
-                environment.collissions,
-                `ray-123`, 
-            );
-            let coords = path[path.length - 1]
-            startOfRaycastPath.push({ x: coords.x, y: coords.y, d: Math.floor(degree) });
+            const hit = castRay(centerX, centerY, i, segments);
+            raycastPath.push({ x: hit.x, y: hit.y, d: normalizeAngle(i - facingAngle) });
         }
-
     }
 
-    let endOfRaycastPath = []
-    endOfRaycastPath.push({ x: upperLimitCoords.x + 22, y: upperLimitCoords.y + 22 });
-    endOfRaycastPath.push({ x: playerInfo.current_position.x + 22, y: playerInfo.current_position.y + 22 });
+    // Sort by angle relative to facing direction
+    raycastPath.sort((a, b) => a.d - b.d);
 
-    // @ts-ignore
-    raycastPath = _.orderBy(raycastPath, 'd', 'asc');
+    // Assemble full polygon path
+    const fullPath: coordinates[] = [
+        { x: centerX, y: centerY },
+        { x: lowerHit.x, y: lowerHit.y },
+        ...raycastPath,
+        { x: upperHit.x, y: upperHit.y },
+        { x: centerX, y: centerY },
+    ];
 
-    raycastPath = [...startOfRaycastPath, ...raycastPath, ...endOfRaycastPath]
-
-    let polygonPath = 'polygon(';
-    for (let i = 0; i < raycastPath.length; i++) {
-        // @ts-ignore
-        const raypoint = raycastPath[i];
-        if (i === raycastPath.length - 1) {
-            polygonPath += `${raypoint.x}px ${raypoint.y}px`
-        } else {
-            polygonPath += `${raypoint.x}px ${raypoint.y}px,`
-        }
-        
-    }
-    polygonPath += ')';
+    const polygonPath = 'polygon(' + fullPath.map(p => `${p.x}px ${p.y}px`).join(',') + ')';
 
     const fogOfWar = document.getElementById('fog-of-war');
     if (fogOfWar) {
-        window.requestAnimationFrame(() => {
-            fogOfWar.style.clipPath = polygonPath
-        })
+        fogOfWar.style.clipPath = polygonPath;
     }
 
     return;
 }
 
-export function getIntersectingPath(sourceX : number, sourceY : number, speed: number, angle : number,  collisions: CollissionMap, identifier? : string) {
-    let xypath = [] as coordinates[]
-    let collided = true;
+// --- Debug drawing ---
 
-    let max = 2500;
-    let i = 0;
-
-    while(collided) {
-        i++;
-
-        let nextPosition = getNextPosition(sourceX, sourceY, speed, angle);
-        xypath.push(nextPosition);
-
-        sourceX = nextPosition.x;
-        sourceY = nextPosition.y;
-
-        if (sourceX < environment.limits.left - PLAYER_HIT_BOX / 2) {
-            sourceX = environment.limits.left - PLAYER_HIT_BOX / 2;
-            collided = false;
-        }
-        
-        if (sourceX > environment.limits.right - PLAYER_HIT_BOX / 2) {
-            sourceX = environment.limits.right - PLAYER_HIT_BOX / 2;
-            collided = false;
-        }
-    
-        if (sourceY < environment.limits.top - PLAYER_HIT_BOX / 2) {
-            sourceY = environment.limits.top - PLAYER_HIT_BOX / 2;
-            collided = false;
-        }
-    
-        if (sourceY > environment.limits.bottom - PLAYER_HIT_BOX / 2) {
-            sourceY = environment.limits.bottom - PLAYER_HIT_BOX / 2;
-            collided = false;
-        }
-
-        let justBefore = collisions[`${Math.floor(sourceX) - 1},${Math.floor(sourceY) - 1}`]
-        let onTheMark = collisions[`${Math.floor(sourceX)},${Math.floor(sourceY)}`]
-        let justAfter = collisions[`${Math.floor(sourceX) + 1},${Math.floor(sourceY) + 1}`]
-        if (justBefore || onTheMark || justAfter) {
-            collided = false;
-        } 
-
-        if (i > max) collided = false;
-    }
-
-    if (identifier) {
-        // drawRay(xypath, identifier, true)
-    }
-
-    return xypath;
-}
-
-function drawRay(path : coordinates[], identifier : string, visible: boolean, type?: string) {
+function drawRay(sx: number, sy: number, tx: number, ty: number, identifier: string, visible: boolean, type?: string) {
     const existingRay = document.getElementById(`ray-${identifier}`);
 
-    const startingPoint = path[0];
-    const targetPoint = path[path.length - 1];
-    const angleToTarget = getAngle(startingPoint.x, startingPoint.y, targetPoint.x, targetPoint.y);
-    const distance = getDistance(startingPoint.x, startingPoint.y, targetPoint.x, targetPoint.y) + 22;
-    
-    if (!existingRay) { 
-        const newRayEntity = window.document.createElement('div');
-        const newRayIdentifier = identifier
+    const angleToTarget = getAngle(sx, sy, tx, ty);
+    const distance = getDistance(sx, sy, tx, ty);
 
-        newRayEntity.id = `ray-${newRayIdentifier}`;
+    if (!existingRay) {
+        const newRayEntity = window.document.createElement('div');
+
+        newRayEntity.id = `ray-${identifier}`;
         newRayEntity.setAttribute('data-visible', `${visible}`);
         newRayEntity.classList.add(`ray`);
-        newRayEntity.setAttribute('data-ray-id', `${newRayIdentifier}`);
-        
+        newRayEntity.setAttribute('data-ray-id', `${identifier}`);
+
         newRayEntity.style.width = `${distance}px`;
-        newRayEntity.style.transform = `translate3d(${startingPoint.x + 22}px, ${startingPoint.y + 22}px, 0) rotate(${angleToTarget}deg)`;
-        
+        newRayEntity.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
+
         if (type !== undefined) {
             newRayEntity.classList.add(type);
         }
@@ -242,9 +215,6 @@ function drawRay(path : coordinates[], identifier : string, visible: boolean, ty
     } else {
         existingRay.setAttribute('data-visible', `${visible}`);
         existingRay.style.width = `${distance}px`;
-        existingRay.style.transform = `translate3d(${startingPoint.x + 22}px, ${startingPoint.y + 22}px, 0) rotate(${angleToTarget}deg)`;
+        existingRay.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
     }
-
-    return;
 }
-

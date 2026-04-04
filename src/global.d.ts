@@ -1,8 +1,8 @@
 interface GameSettings {
-  debug : boolean
-  raycast : {
-    type: string
-  }
+  debug: boolean;
+  raycast: {
+    type: string;
+  };
 }
 
 interface player_info {
@@ -35,7 +35,13 @@ interface wall_info {
 type coordinates = {
   x: number;
   y: number;
-}
+};
+
+type RayPoint = {
+  x: number;
+  y: number;
+  d: number;
+};
 
 type elementCoordinates = {
   x: number;
@@ -44,32 +50,44 @@ type elementCoordinates = {
   right: number;
   bottom: number;
   left: number;
-}
+};
+
+type WallSegment = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
+
+type Corner = {
+  x: number;
+  y: number;
+};
 
 type Environment = {
   limits: {
-    left : number;
-    right : number;
-    top : number;
-    bottom : number;
-  },
-  collissions : CollissionMap,
-  corners: CollissionMap
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  };
+  segments: WallSegment[];
+  corners: Corner[];
+  // Legacy collision map - kept during Phase 1-2, removed in Phase 3
+  collisions: CollisionMap;
+};
+
+interface CollisionMap {
+  [key: string]: Collision;
 }
 
-interface CollissionMap {
-  [key: string]: Collission;
-}
-
-type Collission = {
-  type : string;
+type Collision = {
+  type: string;
   entity: boolean;
   ray: boolean;
   projectile: boolean;
   isCorner: boolean;
-  isVisible: boolean;
-  angleFromPlayer?: number;
-}
+};
 
 type raycast_config = {
   number_of_rays?: number;
@@ -77,15 +95,7 @@ type raycast_config = {
 };
 
 enum RaycastTypes {
-  SPRAY = 'SPRAY',
-  CORNERS = 'CORNERS'
+  SPRAY = "SPRAY",
+  CORNERS = "CORNERS",
 }
 
-type RaycastWorkerData = {
-  SETTINGS: GameSettings;
-  FOV: number;
-  PLAYER_HIT_BOX: number;
-  SPEED : number;
-  player_info: player_info;
-  raycast_config: raycast_config;
-}

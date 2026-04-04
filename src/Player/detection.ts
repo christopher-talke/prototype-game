@@ -1,36 +1,32 @@
 import { environment } from "../Environment/environment";
-import { getPlayerInfo } from "../Globals/Players";
+import { getOtherPlayers, getPlayerElement, getPlayerInfo } from "../Globals/Players";
 import { SETTINGS } from '../main';
-import { generateDirectPath } from '../Utilities/generateDirectPath';
+import { isLineBlocked } from './Raycast/raycast';
 import { debugLineOfSight, lineOfSight } from './lineOfSight';
 
 
 export function detectOtherPlayers(targetPlayerId: number) {
-    let playerInfo = getPlayerInfo(targetPlayerId);
+    const playerInfo = getPlayerInfo(targetPlayerId);
 
     if (playerInfo) {
-        const allPlayerElements = Array.from(document.querySelectorAll('.player'))
-            .filter((p) => Number(p.getAttribute('data-player-id')) !== playerInfo?.id) as HTMLElement[];
+        const otherPlayers = getOtherPlayers(targetPlayerId);
 
-        for (let p = 0; p < allPlayerElements.length; p++) {
-            const targetPlayerElement = allPlayerElements[p];
-            const targerPlayerInfo = getPlayerInfo(Number(targetPlayerElement.getAttribute('data-player-id')));
+        for (const targetPlayerInfo of otherPlayers) {
+            const targetPlayerElement = getPlayerElement(targetPlayerInfo.id);
+            if (!targetPlayerElement) continue;
 
-            if (targerPlayerInfo === undefined)
-                return;
+            const blocked = isLineBlocked(
+                playerInfo.current_position.x, playerInfo.current_position.y,
+                targetPlayerInfo.current_position.x, targetPlayerInfo.current_position.y,
+                environment.segments
+            );
 
-            // Create a dedicated line of sight x,y path
-            const path = generateDirectPath({ x: playerInfo.current_position.x, y: playerInfo.current_position.y }, { x: targerPlayerInfo.current_position.x, y: targerPlayerInfo.current_position.y }, environment.collissions);
-
-            // Draw the line between the two points
             if (SETTINGS.debug) {
-                debugLineOfSight(path, targerPlayerInfo, playerInfo, targetPlayerElement);
+                debugLineOfSight(blocked, targetPlayerInfo, playerInfo, targetPlayerElement);
             } else {
-                lineOfSight(path, targerPlayerInfo, playerInfo, targetPlayerElement);
+                lineOfSight(blocked, targetPlayerInfo, playerInfo, targetPlayerElement);
             }
-
         }
-
     }
 
     return;

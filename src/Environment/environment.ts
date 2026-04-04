@@ -1,26 +1,39 @@
-import _ from "lodash";
-import { RaycastWorker } from "../Player/Raycast/raycast";
-import { generateCollissionMap } from "./generateCollissionMap"
+import { generateCollisionMap } from "./generateCollisionMap"
 
-export const environment = { 
+export const environment = {
     limits: {
-        left : 0,
-        right : 3000,
-        top : 0,
-        bottom : 3000,
+        left: 0,
+        right: 3000,
+        top: 0,
+        bottom: 3000,
     },
+    segments: [],
+    corners: [],
+    collisions: {},
 } as Environment
 
 export function generateEnvironment() {
-    environment.collissions = generateCollissionMap(environment);
-    environment.corners = {}
-    
-    _.map(environment.collissions, (collission, coord) => {
-        if (collission.isCorner) {
-            environment.corners[coord] = collission
+    environment.collisions = generateCollisionMap(environment);
+    environment.corners = [];
+    environment.segments = [
+        // Environment boundaries
+        { x1: environment.limits.left, y1: environment.limits.top, x2: environment.limits.right, y2: environment.limits.top },
+        { x1: environment.limits.right, y1: environment.limits.top, x2: environment.limits.right, y2: environment.limits.bottom },
+        { x1: environment.limits.right, y1: environment.limits.bottom, x2: environment.limits.left, y2: environment.limits.bottom },
+        { x1: environment.limits.left, y1: environment.limits.bottom, x2: environment.limits.left, y2: environment.limits.top },
+    ];
+
+    // Extract corners from collision map (legacy, used until Phase 3 removes collision map)
+    const cornerSet = new Set<string>();
+    Object.entries(environment.collisions).forEach(([coord, collision]) => {
+        if (collision.isCorner) {
+            cornerSet.add(coord);
         }
     });
-    
-    RaycastWorker.postMessage({ messageType: 'ENVIRONMENT', payload: environment})
+    cornerSet.forEach(coord => {
+        const [x, y] = coord.split(',');
+        environment.corners.push({ x: Number(x), y: Number(y) });
+    });
+
     return;
 }

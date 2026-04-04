@@ -1,21 +1,19 @@
 import { ACTIVE_PLAYER, getPlayerInfo } from "../Globals/Players";
 import { getAngle } from '../Utilities/getAngle';
-import { MAP_OFFSET, SETTINGS } from '../main';
+import { MAP_OFFSET, ROTATION_OFFSET, SPEED, PLAYER_HIT_BOX } from '../constants';
+import { SETTINGS } from '../main';
 import { detectOtherPlayers } from './detection';
 import { environment } from "../Environment/environment";
-import { keys, HELD_DIRECTIONS, directions, SPEED, PLAYER_HIT_BOX, FOV } from './player';
-import { generateRayCast, generate2dRaycast, RaycastTypes } from "./Raycast/raycast";
+import { keys, HELD_DIRECTIONS, directions } from './player';
+import { generateRayCast, RaycastTypes } from "./Raycast/raycast";
 import { toggleSettings } from "../Settings/settings";
 
 export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targetPlayerId: number) {
-    let playerInfo = getPlayerInfo(targetPlayerId) as player_info;
+    const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
 
-    // Player bound event listeners
     window.addEventListener('keydown', (e) => {
-        // @ts-ignore
-        let dir = keys[e.key];
+        const dir = keys[e.key];
         if (dir && HELD_DIRECTIONS.indexOf(dir) === -1) {
-            // @ts-ignore
             HELD_DIRECTIONS.unshift(directions[dir]);
         }
 
@@ -28,23 +26,22 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 
     window.addEventListener('mousemove', (e) => {
         if (playerInfo) {
-            let currentMouseX = e.pageX;
-            let currentMouseY = e.pageY;
+            const currentMouseX = e.pageX;
+            const currentMouseY = e.pageY;
 
-            let pointerBox = renderedPlayerElement.getBoundingClientRect();
-            let centerPoint = window.getComputedStyle(renderedPlayerElement).transformOrigin;
-            let centers = centerPoint.split(" ");
-            let centerY = pointerBox.top + parseInt(centers[1]) + scrollY;
-            let centerX = pointerBox.left + parseInt(centers[0]) + scrollX;
+            const pointerBox = renderedPlayerElement.getBoundingClientRect();
+            const centerPoint = window.getComputedStyle(renderedPlayerElement).transformOrigin;
+            const centers = centerPoint.split(" ");
+            const centerY = pointerBox.top + parseInt(centers[1]) + scrollY;
+            const centerX = pointerBox.left + parseInt(centers[0]) + scrollX;
 
-            playerInfo.current_position.rotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + 87.5; // 90deg to the angle so the top 
+            playerInfo.current_position.rotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + ROTATION_OFFSET;
         }
     });
 
     window.addEventListener('keyup', (e) => {
-        // @ts-ignore
-        var dir = keys[e.key];
-        var index = HELD_DIRECTIONS.indexOf(dir);
+        const dir = keys[e.key];
+        const index = HELD_DIRECTIONS.indexOf(dir as string);
         if (index > -1) {
             HELD_DIRECTIONS.splice(index, 1);
         }
@@ -52,47 +49,44 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         renderedPlayerElement.setAttribute('moving', 'false');
     });
 
+    // Game loop using requestAnimationFrame for proper frame timing
+    let lastTime = 0;
+    const targetFrameTime = 1000 / 60; // 60fps target
 
-    setInterval(() => {
-        if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
-            // generateRayCast(playerInfo, { type: RaycastTypes.CORNERS })
-        }
-    })
+    function gameLoop(timestamp: number) {
+        const deltaTime = timestamp - lastTime;
 
-    setInterval(async () => {
+        if (deltaTime >= targetFrameTime) {
+            lastTime = timestamp - (deltaTime % targetFrameTime);
 
-        if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
+            if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
 
-            movement(playerInfo);
+                movement(playerInfo, deltaTime);
 
-            let newX = playerInfo.current_position.x
-            let newY = playerInfo.current_position.y
-            let newRotation = playerInfo.current_position.rotation
-            let cameraX = (playerInfo.current_position.x + MAP_OFFSET) - window.visualViewport.width / 2;
-            let cameraY = (playerInfo.current_position.y + MAP_OFFSET) - window.visualViewport.height / 2;
-            window.scrollTo(cameraX, cameraY);
+                const newX = playerInfo.current_position.x;
+                const newY = playerInfo.current_position.y;
+                const newRotation = playerInfo.current_position.rotation;
+                const cameraX = (playerInfo.current_position.x + MAP_OFFSET) - window.visualViewport.width / 2;
+                const cameraY = (playerInfo.current_position.y + MAP_OFFSET) - window.visualViewport.height / 2;
+                window.scrollTo(cameraX, cameraY);
 
-            detectOtherPlayers(playerInfo.id);
+                detectOtherPlayers(playerInfo.id);
 
-            if (SETTINGS.raycast.type !== "DISABLED") {
-                if (SETTINGS.raycast.type === 'WEB_WORKER') {
-                    generate2dRaycast({ SETTINGS, FOV, PLAYER_HIT_BOX, SPEED, player_info: playerInfo, raycast_config : { type: RaycastTypes.CORNERS } });
-                } else if (SETTINGS.raycast.type === 'MAIN_THREAD') {
+                if (SETTINGS.raycast.type !== "DISABLED") {
                     generateRayCast(playerInfo, { type: RaycastTypes.CORNERS })
                 }
-            }
 
-            window.requestAnimationFrame(() => {
                 renderedPlayerElement.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
-            });
-
+            }
         }
 
-    });
+        requestAnimationFrame(gameLoop);
+    }
 
+    requestAnimationFrame(gameLoop);
 }
 
-function movement(playerInfo: player_info) {
+function movement(playerInfo: player_info, _deltaTime: number) {
     const held_direction = HELD_DIRECTIONS[0];
     if (held_direction) {
         if (held_direction === directions.right) {
@@ -127,4 +121,3 @@ function movement(playerInfo: player_info) {
 
     return;
 }
-
