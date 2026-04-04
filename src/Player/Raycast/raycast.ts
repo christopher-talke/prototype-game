@@ -178,7 +178,7 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
         { x: centerX, y: centerY },
     ];
 
-    const polygonPath = 'polygon(' + fullPath.map(p => `${p.x}px ${p.y}px`).join(',') + ')';
+    const polygonPath = 'polygon(' + fullPath.map(p => `${Math.round(p.x)}px ${Math.round(p.y)}px`).join(',') + ')';
 
     const fogOfWar = document.getElementById('fog-of-war');
     if (fogOfWar) {

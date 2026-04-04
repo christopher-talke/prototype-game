@@ -8,7 +8,7 @@ export const FOV = 55;
 export const ROTATION_OFFSET = 90;
 
 // Ray casting
-export const CORNER_RAY_OFFSET_DEGREES = 5;
+export const CORNER_RAY_OFFSET_DEGREES = 0.01;
 
 // Map
 export const MAP_SIZE = 3000;
