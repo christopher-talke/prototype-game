@@ -1,7 +1,7 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade } from '../Combat/gameState';
+import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound, MATCH_SETTINGS } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
@@ -26,6 +26,9 @@ let deathOverlay: HTMLElement;
 let leaderboard: HTMLElement;
 let leaderboardBody: HTMLElement;
 let grenadeHud: HTMLElement;
+let roundScoreDisplay: HTMLElement;
+let roundBanner: HTMLElement;
+let matchEndOverlay: HTMLElement;
 const grenadeSlotCache = new Map<GrenadeType, { slot: HTMLElement; count: HTMLElement }>();
 
 export function initHUD() {
@@ -65,6 +68,12 @@ export function initHUD() {
     timer.id = 'hud-timer';
     timer.textContent = '5:00';
     container.appendChild(timer);
+
+    // Round score (team round wins)
+    const rs = document.createElement('div');
+    rs.id = 'hud-round-score';
+    rs.textContent = 'Round 1';
+    container.appendChild(rs);
 
     // Score
     const score = document.createElement('div');
@@ -133,6 +142,18 @@ export function initHUD() {
     `;
     document.body.appendChild(lb);
 
+    // Round end banner
+    const rb = document.createElement('div');
+    rb.id = 'hud-round-banner';
+    rb.innerHTML = `<div id="round-banner-text">ROUND OVER</div><div id="round-banner-sub"></div>`;
+    document.body.appendChild(rb);
+
+    // Match end overlay
+    const meo = document.createElement('div');
+    meo.id = 'hud-match-end';
+    meo.innerHTML = `<div id="match-end-title">MATCH OVER</div><div id="match-end-winner"></div><div id="match-end-score"></div>`;
+    document.body.appendChild(meo);
+
     // Cache elements
     healthBar = document.getElementById('hud-health-bar')!;
     armorBar = document.getElementById('hud-armor-bar')!;
@@ -151,6 +172,9 @@ export function initHUD() {
     leaderboard = lb;
     leaderboardBody = document.getElementById('leaderboard-body')!;
     grenadeHud = document.getElementById('hud-grenades')!;
+    roundScoreDisplay = rs;
+    roundBanner = rb;
+    matchEndOverlay = meo;
 
     // Cache grenade slot elements
     grenadeHud.querySelectorAll('.grenade-slot').forEach(slot => {
@@ -198,6 +222,13 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
     timerDisplay.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+    // Round score
+    const wins = getTeamRoundWins();
+    const round = getCurrentRound();
+    const winsArr = Array.from(wins.entries()).sort((a, b) => a[0] - b[0]);
+    const winsText = winsArr.map(([t, w]) => `T${t}: ${w}`).join('  ');
+    roundScoreDisplay.textContent = `Round ${round}  |  ${winsText}  |  First to ${MATCH_SETTINGS.roundsToWin}`;
 
     // Score
     scoreDisplay.textContent = `K: ${state.kills} / D: ${state.deaths}`;
@@ -385,6 +416,33 @@ export function showLeaderboard() {
 
 export function hideLeaderboard() {
     leaderboard.classList.remove('open');
+}
+
+export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) {
+    if (isFinal) {
+        showMatchEndOverlay(winningTeam, teamWins);
+        return;
+    }
+
+    const sub = document.getElementById('round-banner-sub')!;
+    const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
+    const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('  -  ');
+    sub.textContent = `Team ${winningTeam} wins!  |  ${scoreText}`;
+
+    roundBanner.classList.remove('active');
+    void roundBanner.offsetWidth;
+    roundBanner.classList.add('active');
+
+    setTimeout(() => roundBanner.classList.remove('active'), MATCH_SETTINGS.roundIntermission - 500);
+}
+
+function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>) {
+    const winnerEl = document.getElementById('match-end-winner')!;
+    const scoreEl = document.getElementById('match-end-score')!;
+    winnerEl.textContent = `Team ${winningTeam} wins the match!`;
+    const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
+    scoreEl.textContent = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('  -  ');
+    matchEndOverlay.classList.add('active');
 }
 
 function renderLeaderboard() {

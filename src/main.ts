@@ -7,8 +7,8 @@ import { drawCollisionOverlay } from './Environment/generateCollisionMap';
 import { environment, generateEnvironment } from './Environment/environment';
 import { createWall } from './Environment/Wall/wall';
 import { MAP_OFFSET } from './constants';
-import { initMatch, setOnKillCallback } from './Combat/gameState';
-import { initHUD, addKillFeedEntry } from './HUD/hud';
+import { initMatch, setOnKillCallback, setOnRoundEndCallback } from './Combat/gameState';
+import { initHUD, addKillFeedEntry, showRoundEndBanner } from './HUD/hud';
 import { getActiveMap } from './Maps/helpers';
 import { registerAI } from './AI/ai';
 import { resumeAudioContext } from './Audio/audio';
@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initMatch(PLAYERS.map(p => p.id));
   initHUD();
   setOnKillCallback(addKillFeedEntry);
+  setOnRoundEndCallback(showRoundEndBanner);
 
   // Audio setup
   loadAllSounds();

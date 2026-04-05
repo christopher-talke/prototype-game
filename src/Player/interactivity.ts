@@ -12,7 +12,7 @@ import { toggleSettings, isSettingsOpen, closeSettings } from "../Settings/setti
 import { getActionForKey } from "../Settings/keybinds";
 import { initShooting, tryFire, startReload, switchWeapon, getActiveWeapon } from "../Combat/shooting";
 import { updateProjectiles } from "../Combat/projectiles";
-import { checkMatchTimer, getMatchTimeRemaining } from "../Combat/gameState";
+import { checkMatchTimer, getMatchTimeRemaining, isRoundActive } from "../Combat/gameState";
 import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard } from "../HUD/hud";
 import { isPlayerDead } from "../Combat/damage";
 import { getWeaponDef } from "../Combat/weapons";
@@ -141,8 +141,9 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
 
                 checkMatchTimer();
+                const roundRunning = isRoundActive();
 
-                if (!isPlayerDead(playerInfo)) {
+                if (roundRunning && !isPlayerDead(playerInfo)) {
                     const menuOpen = isSettingsOpen() || isBuyMenuOpen();
                     if (!menuOpen) {
                         movement(playerInfo, deltaTime);
@@ -150,10 +151,12 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                     }
                 }
 
-                updateProjectiles(environment.segments, getAllPlayers());
-                updateGrenades(environment.segments, getAllPlayers(), timestamp);
-                updateSmokeClouds(timestamp);
-                updateAllAI(getAllPlayers(), timestamp);
+                if (roundRunning) {
+                    updateProjectiles(environment.segments, getAllPlayers());
+                    updateGrenades(environment.segments, getAllPlayers(), timestamp);
+                    updateSmokeClouds(timestamp);
+                    updateAllAI(getAllPlayers(), timestamp);
+                }
 
                 const newX = playerInfo.current_position.x;
                 const newY = playerInfo.current_position.y;

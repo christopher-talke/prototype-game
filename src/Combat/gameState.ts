@@ -1,34 +1,79 @@
-import { getPlayerInfo } from '../Globals/Players';
-import { getWeaponDef } from './weapons';
+import { getPlayerInfo, getAllPlayers, getPlayerElement, getHealthBarElement, ACTIVE_PLAYER } from '../Globals/Players';
+import { getWeaponDef, createDefaultWeapon } from './weapons';
 import { getGrenadeDef } from './grenades';
+import { updateHealthBar, positionHealthBar } from '../Player/player';
+import { getActiveMap } from '../Maps/helpers';
 
-const STARTING_MONEY = 99999;
-const MATCH_DURATION = 5 * 60 * 1000; // 5 minutes
+// --- Configurable match settings ---
+export const MATCH_SETTINGS = {
+    roundDuration: 2 * 60 * 1000,   // 2 minutes per round
+    roundsToWin: 5,                   // first to 5 round wins
+    startingMoney: 99999,
+    roundIntermission: 4000,          // ms between rounds
+};
 
-let matchStartTime = 0;
+let roundStartTime = 0;
 let matchActive = false;
+let roundActive = false;
+let currentRound = 0;
+const teamRoundWins = new Map<number, number>();
+const roundKills = new Map<number, number>(); // team -> kills this round
 const playerStates = new Map<number, PlayerGameState>();
+let matchWinner: number | null = null;
 
 // Kill feed callback - set by HUD
 let onKillCallback: ((killerName: string, victimName: string, weaponType: string) => void) | null = null;
+let onRoundEndCallback: ((winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) => void) | null = null;
 
 export function setOnKillCallback(cb: (killerName: string, victimName: string, weaponType: string) => void) {
     onKillCallback = cb;
 }
 
+export function setOnRoundEndCallback(cb: (winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) => void) {
+    onRoundEndCallback = cb;
+}
+
 export function initMatch(playerIds: number[]) {
     playerStates.clear();
+    teamRoundWins.clear();
+    roundKills.clear();
+    matchWinner = null;
+    currentRound = 0;
+
+    // Discover teams from players
+    const players = getAllPlayers();
+    const teams = new Set(players.map(p => p.team));
+    for (const team of teams) {
+        teamRoundWins.set(team, 0);
+    }
+
     for (const id of playerIds) {
         playerStates.set(id, {
             playerId: id,
             kills: 0,
             deaths: 0,
-            money: STARTING_MONEY,
+            money: MATCH_SETTINGS.startingMoney,
             points: 0,
         });
     }
-    matchStartTime = Date.now();
+
+    startRound();
+}
+
+function startRound() {
+    currentRound++;
+    roundStartTime = Date.now();
+    roundActive = true;
     matchActive = true;
+
+    // Reset per-round kill tracking
+    roundKills.clear();
+    for (const [team] of teamRoundWins) {
+        roundKills.set(team, 0);
+    }
+
+    // Reset all players for the new round
+    resetAllPlayers();
 }
 
 export function recordKill(killerId: number, victimId: number) {
@@ -43,6 +88,11 @@ export function recordKill(killerId: number, victimId: number) {
         const weaponType = activeWeapon?.type || 'PISTOL';
         const weaponDef = getWeaponDef(weaponType);
         killerState.money += weaponDef.killReward;
+
+        // Track team round kills
+        if (killerInfo) {
+            roundKills.set(killerInfo.team, (roundKills.get(killerInfo.team) ?? 0) + 1);
+        }
 
         // Trigger kill feed
         const victimInfo = getPlayerInfo(victimId);
@@ -65,21 +115,109 @@ export function getAllPlayerStates(): PlayerGameState[] {
 }
 
 export function getMatchTimeRemaining(): number {
-    if (!matchActive) return 0;
-    return Math.max(0, MATCH_DURATION - (Date.now() - matchStartTime));
+    if (!roundActive) return 0;
+    return Math.max(0, MATCH_SETTINGS.roundDuration - (Date.now() - roundStartTime));
 }
 
 export function checkMatchTimer(): boolean {
-    if (!matchActive) return false;
+    if (!roundActive) return false;
     if (getMatchTimeRemaining() <= 0) {
-        matchActive = false;
-        return true; // match ended
+        endRound();
+        return true;
     }
     return false;
 }
 
 export function isMatchActive(): boolean {
     return matchActive;
+}
+
+export function isRoundActive(): boolean {
+    return roundActive;
+}
+
+export function getCurrentRound(): number {
+    return currentRound;
+}
+
+export function getTeamRoundWins(): Map<number, number> {
+    return teamRoundWins;
+}
+
+export function getMatchWinner(): number | null {
+    return matchWinner;
+}
+
+function endRound() {
+    roundActive = false;
+
+    // Determine round winner: team with most kills this round
+    let bestTeam = 1;
+    let bestKills = -1;
+    for (const [team, kills] of roundKills) {
+        if (kills > bestKills) {
+            bestKills = kills;
+            bestTeam = team;
+        }
+    }
+
+    teamRoundWins.set(bestTeam, (teamRoundWins.get(bestTeam) ?? 0) + 1);
+    const wins = teamRoundWins.get(bestTeam)!;
+
+    // Check for match win
+    const isFinal = wins >= MATCH_SETTINGS.roundsToWin;
+    if (isFinal) {
+        matchActive = false;
+        matchWinner = bestTeam;
+    }
+
+    if (onRoundEndCallback) {
+        onRoundEndCallback(bestTeam, teamRoundWins, isFinal);
+    }
+
+    // Start next round after intermission (unless match is over)
+    if (!isFinal) {
+        setTimeout(() => startRound(), MATCH_SETTINGS.roundIntermission);
+    }
+}
+
+function resetAllPlayers() {
+    const teamSpawns = getActiveMap().teamSpawns;
+    const players = getAllPlayers();
+    const teamCounters: Record<number, number> = {};
+
+    for (const player of players) {
+        teamCounters[player.team] = (teamCounters[player.team] ?? 0);
+        const spawns = teamSpawns[player.team] ?? Object.values(teamSpawns).flat();
+        const spawn = spawns[teamCounters[player.team] % spawns.length];
+        teamCounters[player.team]++;
+
+        player.health = 100;
+        player.armour = 0;
+        player.dead = false;
+        player.current_position.x = spawn.x;
+        player.current_position.y = spawn.y;
+        player.weapons = [createDefaultWeapon()];
+        player.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
+
+        const el = getPlayerElement(player.id);
+        if (el) {
+            el.classList.remove('dead');
+            el.style.transform = `translate3d(${spawn.x}px, ${spawn.y}px, 0) rotate(${player.current_position.rotation}deg)`;
+            if (player.id === ACTIVE_PLAYER) {
+                el.classList.add('visible');
+            }
+        }
+
+        const wrap = getHealthBarElement(player.id);
+        if (wrap) positionHealthBar(wrap, player);
+        updateHealthBar(player);
+    }
+
+    // Reset money for the new round
+    for (const [, state] of playerStates) {
+        state.money = MATCH_SETTINGS.startingMoney;
+    }
 }
 
 export function spendMoney(playerId: number, amount: number): boolean {
