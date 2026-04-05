@@ -14,6 +14,7 @@ import { registerAI } from './AI/ai';
 import { resumeAudioContext } from './Audio/audio';
 import { loadAllSounds } from './Audio/soundMap';
 import { initProjectilePool } from './Combat/ProjectilePool';
+import { clientRenderer } from './Net/ClientRenderer';
 
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   generateEnvironment();
   drawFogOfWar();
   initProjectilePool();
+  clientRenderer.init();
 
   for (const wall of ACTIVE_MAP.walls) {
     createWall(wall);

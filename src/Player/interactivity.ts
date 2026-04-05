@@ -19,7 +19,9 @@ import { getWeaponDef } from "../Combat/weapons";
 import { updateAllAI } from "../AI/ai";
 import { playFootstep } from "../Audio/audio";
 import { throwGrenade, updateGrenades, detonateC4, hasPlacedC4, setMouseWorldPosition } from "../Combat/grenadeProjectiles";
-import { updateSmokeClouds } from "../Combat/smoke";import { initADS, updateAimLine } from './aimline';
+import { updateSmokeClouds } from "../Combat/smoke";
+import { clientRenderer } from "../Net/ClientRenderer";
+import { initADS, updateAimLine } from './aimline';
 // Camera aim offset (lerped)
 let currentOffsetX = 0;
 let currentOffsetY = 0;
@@ -154,6 +156,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 if (roundRunning) {
                     updateProjectiles(environment.segments, getAllPlayers());
                     updateGrenades(environment.segments, getAllPlayers(), timestamp);
+                    clientRenderer.updateVisuals();
                     updateSmokeClouds(timestamp);
                     updateAllAI(getAllPlayers(), timestamp);
                 }
