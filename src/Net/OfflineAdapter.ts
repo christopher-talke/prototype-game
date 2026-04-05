@@ -56,7 +56,7 @@ export class OfflineAdapter implements NetAdapter {
             case 'THROW_GRENADE':
                 if (player.grenades[input.grenadeType] > 0) {
                     player.grenades[input.grenadeType]--;
-                    throwGrenade(input.grenadeType, player);
+                    throwGrenade(input.grenadeType, player, input.chargePercent);
                 }
                 break;
             case 'DETONATE_C4':

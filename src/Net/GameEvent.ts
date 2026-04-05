@@ -184,7 +184,7 @@ export type PlayerInput =
     | { type: 'FIRE'; playerId: number; timestamp: number }
     | { type: 'RELOAD'; playerId: number }
     | { type: 'SWITCH_WEAPON'; playerId: number; slotIndex: number }
-    | { type: 'THROW_GRENADE'; playerId: number; grenadeType: GrenadeType }
+    | { type: 'THROW_GRENADE'; playerId: number; grenadeType: GrenadeType; chargePercent: number }
     | { type: 'DETONATE_C4'; playerId: number }
     | { type: 'BUY_WEAPON'; playerId: number; weaponType: string }
     | { type: 'BUY_GRENADE'; playerId: number; grenadeType: GrenadeType }

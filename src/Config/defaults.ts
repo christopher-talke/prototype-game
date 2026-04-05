@@ -24,6 +24,7 @@ export const BASE_DEFAULTS: GameModeConfig = {
         speed: 6,
         respawnTime: 3000,
         armorAbsorption: 0.5,
+        healthBarVisibleDuration: 3000,
     },
 
     physics: {
@@ -42,6 +43,8 @@ export const BASE_DEFAULTS: GameModeConfig = {
     grenades: {
         allowedGrenades: 'ALL',
         startingGrenades: {},
+        chargeTime: 1000,
+        minThrowFraction: 0.2,
     },
 
     ai: {

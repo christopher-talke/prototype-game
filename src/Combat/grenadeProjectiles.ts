@@ -3,6 +3,7 @@ import { getGrenadeDef } from './grenades';
 import { environment } from '../Environment/environment';
 import { simulation } from '../Net/GameSimulation';
 import { gameEventBus } from '../Net/GameEvent';
+import { getConfig } from '../Config/activeConfig';
 
 // Mouse position tracked from interactivity
 let mouseWorldX = 0;
@@ -17,14 +18,16 @@ export function getMouseWorldPosition(): { x: number; y: number } {
     return { x: mouseWorldX, y: mouseWorldY };
 }
 
-export function throwGrenade(type: GrenadeType, playerInfo: player_info) {
+export function throwGrenade(type: GrenadeType, playerInfo: player_info, chargePercent: number = 1) {
     const def = getGrenadeDef(type);
     const cx = playerInfo.current_position.x + HALF_HIT_BOX;
     const cy = playerInfo.current_position.y + HALF_HIT_BOX;
 
     let dx = 0;
     let dy = 0;
-    let speed = def.throwSpeed;
+    const minFraction = getConfig().grenades.minThrowFraction;
+    const chargeFraction = minFraction + (1 - minFraction) * Math.max(0, Math.min(1, chargePercent));
+    let speed = def.throwSpeed * chargeFraction;
 
     if (type === 'C4') {
         speed = 0;

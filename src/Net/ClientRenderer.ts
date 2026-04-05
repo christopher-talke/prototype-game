@@ -22,8 +22,6 @@ import { spawnSmoke } from '../Combat/smoke';
 import { app } from '../main';
 import { getConfig } from '../Config/activeConfig';
 
-const HEALTH_BAR_VISIBLE_DURATION = 3000;
-
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
     private grenadeElements = new Map<number, HTMLElement>();
@@ -221,7 +219,7 @@ class ClientRendererImpl {
         this.healthBarTimers.set(playerId, setTimeout(() => {
             wrap.classList.remove('health-visible');
             this.healthBarTimers.delete(playerId);
-        }, HEALTH_BAR_VISIBLE_DURATION));
+        }, getConfig().player.healthBarVisibleDuration));
     }
 
     private showFlashOverlay(intensity: number, duration: number) {

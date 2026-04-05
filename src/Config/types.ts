@@ -26,6 +26,7 @@ export interface GameModeConfig {
         speed: number;               // 6
         respawnTime: number;         // 3000
         armorAbsorption: number;     // 0.5
+        healthBarVisibleDuration: number; // 3000
     };
 
     physics: {
@@ -44,6 +45,8 @@ export interface GameModeConfig {
     grenades: {
         allowedGrenades: GrenadeType[] | 'ALL';
         startingGrenades: Partial<Record<GrenadeType, number>>;
+        chargeTime: number;          // ms to reach full charge (1000)
+        minThrowFraction: number;    // minimum throw power as fraction (0.2)
     };
 
     ai: {

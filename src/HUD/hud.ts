@@ -5,7 +5,7 @@ import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRound
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
-import { getSelectedGrenadeType } from '../Player/interactivity';
+import { getSelectedGrenadeType, getGrenadeChargePercent } from '../Player/interactivity';
 import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
 import { playSound } from '../Audio/audio';
 import { getConfig } from '../Config/activeConfig';
@@ -30,6 +30,8 @@ let grenadeHud: HTMLElement;
 let roundScoreDisplay: HTMLElement;
 let roundBanner: HTMLElement;
 let matchEndOverlay: HTMLElement;
+let grenadeChargeBar: HTMLElement;
+let grenadeChargeFill: HTMLElement;
 const grenadeSlotCache = new Map<GrenadeType, { slot: HTMLElement; count: HTMLElement }>();
 
 export function initHUD() {
@@ -107,6 +109,12 @@ export function initHUD() {
     ch.innerHTML = `<div class="ch-h"></div><div class="ch-v"></div><div class="ch-dot"></div>`;
     document.body.appendChild(ch);
 
+    // Grenade charge bar (shown under crosshair while holding G)
+    const gcb = document.createElement('div');
+    gcb.id = 'grenade-charge-bar';
+    gcb.innerHTML = `<div id="grenade-charge-fill"></div>`;
+    document.body.appendChild(gcb);
+
     // Buy menu
     const bm = document.createElement('div');
     bm.id = 'hud-buymenu';
@@ -176,6 +184,8 @@ export function initHUD() {
     roundScoreDisplay = rs;
     roundBanner = rb;
     matchEndOverlay = meo;
+    grenadeChargeBar = gcb;
+    grenadeChargeFill = document.getElementById('grenade-charge-fill')!;
 
     // Cache grenade slot elements
     grenadeHud.querySelectorAll('.grenade-slot').forEach(slot => {
@@ -250,6 +260,15 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
         deathOverlay.classList.add('active');
     } else {
         deathOverlay.classList.remove('active');
+    }
+
+    // Grenade charge bar
+    const chargePercent = getGrenadeChargePercent();
+    if (chargePercent > 0) {
+        grenadeChargeBar.classList.add('active');
+        grenadeChargeFill.style.width = `${chargePercent * 100}%`;
+    } else {
+        grenadeChargeBar.classList.remove('active');
     }
 }
 
@@ -365,6 +384,7 @@ export function showDamageIndicator(angleDeg: number, playerRotation: number) {
 
 export function updateCrosshairPosition(x: number, y: number) {
     crosshair.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%))`;
+    grenadeChargeBar.style.transform = `translate(calc(${x}px - 50%), calc(${y}px + 20px))`;
 }
 
 let hitMarkerTimeout: ReturnType<typeof setTimeout> | null = null;

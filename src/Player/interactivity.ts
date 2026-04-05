@@ -20,6 +20,7 @@ import { updateSmokeClouds } from "../Combat/smoke";
 import { clientRenderer } from "../Net/ClientRenderer";
 import { offlineAdapter } from "../Net/OfflineAdapter";
 import { initADS, updateAimLine } from './aimline';
+import { getConfig } from '../Config/activeConfig';
 // Camera aim offset (lerped)
 let currentOffsetX = 0;
 let currentOffsetY = 0;
@@ -34,6 +35,15 @@ export function getSelectedGrenadeType(): GrenadeType {
 
 function cycleGrenade(delta: number) {
     selectedGrenadeIndex = ((selectedGrenadeIndex + delta) % GRENADE_ORDER.length + GRENADE_ORDER.length) % GRENADE_ORDER.length;
+}
+
+// Grenade charge state
+let grenadeChargeStart = 0;
+let grenadeCharging = false;
+
+export function getGrenadeChargePercent(): number {
+    if (!grenadeCharging) return 0;
+    return Math.min(1, (performance.now() - grenadeChargeStart) / getConfig().grenades.chargeTime);
 }
 
 export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targetPlayerId: number) {
@@ -77,13 +87,14 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             showLeaderboard();
         }
 
-        // Grenades
-        if (action === 'grenade' && !isPlayerDead(playerInfo)) {
+        // Grenades - start charging on keydown
+        if (action === 'grenade' && !isPlayerDead(playerInfo) && !grenadeCharging) {
             const type = getSelectedGrenadeType();
             if (type === 'C4' && hasPlacedC4(playerInfo.id)) {
                 offlineAdapter.sendInput({ type: 'DETONATE_C4', playerId: playerInfo.id });
-            } else {
-                offlineAdapter.sendInput({ type: 'THROW_GRENADE', playerId: playerInfo.id, grenadeType: type });
+            } else if (playerInfo.grenades[type] > 0) {
+                grenadeCharging = true;
+                grenadeChargeStart = performance.now();
             }
         }
 
@@ -97,7 +108,8 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             const currentMouseY = e.pageY;
 
             // Track world-space mouse position for grenade aiming
-            setMouseWorldPosition(currentMouseX + scrollX - MAP_OFFSET, currentMouseY + scrollY - MAP_OFFSET);
+            // pageX/pageY already include scroll, so only subtract MAP_OFFSET
+            setMouseWorldPosition(currentMouseX - MAP_OFFSET, currentMouseY - MAP_OFFSET);
 
             const centerX = playerInfo.current_position.x + HALF_HIT_BOX + MAP_OFFSET;
             const centerY = playerInfo.current_position.y + HALF_HIT_BOX + MAP_OFFSET;
@@ -116,6 +128,14 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 
         if (action === 'leaderboard') {
             hideLeaderboard();
+        }
+
+        // Grenades - release to throw with charge
+        if (action === 'grenade' && grenadeCharging) {
+            const type = getSelectedGrenadeType();
+            const chargePercent = getGrenadeChargePercent();
+            grenadeCharging = false;
+            offlineAdapter.sendInput({ type: 'THROW_GRENADE', playerId: playerInfo.id, grenadeType: type, chargePercent });
         }
 
         renderedPlayerElement.setAttribute('moving', 'false');
