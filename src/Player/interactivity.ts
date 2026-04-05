@@ -19,8 +19,7 @@ import { getWeaponDef } from "../Combat/weapons";
 import { updateAllAI } from "../AI/ai";
 import { playFootstep } from "../Audio/audio";
 import { throwGrenade, updateGrenades, detonateC4, hasPlacedC4, setMouseWorldPosition } from "../Combat/grenadeProjectiles";
-import { updateSmokeClouds } from "../Combat/smoke";
-
+import { updateSmokeClouds } from "../Combat/smoke";import { initADS, updateAimLine } from './aimline';
 // Camera aim offset (lerped)
 let currentOffsetX = 0;
 let currentOffsetY = 0;
@@ -41,6 +40,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
 
     initShooting(playerInfo);
+    initADS();
 
     window.addEventListener('keydown', (e) => {
         // Settings rebind listener eats keys when listening
@@ -183,6 +183,8 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 }
 
                 renderedPlayerElement.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
+
+                updateAimLine(playerInfo);
 
                 updateHUD(playerInfo, getMatchTimeRemaining());
             }

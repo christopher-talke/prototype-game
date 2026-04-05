@@ -12,6 +12,9 @@ let recoilResetTimeout: ReturnType<typeof setTimeout> | null = null;
 const RECOIL_RESET_DELAY = 300;
 let shellReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
+export function getConsecutiveShots(): number { return consecutiveShots; }
+export function getIsFiring(): boolean { return isFiring; }
+
 export function getActiveWeapon(playerInfo: player_info): PlayerWeapon | undefined {
     return playerInfo.weapons.find(w => w.active);
 }

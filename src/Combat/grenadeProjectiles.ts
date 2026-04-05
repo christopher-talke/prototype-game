@@ -26,6 +26,10 @@ export function setMouseWorldPosition(x: number, y: number) {
     mouseWorldY = y;
 }
 
+export function getMouseWorldPosition(): { x: number; y: number } {
+    return { x: mouseWorldX, y: mouseWorldY };
+}
+
 export function throwGrenade(type: GrenadeType, playerInfo: player_info) {
     const def = getGrenadeDef(type);
     const cx = playerInfo.current_position.x + HALF_HIT_BOX;
@@ -229,7 +233,7 @@ function applyExplosionDamage(g: GrenadeState, def: GrenadeDef, allPlayers: play
         const isKill = wasAlive && isPlayerDead(player);
 
         if (g.ownerId === ACTIVE_PLAYER) {
-            showHitMarker(isKill);
+            showHitMarker(isKill, player.name);
             spawnDamageNumber(pcx, pcy, damage, isKill);
         }
     }

@@ -31,6 +31,7 @@ const ACTION_SOUNDS: Record<string, string> = {
     hit: '/sounds/player/hit.mp3',
     death: '/sounds/player/death.mp3',
     weapon_switch: '/sounds/player/weapon_switch.mp3',
+    kill: '/sounds/player/kill.mp3',
 };
 
 // Grenade sounds

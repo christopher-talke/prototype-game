@@ -81,7 +81,7 @@ export function updateProjectiles(
                     const isKill = wasAlive && isPlayerDead(player);
                     // Show hit marker on shooter's crosshair
                     if (p.ownerId === ACTIVE_PLAYER) {
-                        showHitMarker(isKill);
+                        showHitMarker(isKill, player.name);
                         spawnDamageNumber(newX, newY, p.damage, isKill);
                     }
                     // Show directional damage indicator on the hit player's screen

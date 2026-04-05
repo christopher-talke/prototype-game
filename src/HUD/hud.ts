@@ -7,6 +7,7 @@ import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
 import { getSelectedGrenadeType } from '../Player/interactivity';
 import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
+import { playSound } from '../Audio/audio';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -331,7 +332,7 @@ export function updateCrosshairPosition(x: number, y: number) {
 
 let hitMarkerTimeout: ReturnType<typeof setTimeout> | null = null;
 
-export function showHitMarker(isKill: boolean) {
+export function showHitMarker(isKill: boolean, victimName?: string) {
     crosshair.classList.remove('hit', 'kill');
     // Force reflow so animation restarts
     void crosshair.offsetWidth;
@@ -340,6 +341,36 @@ export function showHitMarker(isKill: boolean) {
     hitMarkerTimeout = setTimeout(() => {
         crosshair.classList.remove('hit', 'kill');
     }, 300);
+
+    if (isKill) {
+        playSound('kill');
+        showKillBanner(victimName ?? 'Enemy');
+    }
+}
+
+let killBannerContainer: HTMLElement | null = null;
+
+function getKillBannerContainer(): HTMLElement {
+    if (!killBannerContainer) {
+        killBannerContainer = document.createElement('div');
+        killBannerContainer.id = 'kill-banner-container';
+        document.body.appendChild(killBannerContainer);
+    }
+    return killBannerContainer;
+}
+
+function showKillBanner(victimName: string) {
+    const container = getKillBannerContainer();
+    const el = document.createElement('div');
+    el.classList.add('kill-banner');
+    el.innerHTML = `<span class="kill-banner-icon">&#x2620;</span><span class="kill-banner-text">ELIMINATED</span><span class="kill-banner-name">${victimName}</span>`;
+    container.appendChild(el);
+    void el.offsetWidth;
+    el.classList.add('active');
+    setTimeout(() => {
+        el.classList.add('fade-out');
+        setTimeout(() => el.remove(), 500);
+    }, 1200);
 }
 
 export function showLeaderboard() {
