@@ -3,6 +3,7 @@ import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarEleme
 import { app } from '../main';
 import { HALF_HIT_BOX } from '../constants';
 import { addPlayerInteractivity } from './interactivity';
+import { createDefaultWeapon } from '../Combat/weapons';
 export { SPEED, PLAYER_HIT_BOX, FOV } from '../constants';
 
 export const HELD_DIRECTIONS = [] as string[]
@@ -82,4 +83,32 @@ export function updateHealthBar(playerInfo: player_info) {
     if (bar) bar.style.width = `${Math.max(0, playerInfo.health)}%`;
     if (armor) armor.style.width = `${Math.max(0, playerInfo.armour)}%`;
     positionHealthBar(wrap, playerInfo);
+}
+
+export function generatePlayers(num: number, teams: number, teamSpawns: Record<number, coordinates[]>): player_info[] {
+    const players: player_info[] = [];
+    const teamCounters: Record<number, number> = {};
+    for (let i = 0; i < num; i++) {
+        const team = Math.floor(i / Math.ceil(num / teams)) + 1;
+        teamCounters[team] = (teamCounters[team] ?? 0);
+        const spawns = teamSpawns[team] ?? Object.values(teamSpawns).flat();
+        const spawn = spawns[teamCounters[team] % spawns.length];
+        teamCounters[team]++;
+        const player = {
+            id: i + 1,
+            name: `Player${i + 1}`,
+            current_position: {
+                x: spawn.x,
+                y: spawn.y,
+                rotation: Math.random() * 360,
+            },
+            health: 100,
+            armour: 0,
+            team,
+            dead: false,
+            weapons: [createDefaultWeapon()],
+        };
+        players.push(player);
+    }
+    return players;
 }

@@ -3,7 +3,18 @@
 // Center plaza connects to 4 corner rooms via wide corridors
 // Cover objects in open areas, no tight pinch points
 
-export const Arena: wall_info[] = [
+export const Arena: MapData = {
+  teamSpawns: {
+    1: [
+      { x: 440, y: 440 },   // top-left room
+      { x: 440, y: 2360 },  // bottom-left room
+    ],
+    2: [
+      { x: 2360, y: 440 },  // top-right room
+      { x: 2360, y: 2360 }, // bottom-right room
+    ],
+  },
+  walls: [
 
     // === BOUNDARY ===
     { x: 200, y: 200, width: 2600, height: 15, type: 'concrete' },
@@ -153,4 +164,5 @@ export const Arena: wall_info[] = [
     // Cover
     { x: 2080, y: 1200, width: 50, height: 60, type: 'barrier' },
     { x: 2080, y: 1680, width: 50, height: 60, type: 'barrier' },
-];
+  ],
+};

@@ -3,17 +3,10 @@ import { recordKill } from './gameState';
 import { createDefaultWeapon } from './weapons';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { getHealthBarElement } from '../Globals/Players';
+import { getActiveMap } from '../Maps/helpers';
 
 const ARMOR_ABSORPTION = 0.5;
 const RESPAWN_TIME = 3000;
-
-const SPAWN_POINTS: coordinates[] = [
-    { x: 320, y: 320 },   // top-left room
-    { x: 2420, y: 320 },  // top-right room
-    { x: 320, y: 2420 },  // bottom-left room
-    { x: 2420, y: 2420 }, // bottom-right room
-    { x: 1450, y: 1450 }, // center plaza
-];
 
 export function isPlayerDead(player: player_info): boolean {
     return player.dead;
@@ -54,7 +47,9 @@ function killPlayer(target: player_info, killerId: number) {
 }
 
 function respawnPlayer(target: player_info) {
-    const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)];
+    const teamSpawns = getActiveMap().teamSpawns;
+    const spawnPoints = teamSpawns[target.team] ?? Object.values(teamSpawns).flat();
+    const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
 
     target.health = 100;
     target.armour = 0;

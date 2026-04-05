@@ -1,5 +1,8 @@
+type GameMode = 'ffa' | 'tdm';
+
 interface GameSettings {
   debug: boolean;
+  gameMode: GameMode;
   raycast: {
     type: string;
   };
@@ -86,6 +89,11 @@ type WallType =
 type coordinates = {
   x: number;
   y: number;
+};
+
+type MapData = {
+  teamSpawns: Record<number, coordinates[]>;
+  walls: wall_info[];
 };
 
 type RayPoint = {

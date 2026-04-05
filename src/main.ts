@@ -1,7 +1,6 @@
 import './style.css'
 
-import { createPlayer } from './Player/player'
-import { getRandomNumber } from './Utilities/getRandomNumber'
+import { createPlayer, generatePlayers } from './Player/player'
 import { setActivePlayer } from './Globals/Players';
 import { drawFogOfWar } from './Player/Raycast/fogOfWar';
 import { drawCollisionOverlay } from './Environment/generateCollisionMap';
@@ -10,72 +9,28 @@ import { createWall } from './Environment/Wall/wall';
 import { MAP_OFFSET } from './constants';
 import { initMatch, setOnKillCallback } from './Combat/gameState';
 import { initHUD, addKillFeedEntry } from './HUD/hud';
-import { Arena } from './Maps/arena';
+import { getActiveMap } from './Maps/helpers';
 import { registerAI } from './AI/ai';
 
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
 export const SETTINGS: GameSettings = {
   debug: false,
+  gameMode: 'tdm',
   raycast: {
     type: 'MAIN_THREAD'
   }
 };
 
 // --- Players ---
-
-const PLAYER_1: player_info = {
-  id: getRandomNumber(1001, 9999),
-  team: 1,
-  name: 'Ekky',
-  health: 100,
-  armour: 100,
-  dead: false,
-  current_position: {
-    x: 350,
-    y: 350,
-    rotation: 0,
-  },
-  weapons: [{ id: 1, active: true, ammo: 12, maxAmmo: 12, firing_rate: 500, reloading: false, type: 'PISTOL' }]
-}
-
-const PLAYER_2: player_info = {
-  id: getRandomNumber(1001, 9999),
-  team: 1,
-  name: 'Tonkymac',
-  health: 100,
-  armour: 100,
-  dead: false,
-  current_position: {
-    x: 2450,
-    y: 2450,
-    rotation: 180,
-  },
-  weapons: [{ id: 1, active: true, ammo: 12, maxAmmo: 12, firing_rate: 500, reloading: false, type: 'PISTOL' }]
-}
-
-const PLAYER_3: player_info = {
-  id: getRandomNumber(1001, 9999),
-  team: 2,
-  name: 'Frank',
-  health: 100,
-  armour: 100,
-  dead: false,
-  current_position: {
-    x: 2450,
-    y: 350,
-    rotation: 180,
-  },
-  weapons: [{ id: 1, active: true, ammo: 12, maxAmmo: 12, firing_rate: 500, reloading: false, type: 'PISTOL' }]
-}
-
-const WALLS = Arena;
+const ACTIVE_MAP = getActiveMap();
+const PLAYERS = generatePlayers(8, 2, ACTIVE_MAP.teamSpawns);
 
 document.addEventListener('DOMContentLoaded', () => {
   generateEnvironment();
   drawFogOfWar();
 
-  for (const wall of WALLS) {
+  for (const wall of ACTIVE_MAP.walls) {
     createWall(wall);
   }
 
@@ -83,20 +38,20 @@ document.addEventListener('DOMContentLoaded', () => {
     drawCollisionOverlay(environment);
   }
 
-  setActivePlayer(PLAYER_1.id);
-  createPlayer(PLAYER_1, true);
-  createPlayer(PLAYER_2, false);
-  createPlayer(PLAYER_3, false);
+  for (const player of PLAYERS) {
+    if (player.id === 1) {
+      setActivePlayer(player.id);
+    }  
 
-  // Register AI for non-player characters
-  registerAI(PLAYER_2);
-  registerAI(PLAYER_3);
+    createPlayer(player, player.id === 1);
+    if (player.id !== 1) {
+      registerAI(player);
+    }
+  }
 
-  // Init combat systems
-  initMatch([PLAYER_1.id, PLAYER_2.id, PLAYER_3.id]);
+  initMatch(PLAYERS.map(p => p.id));
   initHUD();
   setOnKillCallback(addKillFeedEntry);
 
-  // Hide default cursor (crosshair replaces it)
   document.body.style.cursor = 'none';
 })

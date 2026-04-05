@@ -1,7 +1,18 @@
 // LOSShowcase - dense object placement to stress-test line of sight
 // 3000x3000 play area, objects scattered throughout to create interesting shadows
 
-export const LOSShowcase: wall_info[] = [
+export const LOSShowcase: MapData = {
+  teamSpawns: {
+    1: [
+      { x: 320, y: 320 },   // top-left room
+      { x: 320, y: 2420 },  // bottom-left room
+    ],
+    2: [
+      { x: 2420, y: 320 },  // top-right room
+      { x: 2420, y: 2420 }, // bottom-right room
+    ],
+  },
+  walls: [
 
     // === BOUNDARY ===
     { x: 100, y: 100, width: 2800, height: 15, type: 'concrete' },
@@ -251,4 +262,5 @@ export const LOSShowcase: wall_info[] = [
     { x: 1050, y: 1640, width: 15, height: 80, type: 'concrete' },
     { x: 1840, y: 1720, width: 80, height: 15, type: 'concrete' },
     { x: 1905, y: 1640, width: 15, height: 80, type: 'concrete' },
-];
+  ],
+};
