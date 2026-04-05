@@ -15,7 +15,8 @@ export function spawnBullet(
     originX: number, originY: number,
     angleDeg: number,
     speed: number,
-    damage: number
+    damage: number,
+    weaponType?: string
 ) {
     const rad = angleToRadians(angleDeg);
     const dx = Math.cos(rad);
@@ -23,6 +24,7 @@ export function spawnBullet(
 
     const el = document.createElement('div');
     el.classList.add('projectile');
+    if (weaponType === 'SNIPER') el.classList.add('projectile-sniper');
     el.style.transform = `translate3d(${originX}px, ${originY}px, 0)`;
     app.appendChild(el);
 
@@ -37,6 +39,7 @@ export function spawnBullet(
         ownerId,
         element: el,
         alive: true,
+        weaponType,
     });
 }
 
@@ -63,7 +66,7 @@ export function updateProjectiles(
             }
         }
 
-        // Player collision
+        // Player collision - sweep along bullet path to prevent tunneling
         if (p.alive) {
             for (const player of players) {
                 if (player.id === p.ownerId) continue;
@@ -71,8 +74,16 @@ export function updateProjectiles(
 
                 const pcx = player.current_position.x + HALF_HIT_BOX;
                 const pcy = player.current_position.y + HALF_HIT_BOX;
-                const distX = newX - pcx;
-                const distY = newY - pcy;
+
+                // Project player center onto bullet travel segment to find closest point
+                const ox = pcx - p.x;
+                const oy = pcy - p.y;
+                // t = dot(o, d) where d is (dx, dy) unit vector
+                const t = Math.max(0, Math.min(p.speed, ox * p.dx + oy * p.dy));
+                const closestX = p.x + p.dx * t;
+                const closestY = p.y + p.dy * t;
+                const distX = closestX - pcx;
+                const distY = closestY - pcy;
                 const distSq = distX * distX + distY * distY;
 
                 if (distSq < HALF_HIT_BOX * HALF_HIT_BOX) {
@@ -82,7 +93,7 @@ export function updateProjectiles(
                     // Show hit marker on shooter's crosshair
                     if (p.ownerId === ACTIVE_PLAYER) {
                         showHitMarker(isKill, player.name);
-                        spawnDamageNumber(newX, newY, p.damage, isKill);
+                        spawnDamageNumber(closestX, closestY, p.damage, isKill);
                     }
                     // Show directional damage indicator on the hit player's screen
                     if (player.id === ACTIVE_PLAYER) {

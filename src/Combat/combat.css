@@ -10,6 +10,15 @@
     margin-top: -2px;
 }
 
+.projectile-sniper {
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    margin-top: -5px;
+    background: #fff;
+    box-shadow: 0 0 6px 2px #ffcc00, 0 0 14px 4px rgba(255, 204, 0, 0.4);
+}
+
 /* Damage numbers */
 .damage-number {
     position: absolute;

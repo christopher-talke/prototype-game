@@ -96,7 +96,8 @@ export function tryFire(playerInfo: player_info, timestamp: number) {
             centerX, centerY,
             bulletAngle,
             weaponDef.bulletSpeed,
-            weaponDef.damage
+            weaponDef.damage,
+            weaponDef.id
         );
     }
 

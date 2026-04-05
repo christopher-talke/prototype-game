@@ -69,6 +69,7 @@ type ProjectileState = {
   ownerId: number;
   element: HTMLElement;
   alive: boolean;
+  weaponType?: string;
 };
 
 type PlayerGameState = {

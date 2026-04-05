@@ -87,11 +87,11 @@ export const WEAPON_DEFS: Record<string, WeaponDef> = {
     SNIPER: {
         id: 'SNIPER',
         name: 'Sniper',
-        damage: 85,
+        damage: 110,
         fireRate: 1500,
         reloadTime: 3500,
         magSize: 5,
-        bulletSpeed: 60,
+        bulletSpeed: 90,
         price: 4750,
         killReward: 100,
         pellets: 1,
