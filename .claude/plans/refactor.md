@@ -136,6 +136,8 @@ This is the critical architectural change that enables both online play and clea
 
 ### 3A. GameEvent system
 
+### STATUS: COMPLETED
+
 **New file:** `src/Net/GameEvent.ts`
 
 Define a discriminated union of all game-meaningful events:
@@ -164,6 +166,8 @@ These events are the **network protocol**. Offline mode emits and consumes them 
 
 ### 3B. GameSimulation (authoritative state)
 
+### STATUS: COMPLETED
+
 **New file:** `src/Net/GameSimulation.ts`
 
 A pure-logic class with no DOM dependencies. Holds all authoritative state:
@@ -182,6 +186,8 @@ This class replaces the scattered state mutations in `damage.ts`, `projectiles.t
 
 ### 3C. Renderer (client-only, reacts to events)
 
+### STATUS: COMPLETED
+
 **New file:** `src/Net/ClientRenderer.ts`
 
 Subscribes to `GameEvent` stream and handles all DOM/audio side effects:
@@ -196,6 +202,8 @@ Subscribes to `GameEvent` stream and handles all DOM/audio side effects:
 This is a refactor of existing rendering code out of the mutation functions, not new rendering logic.
 
 ### 3D. NetAdapter interface
+
+### STATUS: COMPLETED
 
 **New file:** `src/Net/NetAdapter.ts`
 
@@ -225,6 +233,8 @@ interface NetAdapter {
 - Entity interpolation: other players smoothly interpolated between server snapshots
 
 ### 3E. Migration strategy (incremental, not big-bang)
+
+### STATUS: COMPLETED
 
 The refactor happens incrementally. Each step keeps the game playable:
 

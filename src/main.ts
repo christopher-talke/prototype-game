@@ -15,6 +15,7 @@ import { resumeAudioContext } from './Audio/audio';
 import { loadAllSounds } from './Audio/soundMap';
 import { initProjectilePool } from './Combat/ProjectilePool';
 import { clientRenderer } from './Net/ClientRenderer';
+import { getConfig } from './Config/activeConfig';
 
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
@@ -33,7 +34,8 @@ export const SETTINGS: GameSettings = {
 
 // --- Players ---
 const ACTIVE_MAP = getActiveMap();
-const PLAYERS = generatePlayers(20, 2, ACTIVE_MAP.teamSpawns);
+const config = getConfig();
+const PLAYERS = generatePlayers(config.match.maxPlayers, config.match.teamsCount, ACTIVE_MAP.teamSpawns);
 
 document.addEventListener('DOMContentLoaded', () => {
   generateEnvironment();

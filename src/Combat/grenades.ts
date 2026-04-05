@@ -47,6 +47,13 @@ export const GRENADE_DEFS: Record<GrenadeType, GrenadeDef> = {
     },
 };
 
+import { getConfig } from '../Config/activeConfig';
+
 export function getGrenadeDef(type: GrenadeType): GrenadeDef {
     return GRENADE_DEFS[type];
+}
+
+export function isGrenadeAllowed(type: GrenadeType): boolean {
+    const allowed = getConfig().grenades.allowedGrenades;
+    return allowed === 'ALL' || allowed.includes(type);
 }

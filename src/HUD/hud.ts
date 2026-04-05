@@ -1,13 +1,14 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound, MATCH_SETTINGS } from '../Combat/gameState';
+import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
 import { getSelectedGrenadeType } from '../Player/interactivity';
 import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
 import { playSound } from '../Audio/audio';
+import { getConfig } from '../Config/activeConfig';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -228,7 +229,7 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     const round = getCurrentRound();
     const winsArr = Array.from(wins.entries()).sort((a, b) => a[0] - b[0]);
     const winsText = winsArr.map(([t, w]) => `T${t}: ${w}`).join('  ');
-    roundScoreDisplay.textContent = `Round ${round}  |  ${winsText}  |  First to ${MATCH_SETTINGS.roundsToWin}`;
+    roundScoreDisplay.textContent = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
 
     // Score
     scoreDisplay.textContent = `K: ${state.kills} / D: ${state.deaths}`;
@@ -433,7 +434,7 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
     void roundBanner.offsetWidth;
     roundBanner.classList.add('active');
 
-    setTimeout(() => roundBanner.classList.remove('active'), MATCH_SETTINGS.roundIntermission - 500);
+    setTimeout(() => roundBanner.classList.remove('active'), getConfig().match.roundIntermission - 500);
 }
 
 function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>) {

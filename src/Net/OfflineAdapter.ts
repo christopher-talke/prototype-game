@@ -6,8 +6,8 @@ import type { PlayerInput, EventHandler } from './GameEvent';
 import { gameEventBus } from './GameEvent';
 import { simulation } from './GameSimulation';
 import { moveWithCollision } from '../Player/collision';
-import { SPEED } from '../constants';
 import { getPlayerInfo } from '../Globals/Players';
+import { getConfig } from '../Config/activeConfig';
 import { throwGrenade, detonateC4 } from '../Combat/grenadeProjectiles';
 import { startReload, switchWeapon, tryFire } from '../Combat/shooting';
 import { buyWeapon, buyGrenade } from '../Combat/gameState';
@@ -31,8 +31,8 @@ export class OfflineAdapter implements NetAdapter {
                 const result = moveWithCollision(
                     player.current_position.x,
                     player.current_position.y,
-                    input.dx * SPEED,
-                    input.dy * SPEED,
+                    input.dx * getConfig().player.speed,
+                    input.dy * getConfig().player.speed,
                 );
                 player.current_position.x = result.x;
                 player.current_position.y = result.y;

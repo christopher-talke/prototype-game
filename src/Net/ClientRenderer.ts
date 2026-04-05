@@ -20,8 +20,8 @@ import { playSoundAtPlayer, playSound } from '../Audio/audio';
 import { showHitMarker, spawnDamageNumber, showDamageIndicator } from '../HUD/hud';
 import { spawnSmoke } from '../Combat/smoke';
 import { app } from '../main';
+import { getConfig } from '../Config/activeConfig';
 
-const RESPAWN_TIME = 3000;
 const HEALTH_BAR_VISIBLE_DURATION = 3000;
 
 class ClientRendererImpl {
@@ -131,7 +131,7 @@ class ClientRendererImpl {
                 const events = simulation.respawnPlayer(target);
                 gameEventBus.emitAll(events);
             }
-        }, RESPAWN_TIME);
+        }, getConfig().player.respawnTime);
     }
 
     private onPlayerRespawn(event: PlayerRespawnEvent) {

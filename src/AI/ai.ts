@@ -13,17 +13,12 @@ import { positionHealthBar } from '../Player/player';
 import { buyWeapon, getPlayerState } from '../Combat/gameState';
 import { playSoundAtPlayer, playFootstep } from '../Audio/audio';
 import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
+import { getConfig } from '../Config/activeConfig';
 
-const AI_SPEED = 3;
-const AI_TURN_SPEED = 4;
-const AI_FIRE_CONE = 8;
-const AI_DETECT_RANGE = 800;
-const AI_CHASE_TIMEOUT = 3000;
-const AI_PATROL_PAUSE = 1500;
-const STUCK_THRESHOLD = 2; // pixels moved to count as "not stuck"
+const STUCK_THRESHOLD = 2;
 const STUCK_FRAMES_BEFORE_REROUTE = 15;
-const UNSTICK_DURATION = 600; // ms to move in random direction when stuck
-const WALL_CHECK_SHOTS = 5; // stop shooting after this many consecutive wall-hits
+const UNSTICK_DURATION = 600;
+const WALL_CHECK_SHOTS = 5;
 
 // Preferred buy order: rifle > smg > shotgun
 const BUY_PRIORITY = ['RIFLE', 'SMG', 'SHOTGUN'];
@@ -127,8 +122,9 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
 
     // If currently unsticking, just walk in the random direction
     if (timestamp < ai.unstickUntil) {
-        const dx = Math.cos(ai.unstickAngle) * AI_SPEED;
-        const dy = Math.sin(ai.unstickAngle) * AI_SPEED;
+        const aiSpeed = getConfig().ai.speed;
+        const dx = Math.cos(ai.unstickAngle) * aiSpeed;
+        const dy = Math.sin(ai.unstickAngle) * aiSpeed;
         const result = moveWithCollision(me.current_position.x, me.current_position.y, dx, dy);
         me.current_position.x = result.x;
         me.current_position.y = result.y;
@@ -149,7 +145,7 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         const oy = other.current_position.y + HALF_HIT_BOX;
         const dist = getDistance(myCx, myCy, ox, oy);
 
-        if (dist > AI_DETECT_RANGE) continue;
+        if (dist > getConfig().ai.detectRange) continue;
 
         const blocked = isLineBlocked(
             me.current_position.x, me.current_position.y,
@@ -174,7 +170,7 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         ai.lastSawTarget = timestamp;
         ai.wallHitShots = 0;
     } else if (ai.state === 'chase') {
-        if (timestamp - ai.lastSawTarget > AI_CHASE_TIMEOUT) {
+        if (timestamp - ai.lastSawTarget > getConfig().ai.chaseTimeout) {
             ai.state = 'patrol';
             ai.targetId = null;
             ai.wallHitShots = 0;
@@ -182,7 +178,7 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
             ai.state = 'search';
         }
     } else if (ai.state === 'search') {
-        if (timestamp - ai.lastSawTarget > AI_CHASE_TIMEOUT) {
+        if (timestamp - ai.lastSawTarget > getConfig().ai.chaseTimeout) {
             ai.state = 'patrol';
             ai.targetId = null;
             ai.wallHitShots = 0;
@@ -227,11 +223,11 @@ function doPatrol(ai: AIController, timestamp: number) {
 
     if (dist < 30) {
         ai.waypointIndex = (ai.waypointIndex + 1) % ai.waypoints.length;
-        ai.patrolPauseUntil = timestamp + AI_PATROL_PAUSE;
+        ai.patrolPauseUntil = timestamp + getConfig().ai.patrolPause;
         return;
     }
 
-    moveToward(ai, wp.x, wp.y, AI_SPEED * 0.6);
+    moveToward(ai, wp.x, wp.y, getConfig().ai.speed * 0.6);
     turnToward(ai, wp.x, wp.y);
 }
 
@@ -247,9 +243,9 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
     turnToward(ai, tx, ty);
 
     if (dist > 200) {
-        moveToward(ai, tx, ty, AI_SPEED);
+        moveToward(ai, tx, ty, getConfig().ai.speed);
     } else if (dist < 100) {
-        moveToward(ai, tx, ty, -AI_SPEED * 0.5);
+        moveToward(ai, tx, ty, -getConfig().ai.speed * 0.5);
     }
 
     // Check if we actually have line of sight before firing
@@ -263,7 +259,7 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
         ai.wallHitShots++;
         // If we've been trying to shoot through walls, stop and move toward target instead
         if (ai.wallHitShots > WALL_CHECK_SHOTS) {
-            moveToward(ai, tx, ty, AI_SPEED);
+            moveToward(ai, tx, ty, getConfig().ai.speed);
         }
         return;
     }
@@ -275,7 +271,7 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
     const facingAngle = me.current_position.rotation - ROTATION_OFFSET;
     const diff = normalizeAngle(angleToTarget - facingAngle);
 
-    if (Math.abs(diff) < AI_FIRE_CONE) {
+    if (Math.abs(diff) < getConfig().ai.fireCone) {
         tryAIFire(ai, timestamp);
     }
 }
@@ -290,11 +286,11 @@ function doSearch(ai: AIController, _timestamp: number) {
     const dist = getDistance(myCx, myCy, ai.targetLastPos.x, ai.targetLastPos.y);
 
     if (dist < 30) {
-        me.current_position.rotation += AI_TURN_SPEED * 2;
+        me.current_position.rotation += getConfig().ai.turnSpeed * 2;
         return;
     }
 
-    moveToward(ai, ai.targetLastPos.x, ai.targetLastPos.y, AI_SPEED * 0.8);
+    moveToward(ai, ai.targetLastPos.x, ai.targetLastPos.y, getConfig().ai.speed * 0.8);
     turnToward(ai, ai.targetLastPos.x, ai.targetLastPos.y);
 }
 
@@ -327,10 +323,10 @@ function turnToward(ai: AIController, tx: number, ty: number) {
     const targetAngle = getAngle(myCx, myCy, tx, ty) + ROTATION_OFFSET;
     const diff = normalizeAngle(targetAngle - me.current_position.rotation);
 
-    if (Math.abs(diff) < AI_TURN_SPEED) {
+    if (Math.abs(diff) < getConfig().ai.turnSpeed) {
         me.current_position.rotation = targetAngle;
     } else {
-        me.current_position.rotation += Math.sign(diff) * AI_TURN_SPEED;
+        me.current_position.rotation += Math.sign(diff) * getConfig().ai.turnSpeed;
     }
 }
 

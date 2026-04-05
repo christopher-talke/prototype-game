@@ -4,7 +4,7 @@ import { app } from '../main';
 import { HALF_HIT_BOX } from '../constants';
 import { addPlayerInteractivity } from './interactivity';
 import { createDefaultWeapon } from '../Combat/weapons';
-export { SPEED, PLAYER_HIT_BOX, FOV } from '../constants';
+export { PLAYER_HIT_BOX, FOV } from '../constants';
 
 export const HELD_DIRECTIONS = [] as string[]
 

@@ -4,12 +4,12 @@ import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { isPlayerDead } from './damage';
 import { playSoundAtPlayer } from '../Audio/audio';
 import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
+import { getConfig } from '../Config/activeConfig';
 
 let isFiring = false;
 let lastFireTime = 0;
 let consecutiveShots = 0;
 let recoilResetTimeout: ReturnType<typeof setTimeout> | null = null;
-const RECOIL_RESET_DELAY = 300;
 let shellReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function getConsecutiveShots(): number { return consecutiveShots; }
@@ -34,7 +34,7 @@ export function initShooting(_playerInfo: player_info) {
             if (recoilResetTimeout) clearTimeout(recoilResetTimeout);
             recoilResetTimeout = setTimeout(() => {
                 consecutiveShots = 0;
-            }, RECOIL_RESET_DELAY);
+            }, getConfig().shooting.recoilResetDelay);
         }
     });
 

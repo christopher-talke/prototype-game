@@ -138,8 +138,34 @@ function generateRiflePattern(): { x: number; y: number }[] {
     return pattern;
 }
 
+import { getConfig } from '../Config/activeConfig';
+
 export function getWeaponDef(type: string): WeaponDef {
-    return WEAPON_DEFS[type] || WEAPON_DEFS.PISTOL;
+    const base = WEAPON_DEFS[type] || WEAPON_DEFS.PISTOL;
+    const config = getConfig();
+    const override = config.weapons.overrides[type];
+    if (!override && config.weapons.globalDamageMultiplier === 1.0 && config.weapons.recoilMultiplier === 1.0 && config.physics.bulletSpeedMultiplier === 1.0) {
+        return base;
+    }
+    const merged = override ? { ...base, ...override } : { ...base };
+    if (config.weapons.globalDamageMultiplier !== 1.0) {
+        merged.damage = Math.round(merged.damage * config.weapons.globalDamageMultiplier);
+    }
+    if (config.physics.bulletSpeedMultiplier !== 1.0) {
+        merged.bulletSpeed = Math.round(merged.bulletSpeed * config.physics.bulletSpeedMultiplier);
+    }
+    if (config.weapons.recoilMultiplier !== 1.0) {
+        merged.recoilPattern = merged.recoilPattern.map(p => ({
+            x: p.x * config.weapons.recoilMultiplier,
+            y: p.y * config.weapons.recoilMultiplier,
+        }));
+    }
+    return merged;
+}
+
+export function isWeaponAllowed(weaponId: string): boolean {
+    const allowed = getConfig().weapons.allowedWeapons;
+    return allowed === 'ALL' || allowed.includes(weaponId);
 }
 
 export function createDefaultWeapon(): PlayerWeapon {

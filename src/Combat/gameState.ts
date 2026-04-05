@@ -3,14 +3,7 @@ import { getWeaponDef, createDefaultWeapon } from './weapons';
 import { getGrenadeDef } from './grenades';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { getActiveMap } from '../Maps/helpers';
-
-// --- Configurable match settings ---
-export const MATCH_SETTINGS = {
-    roundDuration: 2 * 60 * 1000,   // 2 minutes per round
-    roundsToWin: 5,                   // first to 5 round wins
-    startingMoney: 99999,
-    roundIntermission: 4000,          // ms between rounds
-};
+import { getConfig } from '../Config/activeConfig';
 
 let roundStartTime = 0;
 let matchActive = false;
@@ -52,7 +45,7 @@ export function initMatch(playerIds: number[]) {
             playerId: id,
             kills: 0,
             deaths: 0,
-            money: MATCH_SETTINGS.startingMoney,
+            money: getConfig().economy.startingMoney,
             points: 0,
         });
     }
@@ -87,7 +80,7 @@ export function recordKill(killerId: number, victimId: number) {
         const activeWeapon = killerInfo?.weapons.find(w => w.active);
         const weaponType = activeWeapon?.type || 'PISTOL';
         const weaponDef = getWeaponDef(weaponType);
-        killerState.money += weaponDef.killReward;
+        killerState.money += Math.round(weaponDef.killReward * getConfig().economy.killRewardMultiplier);
 
         // Track team round kills
         if (killerInfo) {
@@ -116,7 +109,7 @@ export function getAllPlayerStates(): PlayerGameState[] {
 
 export function getMatchTimeRemaining(): number {
     if (!roundActive) return 0;
-    return Math.max(0, MATCH_SETTINGS.roundDuration - (Date.now() - roundStartTime));
+    return Math.max(0, getConfig().match.roundDuration - (Date.now() - roundStartTime));
 }
 
 export function checkMatchTimer(): boolean {
@@ -165,7 +158,7 @@ function endRound() {
     const wins = teamRoundWins.get(bestTeam)!;
 
     // Check for match win
-    const isFinal = wins >= MATCH_SETTINGS.roundsToWin;
+    const isFinal = wins >= getConfig().match.roundsToWin;
     if (isFinal) {
         matchActive = false;
         matchWinner = bestTeam;
@@ -177,7 +170,7 @@ function endRound() {
 
     // Start next round after intermission (unless match is over)
     if (!isFinal) {
-        setTimeout(() => startRound(), MATCH_SETTINGS.roundIntermission);
+        setTimeout(() => startRound(), getConfig().match.roundIntermission);
     }
 }
 
@@ -192,8 +185,8 @@ function resetAllPlayers() {
         const spawn = spawns[teamCounters[player.team] % spawns.length];
         teamCounters[player.team]++;
 
-        player.health = 100;
-        player.armour = 0;
+        player.health = getConfig().player.maxHealth;
+        player.armour = getConfig().player.startingArmor;
         player.dead = false;
         player.current_position.x = spawn.x;
         player.current_position.y = spawn.y;
@@ -216,7 +209,7 @@ function resetAllPlayers() {
 
     // Reset money for the new round
     for (const [, state] of playerStates) {
-        state.money = MATCH_SETTINGS.startingMoney;
+        state.money = getConfig().economy.startingMoney;
     }
 }
 

@@ -7,6 +7,7 @@ import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
 import { getGrenadeDef } from '../Combat/grenades';
 import { getActiveMap } from '../Maps/helpers';
 import { createDefaultWeapon } from '../Combat/weapons';
+import { getConfig } from '../Config/activeConfig';
 
 // -- Simulation-only projectile state (no DOM) --
 export type SimProjectile = {
@@ -36,8 +37,6 @@ export type SimGrenade = {
     detonated: boolean;
 };
 
-const ARMOR_ABSORPTION = 0.5;
-const GRENADE_FRICTION = 0.94;
 const MIN_GRENADE_SPEED = 0.3;
 
 export class GameSimulation {
@@ -55,7 +54,7 @@ export class GameSimulation {
         let remaining = rawDamage;
 
         if (target.armour > 0) {
-            const absorbed = Math.min(rawDamage * ARMOR_ABSORPTION, target.armour);
+            const absorbed = Math.min(rawDamage * getConfig().player.armorAbsorption, target.armour);
             target.armour = Math.round(target.armour - absorbed);
             remaining = rawDamage - absorbed;
         }
@@ -99,8 +98,8 @@ export class GameSimulation {
         const spawnPoints = teamSpawns[target.team] ?? Object.values(teamSpawns).flat();
         const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
 
-        target.health = 100;
-        target.armour = 0;
+        target.health = getConfig().player.maxHealth;
+        target.armour = getConfig().player.startingArmor;
         target.dead = false;
         target.current_position.x = spawn.x;
         target.current_position.y = spawn.y;
@@ -330,7 +329,7 @@ export class GameSimulation {
                     g.y = newY;
                 }
 
-                g.speed *= GRENADE_FRICTION;
+                g.speed *= getConfig().physics.grenadeFriction;
                 if (g.speed <= MIN_GRENADE_SPEED) g.speed = 0;
             }
 
