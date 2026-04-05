@@ -250,6 +250,8 @@ The refactor happens incrementally. Each step keeps the game playable:
 
 ## Phase 4: Data-Driven Config System
 
+### STATUS: COMPLETED
+
 ### New files
 
 - `src/Config/types.ts` -- `GameModeConfig` interface
