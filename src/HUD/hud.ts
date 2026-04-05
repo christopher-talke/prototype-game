@@ -1,9 +1,12 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { buyWeapon, getPlayerState, getAllPlayerStates } from '../Combat/gameState';
+import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
+import { GRENADE_DEFS } from '../Combat/grenades';
+import { getSelectedGrenadeType } from '../Player/interactivity';
+import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -21,6 +24,7 @@ let buyMenuGrid: HTMLElement;
 let deathOverlay: HTMLElement;
 let leaderboard: HTMLElement;
 let leaderboardBody: HTMLElement;
+let grenadeHud: HTMLElement;
 
 export function initHUD() {
     const container = document.createElement('div');
@@ -65,6 +69,18 @@ export function initHUD() {
     score.id = 'hud-score';
     score.textContent = 'K: 0 / D: 0';
     container.appendChild(score);
+
+    // Grenade inventory display
+    const grenades = document.createElement('div');
+    grenades.id = 'hud-grenades';
+    const gKey = getKeyDisplayName(getKeyForAction('grenade'));
+    grenades.innerHTML = `
+        <div class="grenade-slot" data-type="FRAG"><span class="grenade-key">${gKey}</span><span class="grenade-label">FRAG</span><span class="grenade-count">0</span></div>
+        <div class="grenade-slot" data-type="FLASH"><span class="grenade-key">${gKey}</span><span class="grenade-label">FLASH</span><span class="grenade-count">0</span></div>
+        <div class="grenade-slot" data-type="SMOKE"><span class="grenade-key">${gKey}</span><span class="grenade-label">SMOKE</span><span class="grenade-count">0</span></div>
+        <div class="grenade-slot" data-type="C4"><span class="grenade-key">${gKey}</span><span class="grenade-label">C4</span><span class="grenade-count">0</span></div>
+    `;
+    container.appendChild(grenades);
 
     // Kill feed
     const kf = document.createElement('div');
@@ -132,6 +148,7 @@ export function initHUD() {
     deathOverlay = dOverlay;
     leaderboard = lb;
     leaderboardBody = document.getElementById('leaderboard-body')!;
+    grenadeHud = document.getElementById('hud-grenades')!;
     // deathText element exists in DOM but doesn't need a JS reference
 }
 
@@ -175,6 +192,20 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
 
     // Score
     scoreDisplay.textContent = `K: ${state.kills} / D: ${state.deaths}`;
+
+    // Grenade inventory
+    if (playerInfo.grenades) {
+        const selected = getSelectedGrenadeType();
+        const slots = grenadeHud.querySelectorAll('.grenade-slot');
+        slots.forEach(slot => {
+            const type = slot.getAttribute('data-type') as GrenadeType;
+            const count = slot.querySelector('.grenade-count') as HTMLElement;
+            const has = playerInfo.grenades[type] || 0;
+            count.textContent = `${has}`;
+            slot.classList.toggle('has-grenade', has > 0);
+            slot.classList.toggle('selected', type === selected);
+        });
+    }
 
     // Death overlay
     if (isPlayerDead(playerInfo)) {
@@ -240,6 +271,35 @@ function renderBuyMenu(playerInfo: player_info) {
             if (state.money >= wDef.price) {
                 buyWeapon(playerInfo.id, wDef.id, playerInfo);
                 renderBuyMenu(playerInfo); // Re-render to update money
+            }
+        });
+
+        buyMenuGrid.appendChild(item);
+    });
+
+    // Grenade section
+    const grenadeHeader = document.createElement('div');
+    grenadeHeader.classList.add('buymenu-section-header');
+    grenadeHeader.textContent = 'GRENADES';
+    buyMenuGrid.appendChild(grenadeHeader);
+
+    Object.values(GRENADE_DEFS).forEach(gDef => {
+        const item = document.createElement('div');
+        item.classList.add('buymenu-item');
+        const owned = playerInfo.grenades[gDef.id] >= 1;
+        if (state.money < gDef.price || owned) {
+            item.classList.add('too-expensive');
+        }
+
+        item.innerHTML = `
+            <div class="buymenu-item-name">${gDef.name}${owned ? ' (owned)' : ''}</div>
+            <div class="buymenu-item-price">$${gDef.price}</div>
+        `;
+
+        item.addEventListener('click', () => {
+            if (!owned && state.money >= gDef.price) {
+                buyGrenade(playerInfo.id, gDef.id, playerInfo);
+                renderBuyMenu(playerInfo);
             }
         });
 

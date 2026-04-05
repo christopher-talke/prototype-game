@@ -113,6 +113,69 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
+/* Grenade HUD */
+#hud-grenades {
+    position: absolute;
+    bottom: 30px;
+    right: 200px;
+    display: flex;
+    gap: 6px;
+}
+
+.grenade-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+    min-width: 36px;
+}
+
+.grenade-slot.has-grenade {
+    color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.grenade-slot.selected {
+    border-color: rgba(255, 200, 50, 0.8);
+    background: rgba(255, 200, 50, 0.15);
+}
+
+.grenade-key {
+    font-size: 11px;
+    font-weight: bold;
+    color: rgba(255, 200, 50, 0.6);
+}
+
+.grenade-slot.has-grenade .grenade-key {
+    color: rgba(255, 200, 50, 1);
+}
+
+.grenade-label {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+}
+
+.grenade-count {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Buy menu section header */
+.buymenu-section-header {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    padding: 8px 0 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    margin-top: 8px;
+}
+
 /* Kill Feed */
 #hud-killfeed {
     position: absolute;

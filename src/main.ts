@@ -11,6 +11,8 @@ import { initMatch, setOnKillCallback } from './Combat/gameState';
 import { initHUD, addKillFeedEntry } from './HUD/hud';
 import { getActiveMap } from './Maps/helpers';
 import { registerAI } from './AI/ai';
+import { resumeAudioContext } from './Audio/audio';
+import { loadAllSounds } from './Audio/soundMap';
 
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
@@ -19,12 +21,17 @@ export const SETTINGS: GameSettings = {
   gameMode: 'tdm',
   raycast: {
     type: 'MAIN_THREAD'
+  },
+  audio: {
+    masterVolume: 0.4,
+    sfxVolume: 0.6,
+    muted: false,
   }
 };
 
 // --- Players ---
 const ACTIVE_MAP = getActiveMap();
-const PLAYERS = generatePlayers(8, 2, ACTIVE_MAP.teamSpawns);
+const PLAYERS = generatePlayers(20, 2, ACTIVE_MAP.teamSpawns);
 
 document.addEventListener('DOMContentLoaded', () => {
   generateEnvironment();
@@ -52,6 +59,16 @@ document.addEventListener('DOMContentLoaded', () => {
   initMatch(PLAYERS.map(p => p.id));
   initHUD();
   setOnKillCallback(addKillFeedEntry);
+
+  // Audio setup
+  loadAllSounds();
+  const unlockAudio = () => {
+    resumeAudioContext();
+    window.removeEventListener('click', unlockAudio);
+    window.removeEventListener('keydown', unlockAudio);
+  };
+  window.addEventListener('click', unlockAudio);
+  window.addEventListener('keydown', unlockAudio);
 
   document.body.style.cursor = 'none';
 })

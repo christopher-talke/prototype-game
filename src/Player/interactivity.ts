@@ -6,9 +6,10 @@ import { SETTINGS } from '../main';
 import { detectOtherPlayers } from './detection';
 import { moveWithCollision } from './collision';
 import { environment } from '../Environment/environment';
-import { keys, HELD_DIRECTIONS, directions } from './player';
+import { HELD_DIRECTIONS, directions } from './player';
 import { generateRayCast, RaycastTypes } from "./Raycast/raycast";
-import { toggleSettings } from "../Settings/settings";
+import { toggleSettings, isSettingsOpen, closeSettings } from "../Settings/settings";
+import { getActionForKey } from "../Settings/keybinds";
 import { initShooting, tryFire, startReload, switchWeapon, getActiveWeapon } from "../Combat/shooting";
 import { updateProjectiles } from "../Combat/projectiles";
 import { checkMatchTimer, getMatchTimeRemaining } from "../Combat/gameState";
@@ -16,10 +17,25 @@ import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairP
 import { isPlayerDead } from "../Combat/damage";
 import { getWeaponDef } from "../Combat/weapons";
 import { updateAllAI } from "../AI/ai";
+import { playFootstep } from "../Audio/audio";
+import { throwGrenade, updateGrenades, detonateC4, hasPlacedC4, setMouseWorldPosition } from "../Combat/grenadeProjectiles";
+import { updateSmokeClouds } from "../Combat/smoke";
 
 // Camera aim offset (lerped)
 let currentOffsetX = 0;
 let currentOffsetY = 0;
+
+// Grenade selection
+const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
+let selectedGrenadeIndex = 0;
+
+export function getSelectedGrenadeType(): GrenadeType {
+    return GRENADE_ORDER[selectedGrenadeIndex];
+}
+
+function cycleGrenade(delta: number) {
+    selectedGrenadeIndex = ((selectedGrenadeIndex + delta) % GRENADE_ORDER.length + GRENADE_ORDER.length) % GRENADE_ORDER.length;
+}
 
 export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targetPlayerId: number) {
     const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
@@ -27,37 +43,49 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     initShooting(playerInfo);
 
     window.addEventListener('keydown', (e) => {
-        const dir = keys[e.key];
-        if (dir && HELD_DIRECTIONS.indexOf(dir) === -1) {
-            HELD_DIRECTIONS.unshift(directions[dir]);
+        // Settings rebind listener eats keys when listening
+        if (isSettingsOpen() && e.key !== 'Escape') return;
+
+        if (e.key === 'Escape') {
+            if (isSettingsOpen()) { closeSettings(); return; }
+            if (isBuyMenuOpen()) { closeBuyMenu(); return; }
         }
 
-        if (e.key.toLowerCase() === 'l') {
-            toggleSettings()
-        }
+        const action = getActionForKey(e.key);
+        const menuOpen = isSettingsOpen() || isBuyMenuOpen();
 
-        // Reload
-        if (e.key.toLowerCase() === 'r') {
-            startReload(playerInfo);
-        }
+        // These always work
+        if (action === 'settings') toggleSettings();
+        if (action === 'buyMenu') toggleBuyMenu(playerInfo);
 
-        // Weapon switch
-        if (e.key === '1') switchWeapon(playerInfo, 0);
-        if (e.key === '2') switchWeapon(playerInfo, 1);
-        if (e.key === '3') switchWeapon(playerInfo, 2);
+        // Everything else blocked while a menu is open
+        if (menuOpen) return;
 
-        // Buy menu
-        if (e.key.toLowerCase() === 'b') {
-            toggleBuyMenu(playerInfo);
-        }
-        if (e.key === 'Escape' && isBuyMenuOpen()) {
-            closeBuyMenu();
-        }
+        // Movement
+        if (action === 'moveUp' && HELD_DIRECTIONS.indexOf(directions.up) === -1) HELD_DIRECTIONS.unshift(directions.up);
+        if (action === 'moveDown' && HELD_DIRECTIONS.indexOf(directions.down) === -1) HELD_DIRECTIONS.unshift(directions.down);
+        if (action === 'moveLeft' && HELD_DIRECTIONS.indexOf(directions.left) === -1) HELD_DIRECTIONS.unshift(directions.left);
+        if (action === 'moveRight' && HELD_DIRECTIONS.indexOf(directions.right) === -1) HELD_DIRECTIONS.unshift(directions.right);
 
-        // Leaderboard
-        if (e.key === 'Tab') {
+        if (action === 'reload') startReload(playerInfo);
+        if (action === 'weapon1') switchWeapon(playerInfo, 0);
+        if (action === 'weapon2') switchWeapon(playerInfo, 1);
+        if (action === 'weapon3') switchWeapon(playerInfo, 2);
+
+        if (action === 'leaderboard') {
             e.preventDefault();
             showLeaderboard();
+        }
+
+        // Grenades
+        if (action === 'grenade' && !isPlayerDead(playerInfo)) {
+            const type = getSelectedGrenadeType();
+            if (type === 'C4' && hasPlacedC4(playerInfo.id)) {
+                detonateC4(playerInfo.id);
+            } else if (playerInfo.grenades[type] > 0) {
+                playerInfo.grenades[type]--;
+                throwGrenade(type, playerInfo);
+            }
         }
 
         renderedPlayerElement.setAttribute('moving', 'true');
@@ -68,6 +96,9 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (playerInfo) {
             const currentMouseX = e.pageX;
             const currentMouseY = e.pageY;
+
+            // Track world-space mouse position for grenade aiming
+            setMouseWorldPosition(currentMouseX + scrollX - MAP_OFFSET, currentMouseY + scrollY - MAP_OFFSET);
 
             const pointerBox = renderedPlayerElement.getBoundingClientRect();
             const centerPoint = window.getComputedStyle(renderedPlayerElement).transformOrigin;
@@ -80,17 +111,24 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     });
 
     window.addEventListener('keyup', (e) => {
-        const dir = keys[e.key];
-        const index = HELD_DIRECTIONS.indexOf(dir as string);
-        if (index > -1) {
-            HELD_DIRECTIONS.splice(index, 1);
-        }
+        const action = getActionForKey(e.key);
 
-        if (e.key === 'Tab') {
+        if (action === 'moveUp') { const i = HELD_DIRECTIONS.indexOf(directions.up); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
+        if (action === 'moveDown') { const i = HELD_DIRECTIONS.indexOf(directions.down); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
+        if (action === 'moveLeft') { const i = HELD_DIRECTIONS.indexOf(directions.left); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
+        if (action === 'moveRight') { const i = HELD_DIRECTIONS.indexOf(directions.right); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
+
+        if (action === 'leaderboard') {
             hideLeaderboard();
         }
 
         renderedPlayerElement.setAttribute('moving', 'false');
+    });
+
+    // Scroll wheel to cycle grenade selection
+    window.addEventListener('wheel', (e) => {
+        if (isBuyMenuOpen()) return;
+        cycleGrenade(e.deltaY > 0 ? 1 : -1);
     });
 
     // Game loop using requestAnimationFrame for proper frame timing
@@ -108,11 +146,16 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 checkMatchTimer();
 
                 if (!isPlayerDead(playerInfo)) {
-                    movement(playerInfo, deltaTime);
-                    tryFire(playerInfo, timestamp);
+                    const menuOpen = isSettingsOpen() || isBuyMenuOpen();
+                    if (!menuOpen) {
+                        movement(playerInfo, deltaTime);
+                        tryFire(playerInfo, timestamp);
+                    }
                 }
 
                 updateProjectiles(environment.segments, getAllPlayers());
+                updateGrenades(environment.segments, getAllPlayers(), timestamp);
+                updateSmokeClouds(timestamp);
                 updateAllAI(getAllPlayers(), timestamp);
 
                 const newX = playerInfo.current_position.x;
@@ -170,6 +213,12 @@ function movement(playerInfo: player_info, _deltaTime: number) {
         playerInfo.current_position.y,
         dx, dy
     );
+
+    // Play footstep if actually moved
+    if (result.x !== playerInfo.current_position.x || result.y !== playerInfo.current_position.y) {
+        playFootstep(playerInfo, performance.now());
+    }
+
     playerInfo.current_position.x = result.x;
     playerInfo.current_position.y = result.y;
 }

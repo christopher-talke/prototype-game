@@ -6,6 +6,11 @@ interface GameSettings {
   raycast: {
     type: string;
   };
+  audio: {
+    masterVolume: number;
+    sfxVolume: number;
+    muted: boolean;
+  };
 }
 
 interface player_info {
@@ -21,6 +26,7 @@ interface player_info {
   team: number;
   dead: boolean;
   weapons: PlayerWeapon[];
+  grenades: Record<GrenadeType, number>;
 }
 
 type PlayerWeapon = {
@@ -47,6 +53,9 @@ type WeaponDef = {
   spread: number;
   cameraOffset: number;
   recoilPattern: { x: number; y: number }[];
+  mechanicalSound?: string;
+  mechanicalDelay?: number;
+  shellReloadTime?: number;
 };
 
 type ProjectileState = {
@@ -90,6 +99,36 @@ type WallType =
 type coordinates = {
   x: number;
   y: number;
+};
+
+type GrenadeType = 'FRAG' | 'FLASH' | 'SMOKE' | 'C4';
+
+type GrenadeDef = {
+  id: GrenadeType;
+  name: string;
+  price: number;
+  throwSpeed: number;
+  fuseTime: number;
+  radius: number;
+  damage: number;
+  effectDuration: number;
+  shrapnelCount?: number;
+  shrapnelDamage?: number;
+  shrapnelSpeed?: number;
+};
+
+type GrenadeState = {
+  id: number;
+  type: GrenadeType;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  speed: number;
+  ownerId: number;
+  element: HTMLElement;
+  spawnTime: number;
+  detonated: boolean;
 };
 
 type MapData = {

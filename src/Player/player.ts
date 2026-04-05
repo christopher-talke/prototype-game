@@ -107,6 +107,7 @@ export function generatePlayers(num: number, teams: number, teamSpawns: Record<n
             team,
             dead: false,
             weapons: [createDefaultWeapon()],
+            grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
         };
         players.push(player);
     }

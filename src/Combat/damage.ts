@@ -5,6 +5,7 @@ import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { getHealthBarElement } from '../Globals/Players';
 import { getActiveMap } from '../Maps/helpers';
 import { removeLastKnownForPlayer } from '../Player/lineOfSight';
+import { playSoundAtPlayer } from '../Audio/audio';
 
 const ARMOR_ABSORPTION = 0.5;
 const RESPAWN_TIME = 3000;
@@ -32,6 +33,8 @@ export function applyDamage(target: player_info, rawDamage: number, attackerId: 
     if (target.health <= 0) {
         target.health = 0;
         killPlayer(target, attackerId);
+    } else {
+        playSoundAtPlayer('hit', target);
     }
 
     updateHealthBar(target);
@@ -51,6 +54,7 @@ function showHealthBarTemporarily(playerId: number) {
 }
 function killPlayer(target: player_info, killerId: number) {
     target.dead = true;
+    playSoundAtPlayer('death', target);
 
     const el = getPlayerElement(target.id);
     if (el) el.classList.add('dead');
@@ -76,6 +80,7 @@ function respawnPlayer(target: player_info) {
 
     // Reset to default pistol
     target.weapons = [createDefaultWeapon()];
+    target.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
 
     const el = getPlayerElement(target.id);
     if (el) {

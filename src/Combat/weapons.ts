@@ -3,7 +3,7 @@ export const WEAPON_DEFS: Record<string, WeaponDef> = {
         id: 'PISTOL',
         name: 'Pistol',
         damage: 26,
-        fireRate: 500,
+        fireRate: 250,
         reloadTime: 1500,
         magSize: 12,
         bulletSpeed: 18,
@@ -70,6 +70,9 @@ export const WEAPON_DEFS: Record<string, WeaponDef> = {
         pellets: 8,
         spread: 12,
         cameraOffset: 60,
+        mechanicalSound: 'shotgun_pump',
+        mechanicalDelay: 350,
+        shellReloadTime: 500,
         recoilPattern: [
             { x: 0, y: 0 },
             { x: 0, y: 4 },
@@ -94,6 +97,8 @@ export const WEAPON_DEFS: Record<string, WeaponDef> = {
         pellets: 1,
         spread: 0,
         cameraOffset: 250,
+        mechanicalSound: 'sniper_bolt',
+        mechanicalDelay: 500,
         recoilPattern: [
             { x: 0, y: 0 },
             { x: 0, y: 6 },

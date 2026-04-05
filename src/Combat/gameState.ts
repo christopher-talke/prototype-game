@@ -1,5 +1,6 @@
 import { getPlayerInfo } from '../Globals/Players';
 import { getWeaponDef } from './weapons';
+import { getGrenadeDef } from './grenades';
 
 const STARTING_MONEY = 99999;
 const MATCH_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -113,5 +114,13 @@ export function buyWeapon(playerId: number, weaponType: string, playerInfo: play
         reloading: false,
     });
 
+    return true;
+}
+
+export function buyGrenade(playerId: number, type: GrenadeType, playerInfo: player_info): boolean {
+    const def = getGrenadeDef(type);
+    if (playerInfo.grenades[type] >= 1) return false;
+    if (!spendMoney(playerId, def.price)) return false;
+    playerInfo.grenades[type]++;
     return true;
 }

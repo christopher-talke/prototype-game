@@ -3,6 +3,7 @@ import { app, SETTINGS } from "../../main";
 import { getAngle } from "../../Utilities/getAngle";
 import { getDistance } from "../../Utilities/getDistance";
 import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from "../../constants";
+import { isSmoked } from "../../Combat/smoke";
 
 export enum RaycastTypes {
     SPRAY = 'SPRAY',
@@ -120,6 +121,9 @@ export function isLineBlocked(
     tx: number, ty: number,
     segments: WallSegment[]
 ): boolean {
+    // Smoke blocks line of sight
+    if (isSmoked(sx, sy, tx, ty)) return true;
+
     // Perpendicular offset to check points slightly to each side of target center
     const dx = tx - sx;
     const dy = ty - sy;

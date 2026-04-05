@@ -11,6 +11,8 @@ import { getPlayerElement, getHealthBarElement } from '../Globals/Players';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { positionHealthBar } from '../Player/player';
 import { buyWeapon, getPlayerState } from '../Combat/gameState';
+import { playSoundAtPlayer, playFootstep } from '../Audio/audio';
+import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
 
 const AI_SPEED = 3;
 const AI_TURN_SPEED = 4;
@@ -305,9 +307,16 @@ function moveToward(ai: AIController, tx: number, ty: number, speed: number) {
     const dx = Math.cos(angle) * speed;
     const dy = Math.sin(angle) * speed;
 
+    const prevX = me.current_position.x;
+    const prevY = me.current_position.y;
     const result = moveWithCollision(me.current_position.x, me.current_position.y, dx, dy);
     me.current_position.x = result.x;
     me.current_position.y = result.y;
+
+    // Play footstep if actually moved
+    if (result.x !== prevX || result.y !== prevY) {
+        playFootstep(me, performance.now());
+    }
 }
 
 function turnToward(ai: AIController, tx: number, ty: number) {
@@ -334,18 +343,24 @@ function tryAIFire(ai: AIController, timestamp: number) {
 
     if (weapon.ammo <= 0 && !weapon.reloading) {
         weapon.reloading = true;
-        setTimeout(() => {
-            weapon.ammo = weapon.maxAmmo;
-            weapon.reloading = false;
-        }, weaponDef.reloadTime);
+        startAIReload(weapon, weaponDef, me);
         return;
     }
 
-    if (weapon.reloading) return;
+    if (weapon.reloading) {
+        // AI with shell-reload weapons can interrupt reload to fire
+        if (weaponDef.shellReloadTime && weapon.ammo > 0) {
+            weapon.reloading = false;
+        } else {
+            return;
+        }
+    }
     if (timestamp - ai.lastFireTime < weaponDef.fireRate) return;
 
     ai.lastFireTime = timestamp;
     weapon.ammo--;
+
+    playSoundAtPlayer(getWeaponSoundId(weapon.type), me);
 
     const centerX = me.current_position.x + HALF_HIT_BOX;
     const centerY = me.current_position.y + HALF_HIT_BOX;
@@ -360,11 +375,44 @@ function tryAIFire(ai: AIController, timestamp: number) {
 
     if (weapon.ammo <= 0) {
         weapon.reloading = true;
+        startAIReload(weapon, weaponDef, me);
+    }
+
+    // Mechanical sound (shotgun pump, sniper bolt, etc.)
+    if (weaponDef.mechanicalSound && weaponDef.mechanicalDelay && weapon.ammo > 0) {
+        const soundId = weaponDef.mechanicalSound;
+        const player = me;
+        setTimeout(() => {
+            playSoundAtPlayer(soundId, player);
+        }, weaponDef.mechanicalDelay);
+    }
+}
+
+function startAIReload(weapon: PlayerWeapon, weaponDef: WeaponDef, player: player_info) {
+    if (weaponDef.shellReloadTime) {
+        // Shell-by-shell reload
+        loadAIShell(weapon, weaponDef, player);
+    } else {
+        playSoundAtPlayer(getWeaponReloadSoundId(weapon.type), player);
         setTimeout(() => {
             weapon.ammo = weapon.maxAmmo;
             weapon.reloading = false;
         }, weaponDef.reloadTime);
     }
+}
+
+function loadAIShell(weapon: PlayerWeapon, weaponDef: WeaponDef, player: player_info) {
+    playSoundAtPlayer('shotgun_shell', player);
+
+    setTimeout(() => {
+        if (!weapon.reloading) return; // cancelled by firing
+        weapon.ammo++;
+        if (weapon.ammo < weapon.maxAmmo) {
+            loadAIShell(weapon, weaponDef, player);
+        } else {
+            weapon.reloading = false;
+        }
+    }, weaponDef.shellReloadTime!);
 }
 
 function tryBuyWeapon(ai: AIController) {

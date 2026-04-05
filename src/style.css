@@ -41,15 +41,3 @@ body {
 .ml-2 {
   margin-left: 8px;
 }
-
-#settings {
-  position: absolute;
-  z-index: 9000;
-  background: #282a36;
-  padding: 8px;
-  border-radius: 4px;
-  top: 1476px;
-  left: 1500px;
-  scale: 1.2;
-  border: 1px solid #505263;
-}

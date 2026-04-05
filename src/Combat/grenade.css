@@ -1,0 +1,102 @@
+/* Grenade projectiles */
+.grenade {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-left: -5px;
+    margin-top: -5px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.grenade-FRAG { background: #4a7a3a; border: 1px solid #2d4a24; }
+.grenade-FLASH { background: #e0e0e0; border: 1px solid #aaa; }
+.grenade-SMOKE { background: #888; border: 1px solid #666; }
+.grenade-C4 { background: #c43030; border: 1px solid #8a1c1c; }
+
+.grenade-C4.placed {
+    box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6);
+    animation: c4-blink 1s infinite;
+}
+
+@keyframes c4-blink {
+    0%, 100% { box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6); }
+    50% { box-shadow: 0 0 2px 1px rgba(255, 60, 60, 0.2); }
+}
+
+/* Explosion ring */
+.explosion-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 120, 20, 0.8);
+    background: radial-gradient(circle, rgba(255, 200, 50, 0.3) 0%, rgba(255, 80, 0, 0.1) 60%, transparent 100%);
+    pointer-events: none;
+    z-index: 8;
+    animation: explosion-expand 500ms ease-out forwards;
+}
+
+@keyframes explosion-expand {
+    0% {
+        transform: translate(-50%, -50%) scale(0.1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0;
+    }
+}
+
+/* C4 explosion - larger, redder */
+.explosion-ring.c4 {
+    border-color: rgba(255, 40, 40, 0.9);
+    background: radial-gradient(circle, rgba(255, 100, 30, 0.4) 0%, rgba(255, 20, 0, 0.15) 60%, transparent 100%);
+}
+
+/* Flash overlay */
+.flash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: white;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: none;
+}
+
+.flash-overlay.active {
+    animation: flash-fade var(--flash-duration, 3000ms) ease-in forwards;
+}
+
+@keyframes flash-fade {
+    0% { opacity: var(--flash-intensity, 1); }
+    100% { opacity: 0; }
+}
+
+/* Smoke cloud */
+.smoke-cloud {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(200, 200, 200, 0.7) 0%, rgba(180, 180, 180, 0.4) 50%, transparent 75%);
+    pointer-events: none;
+    z-index: 5;
+    filter: blur(8px);
+    animation: smoke-appear 500ms ease-out forwards;
+}
+
+.smoke-cloud.fading {
+    animation: smoke-disappear 2000ms ease-in forwards;
+}
+
+@keyframes smoke-appear {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes smoke-disappear {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+}

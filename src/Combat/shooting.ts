@@ -2,12 +2,15 @@ import { getWeaponDef } from './weapons';
 import { spawnBullet } from './projectiles';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { isPlayerDead } from './damage';
+import { playSoundAtPlayer } from '../Audio/audio';
+import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
 
 let isFiring = false;
 let lastFireTime = 0;
 let consecutiveShots = 0;
 let recoilResetTimeout: ReturnType<typeof setTimeout> | null = null;
 const RECOIL_RESET_DELAY = 300;
+let shellReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function getActiveWeapon(playerInfo: player_info): PlayerWeapon | undefined {
     return playerInfo.weapons.find(w => w.active);
@@ -42,7 +45,15 @@ export function tryFire(playerInfo: player_info, timestamp: number) {
 
     const weapon = getActiveWeapon(playerInfo);
     if (!weapon) return;
-    if (weapon.reloading) return;
+    if (weapon.reloading) {
+        // Shell-by-shell reload can be interrupted by firing
+        const weaponDef = getWeaponDef(weapon.type);
+        if (weaponDef.shellReloadTime && weapon.ammo > 0) {
+            cancelShellReload(weapon);
+        } else {
+            return;
+        }
+    }
 
     const weaponDef = getWeaponDef(weapon.type);
 
@@ -54,6 +65,9 @@ export function tryFire(playerInfo: player_info, timestamp: number) {
 
     lastFireTime = timestamp;
     weapon.ammo--;
+
+    // Play weapon shoot sound
+    playSoundAtPlayer(getWeaponSoundId(weapon.type), playerInfo);
 
     // Apply recoil before firing so the bullet goes where the crosshair is
     const patternIndex = Math.min(consecutiveShots, weaponDef.recoilPattern.length - 1);
@@ -87,6 +101,14 @@ export function tryFire(playerInfo: player_info, timestamp: number) {
     if (weapon.ammo <= 0) {
         startReload(playerInfo);
     }
+
+    // Mechanical sound (shotgun pump, sniper bolt, etc.)
+    if (weaponDef.mechanicalSound && weaponDef.mechanicalDelay && weapon.ammo > 0) {
+        const soundId = weaponDef.mechanicalSound;
+        setTimeout(() => {
+            playSoundAtPlayer(soundId, playerInfo);
+        }, weaponDef.mechanicalDelay);
+    }
 }
 
 export function startReload(playerInfo: player_info) {
@@ -97,10 +119,43 @@ export function startReload(playerInfo: player_info) {
     const weaponDef = getWeaponDef(weapon.type);
     weapon.reloading = true;
 
-    setTimeout(() => {
-        weapon.ammo = weapon.maxAmmo;
-        weapon.reloading = false;
-    }, weaponDef.reloadTime);
+    if (weaponDef.shellReloadTime) {
+        // Shell-by-shell reload
+        loadNextShell(weapon, weaponDef, playerInfo);
+    } else {
+        // Full magazine reload
+        playSoundAtPlayer(getWeaponReloadSoundId(weapon.type), playerInfo);
+
+        setTimeout(() => {
+            weapon.ammo = weapon.maxAmmo;
+            weapon.reloading = false;
+        }, weaponDef.reloadTime);
+    }
+}
+
+function loadNextShell(weapon: PlayerWeapon, weaponDef: WeaponDef, playerInfo: player_info) {
+    playSoundAtPlayer('shotgun_shell', playerInfo);
+
+    shellReloadTimer = setTimeout(() => {
+        shellReloadTimer = null;
+        if (!weapon.reloading) return; // cancelled
+
+        weapon.ammo++;
+
+        if (weapon.ammo < weapon.maxAmmo) {
+            loadNextShell(weapon, weaponDef, playerInfo);
+        } else {
+            weapon.reloading = false;
+        }
+    }, weaponDef.shellReloadTime!);
+}
+
+function cancelShellReload(weapon: PlayerWeapon) {
+    weapon.reloading = false;
+    if (shellReloadTimer) {
+        clearTimeout(shellReloadTimer);
+        shellReloadTimer = null;
+    }
 }
 
 export function switchWeapon(playerInfo: player_info, index: number) {
@@ -110,9 +165,16 @@ export function switchWeapon(playerInfo: player_info, index: number) {
     const currentWeapon = getActiveWeapon(playerInfo);
     if (currentWeapon) {
         currentWeapon.reloading = false;
+        if (shellReloadTimer) {
+            clearTimeout(shellReloadTimer);
+            shellReloadTimer = null;
+        }
         currentWeapon.active = false;
     }
 
     playerInfo.weapons[index].active = true;
     consecutiveShots = 0;
+
+    // Play weapon switch sound (local only, no position)
+    playSoundAtPlayer('weapon_switch', playerInfo);
 }

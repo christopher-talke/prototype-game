@@ -1,0 +1,150 @@
+#settings-menu {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9000;
+    background: #1e1e2e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    width: 420px;
+    max-height: 80vh;
+    color: #ddd;
+    font-family: inherit;
+    font-size: 13px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #333;
+}
+
+.settings-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.settings-header button {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.settings-header button:hover { color: #fff; }
+
+.settings-tabs {
+    display: flex;
+    border-bottom: 1px solid #333;
+}
+
+.settings-tab {
+    flex: 1;
+    padding: 8px 0;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #888;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+.settings-tab:hover { color: #ccc; }
+.settings-tab.active {
+    color: #fff;
+    border-bottom-color: #fbbf24;
+}
+
+.settings-body {
+    padding: 12px 16px;
+    max-height: 55vh;
+    overflow-y: auto;
+}
+
+.settings-panel { display: none; }
+.settings-panel.active { display: block; }
+
+/* Keybind rows */
+.keybind-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.keybind-label {
+    font-size: 13px;
+}
+
+.keybind-btn {
+    min-width: 64px;
+    padding: 4px 12px;
+    background: #2a2a3e;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #ddd;
+    font-size: 13px;
+    font-family: monospace;
+    cursor: pointer;
+    text-align: center;
+}
+.keybind-btn:hover { border-color: #888; }
+.keybind-btn.listening {
+    border-color: #fbbf24;
+    color: #fbbf24;
+    animation: pulse-border 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-border {
+    from { border-color: #fbbf24; }
+    to { border-color: #b8860b; }
+}
+
+/* Audio / Game settings rows */
+.settings-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.settings-row label {
+    flex: 0 0 120px;
+    font-size: 13px;
+}
+
+.settings-row input[type="range"] {
+    flex: 1;
+    accent-color: #fbbf24;
+}
+
+.settings-row span {
+    flex: 0 0 40px;
+    text-align: right;
+    font-size: 12px;
+    color: #aaa;
+}
+
+.settings-row select {
+    padding: 4px 8px;
+    background: #2a2a3e;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #ddd;
+    font-size: 13px;
+}
+
+.settings-row input[type="checkbox"] {
+    accent-color: #fbbf24;
+    width: 16px;
+    height: 16px;
+}
