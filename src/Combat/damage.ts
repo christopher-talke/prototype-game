@@ -1,13 +1,12 @@
-import { getPlayerElement, ACTIVE_PLAYER } from '../Globals/Players';
+import { getPlayerElement, ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { recordKill } from './gameState';
-import { createDefaultWeapon } from './weapons';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { getHealthBarElement } from '../Globals/Players';
-import { getActiveMap } from '../Maps/helpers';
 import { removeLastKnownForPlayer } from '../Player/lineOfSight';
 import { playSoundAtPlayer } from '../Audio/audio';
+import { simulation } from '../Net/GameSimulation';
+import { gameEventBus, type GameEvent } from '../Net/GameEvent';
 
-const ARMOR_ABSORPTION = 0.5;
 const RESPAWN_TIME = 3000;
 const HEALTH_BAR_VISIBLE_DURATION = 3000;
 
@@ -17,28 +16,38 @@ export function isPlayerDead(player: player_info): boolean {
     return player.dead;
 }
 
+// Called directly when something outside the simulation tick needs to deal damage.
+// When damage comes from simulation.tickProjectiles/tickGrenades, use
+// renderDamageEvents() on the returned events instead.
 export function applyDamage(target: player_info, rawDamage: number, attackerId: number) {
-    if (isPlayerDead(target)) return;
+    const events = simulation.applyDamage(target, rawDamage, attackerId);
+    renderDamageEvents(events);
+    gameEventBus.emitAll(events);
+}
 
-    let remaining = rawDamage;
-
-    if (target.armour > 0) {
-        const absorbed = Math.min(rawDamage * ARMOR_ABSORPTION, target.armour);
-        target.armour = Math.round(target.armour - absorbed);
-        remaining = rawDamage - absorbed;
+// Render the PLAYER_DAMAGED and PLAYER_KILLED events from any source
+// (bullet hits, explosions, direct damage, etc.)
+export function renderDamageEvents(events: GameEvent[]) {
+    for (const event of events) {
+        switch (event.type) {
+            case 'PLAYER_DAMAGED': {
+                const target = getPlayerInfo(event.targetId);
+                if (!target) break;
+                if (target.health > 0) {
+                    playSoundAtPlayer('hit', target);
+                }
+                updateHealthBar(target);
+                showHealthBarTemporarily(target.id);
+                break;
+            }
+            case 'PLAYER_KILLED': {
+                const target = getPlayerInfo(event.targetId);
+                if (!target) break;
+                handleKillRendering(target, event.killerId);
+                break;
+            }
+        }
     }
-
-    target.health = Math.round(target.health - remaining);
-
-    if (target.health <= 0) {
-        target.health = 0;
-        killPlayer(target, attackerId);
-    } else {
-        playSoundAtPlayer('hit', target);
-    }
-
-    updateHealthBar(target);
-    showHealthBarTemporarily(target.id);
 }
 
 function showHealthBarTemporarily(playerId: number) {
@@ -52,8 +61,8 @@ function showHealthBarTemporarily(playerId: number) {
         healthBarTimers.delete(playerId);
     }, HEALTH_BAR_VISIBLE_DURATION));
 }
-function killPlayer(target: player_info, killerId: number) {
-    target.dead = true;
+
+function handleKillRendering(target: player_info, killerId: number) {
     playSoundAtPlayer('death', target);
 
     const el = getPlayerElement(target.id);
@@ -68,25 +77,12 @@ function killPlayer(target: player_info, killerId: number) {
 }
 
 function respawnPlayer(target: player_info) {
-    const teamSpawns = getActiveMap().teamSpawns;
-    const spawnPoints = teamSpawns[target.team] ?? Object.values(teamSpawns).flat();
-    const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
-
-    target.health = 100;
-    target.armour = 0;
-    target.dead = false;
-    target.current_position.x = spawn.x;
-    target.current_position.y = spawn.y;
-
-    // Reset to default pistol
-    target.weapons = [createDefaultWeapon()];
-    target.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
+    const events = simulation.respawnPlayer(target);
 
     const el = getPlayerElement(target.id);
     if (el) {
         el.classList.remove('dead');
-        el.style.transform = `translate3d(${spawn.x}px, ${spawn.y}px, 0) rotate(${target.current_position.rotation}deg)`;
-        // Local player needs visible class restored - detection only runs for other players
+        el.style.transform = `translate3d(${target.current_position.x}px, ${target.current_position.y}px, 0) rotate(${target.current_position.rotation}deg)`;
         if (target.id === ACTIVE_PLAYER) {
             el.classList.add('visible');
         }
@@ -95,4 +91,6 @@ function respawnPlayer(target: player_info) {
     const wrap = getHealthBarElement(target.id);
     if (wrap) positionHealthBar(wrap, target);
     updateHealthBar(target);
+
+    gameEventBus.emitAll(events);
 }
