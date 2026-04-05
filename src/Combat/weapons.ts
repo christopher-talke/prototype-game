@@ -91,7 +91,7 @@ export const WEAPON_DEFS: Record<string, WeaponDef> = {
         fireRate: 1500,
         reloadTime: 3500,
         magSize: 5,
-        bulletSpeed: 30,
+        bulletSpeed: 60,
         price: 4750,
         killReward: 100,
         pellets: 1,

@@ -3,10 +3,10 @@ import { loadSound } from './audio';
 // Weapon shoot sounds - keyed by weapon ID
 const WEAPON_SOUNDS: Record<string, string> = {
     PISTOL: '/sounds/weapons/pistol_shoot.wav',
-    SMG: '/sounds/weapons/smg_shoot.mp3',
-    RIFLE: '/sounds/weapons/rifle_shoot.mp3',
-    SHOTGUN: '/sounds/weapons/shotgun_shoot.mp3',
-    SNIPER: '/sounds/weapons/sniper_shoot.mp3',
+    SMG: '/sounds/weapons/smg_shoot.wav',
+    RIFLE: '/sounds/weapons/rifle_shoot.wav',
+    SHOTGUN: '/sounds/weapons/shotgun_shoot.wav',
+    SNIPER: '/sounds/weapons/sniper_shoot.wav',
 };
 
 // Weapon reload sounds - keyed by weapon ID
