@@ -99,7 +99,9 @@ export function updateGrenades(
         const g = grenades[i];
         if (g.detonated) {
             g.element.remove();
-            grenades.splice(i, 1);
+            const last = grenades.length - 1;
+            if (i !== last) grenades[i] = grenades[last];
+            grenades.length = last;
             continue;
         }
 

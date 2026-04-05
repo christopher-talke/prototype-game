@@ -13,6 +13,7 @@ import { getActiveMap } from './Maps/helpers';
 import { registerAI } from './AI/ai';
 import { resumeAudioContext } from './Audio/audio';
 import { loadAllSounds } from './Audio/soundMap';
+import { initProjectilePool } from './Combat/ProjectilePool';
 
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
@@ -36,6 +37,7 @@ const PLAYERS = generatePlayers(20, 2, ACTIVE_MAP.teamSpawns);
 document.addEventListener('DOMContentLoaded', () => {
   generateEnvironment();
   drawFogOfWar();
+  initProjectilePool();
 
   for (const wall of ACTIVE_MAP.walls) {
     createWall(wall);

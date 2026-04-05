@@ -26,6 +26,7 @@ let deathOverlay: HTMLElement;
 let leaderboard: HTMLElement;
 let leaderboardBody: HTMLElement;
 let grenadeHud: HTMLElement;
+const grenadeSlotCache = new Map<GrenadeType, { slot: HTMLElement; count: HTMLElement }>();
 
 export function initHUD() {
     const container = document.createElement('div');
@@ -150,6 +151,13 @@ export function initHUD() {
     leaderboard = lb;
     leaderboardBody = document.getElementById('leaderboard-body')!;
     grenadeHud = document.getElementById('hud-grenades')!;
+
+    // Cache grenade slot elements
+    grenadeHud.querySelectorAll('.grenade-slot').forEach(slot => {
+        const type = slot.getAttribute('data-type') as GrenadeType;
+        const count = slot.querySelector('.grenade-count') as HTMLElement;
+        grenadeSlotCache.set(type, { slot: slot as HTMLElement, count });
+    });
     // deathText element exists in DOM but doesn't need a JS reference
 }
 
@@ -197,15 +205,12 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     // Grenade inventory
     if (playerInfo.grenades) {
         const selected = getSelectedGrenadeType();
-        const slots = grenadeHud.querySelectorAll('.grenade-slot');
-        slots.forEach(slot => {
-            const type = slot.getAttribute('data-type') as GrenadeType;
-            const count = slot.querySelector('.grenade-count') as HTMLElement;
+        for (const [type, { slot, count }] of grenadeSlotCache) {
             const has = playerInfo.grenades[type] || 0;
             count.textContent = `${has}`;
             slot.classList.toggle('has-grenade', has > 0);
             slot.classList.toggle('selected', type === selected);
-        });
+        }
     }
 
     // Death overlay

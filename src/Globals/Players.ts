@@ -1,14 +1,14 @@
 const PLAYERS = [] as player_info[];
+const PLAYERS_MAP = new Map<number, player_info>();
 const PLAYER_ELEMENTS = new Map<number, HTMLElement>();
 const HEALTH_BAR_ELEMENTS = new Map<number, HTMLElement>();
 export let ACTIVE_PLAYER = null as null | number
 
 export function addPlayer(player_info: player_info) {
-    const playerJoined = PLAYERS.find((p) => p.id === player_info.id);
-    if (playerJoined === undefined) {
-        PLAYERS.push(player_info)
+    if (!PLAYERS_MAP.has(player_info.id)) {
+        PLAYERS.push(player_info);
+        PLAYERS_MAP.set(player_info.id, player_info);
     }
-    return;
 }
 
 export function registerPlayerElement(playerId: number, element: HTMLElement) {
@@ -36,7 +36,7 @@ export function getAllPlayers(): player_info[] {
 }
 
 export function getPlayerInfo(playerId: number) {
-    return PLAYERS.find((p) => p.id === playerId);
+    return PLAYERS_MAP.get(playerId);
 }
 
 export function setActivePlayer(playerId: number) {

@@ -1,7 +1,7 @@
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from "../Globals/Players";
 import { getAngle } from '../Utilities/getAngle';
 import { angleToRadians } from '../Utilities/angleToRadians';
-import { MAP_OFFSET, ROTATION_OFFSET, SPEED } from '../constants';
+import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET, SPEED } from '../constants';
 import { SETTINGS } from '../main';
 import { detectOtherPlayers } from './detection';
 import { moveWithCollision } from './collision';
@@ -100,11 +100,8 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             // Track world-space mouse position for grenade aiming
             setMouseWorldPosition(currentMouseX + scrollX - MAP_OFFSET, currentMouseY + scrollY - MAP_OFFSET);
 
-            const pointerBox = renderedPlayerElement.getBoundingClientRect();
-            const centerPoint = window.getComputedStyle(renderedPlayerElement).transformOrigin;
-            const centers = centerPoint.split(" ");
-            const centerY = pointerBox.top + parseInt(centers[1]) + scrollY;
-            const centerX = pointerBox.left + parseInt(centers[0]) + scrollX;
+            const centerX = playerInfo.current_position.x + HALF_HIT_BOX + MAP_OFFSET;
+            const centerY = playerInfo.current_position.y + HALF_HIT_BOX + MAP_OFFSET;
 
             playerInfo.current_position.rotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + ROTATION_OFFSET;
         }

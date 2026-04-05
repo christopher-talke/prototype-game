@@ -69,6 +69,7 @@ type ProjectileState = {
   ownerId: number;
   element: HTMLElement;
   alive: boolean;
+  poolIndex: number;
   weaponType?: string;
 };
 

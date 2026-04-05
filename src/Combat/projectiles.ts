@@ -1,11 +1,11 @@
 import './combat.css';
-import { app } from '../main';
 import { angleToRadians } from '../Utilities/angleToRadians';
+import { acquireProjectile, releaseProjectile } from './ProjectilePool';
 import { raySegmentIntersect } from '../Player/Raycast/raycast';
 import { HALF_HIT_BOX } from '../constants';
 import { applyDamage, isPlayerDead } from './damage';
 import { showHitMarker, spawnDamageNumber, showDamageIndicator } from '../HUD/hud';
-import { ACTIVE_PLAYER } from '../Globals/Players';
+import { ACTIVE_PLAYER, getPlayerElement } from '../Globals/Players';
 
 const projectiles: ProjectileState[] = [];
 let nextProjectileId = 0;
@@ -22,11 +22,10 @@ export function spawnBullet(
     const dx = Math.cos(rad);
     const dy = Math.sin(rad);
 
-    const el = document.createElement('div');
-    el.classList.add('projectile');
-    if (weaponType === 'SNIPER') el.classList.add('projectile-sniper');
+    const acquired = acquireProjectile(weaponType === 'SNIPER');
+    if (!acquired) return; // pool exhausted
+    const { element: el, poolIndex } = acquired;
     el.style.transform = `translate3d(${originX}px, ${originY}px, 0)`;
-    app.appendChild(el);
 
     projectiles.push({
         id: nextProjectileId++,
@@ -39,6 +38,7 @@ export function spawnBullet(
         ownerId,
         element: el,
         alive: true,
+        poolIndex,
         weaponType,
     });
 }
@@ -98,10 +98,10 @@ export function updateProjectiles(
                     // Show directional damage indicator on the hit player's screen
                     if (player.id === ACTIVE_PLAYER) {
                         const angleFromBullet = Math.atan2(p.dy, p.dx) * 180 / Math.PI;
-                        showDamageIndicator(angleFromBullet);
+                        showDamageIndicator(angleFromBullet, player.current_position.rotation);
                     }
                     // Flash the hit player
-                    const el = document.getElementById(`player-${player.id}`);
+                    const el = getPlayerElement(player.id);
                     if (el) {
                         el.classList.add('hit-flash');
                         setTimeout(() => el.classList.remove('hit-flash'), 150);
@@ -122,8 +122,10 @@ export function updateProjectiles(
             p.y = newY;
             p.element.style.transform = `translate3d(${Math.round(newX)}px, ${Math.round(newY)}px, 0)`;
         } else {
-            p.element.remove();
-            projectiles.splice(i, 1);
+            releaseProjectile(p.poolIndex);
+            const last = projectiles.length - 1;
+            if (i !== last) projectiles[i] = projectiles[last];
+            projectiles.length = last;
         }
     }
 }
