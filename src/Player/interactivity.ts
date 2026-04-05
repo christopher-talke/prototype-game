@@ -1,26 +1,24 @@
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from "../Globals/Players";
 import { getAngle } from '../Utilities/getAngle';
 import { angleToRadians } from '../Utilities/angleToRadians';
-import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET, SPEED } from '../constants';
+import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET } from '../constants';
 import { SETTINGS } from '../main';
 import { detectOtherPlayers } from './detection';
-import { moveWithCollision } from './collision';
 import { environment } from '../Environment/environment';
 import { HELD_DIRECTIONS, directions } from './player';
 import { generateRayCast, RaycastTypes } from "./Raycast/raycast";
 import { toggleSettings, isSettingsOpen, closeSettings } from "../Settings/settings";
 import { getActionForKey } from "../Settings/keybinds";
-import { initShooting, tryFire, startReload, switchWeapon, getActiveWeapon } from "../Combat/shooting";
-import { updateProjectiles } from "../Combat/projectiles";
+import { initShooting, getActiveWeapon } from "../Combat/shooting";
 import { checkMatchTimer, getMatchTimeRemaining, isRoundActive } from "../Combat/gameState";
 import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard } from "../HUD/hud";
 import { isPlayerDead } from "../Combat/damage";
 import { getWeaponDef } from "../Combat/weapons";
 import { updateAllAI } from "../AI/ai";
-import { playFootstep } from "../Audio/audio";
-import { throwGrenade, updateGrenades, detonateC4, hasPlacedC4, setMouseWorldPosition } from "../Combat/grenadeProjectiles";
+import { hasPlacedC4, setMouseWorldPosition } from "../Combat/grenadeProjectiles";
 import { updateSmokeClouds } from "../Combat/smoke";
 import { clientRenderer } from "../Net/ClientRenderer";
+import { offlineAdapter } from "../Net/OfflineAdapter";
 import { initADS, updateAimLine } from './aimline';
 // Camera aim offset (lerped)
 let currentOffsetX = 0;
@@ -69,10 +67,10 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (action === 'moveLeft' && HELD_DIRECTIONS.indexOf(directions.left) === -1) HELD_DIRECTIONS.unshift(directions.left);
         if (action === 'moveRight' && HELD_DIRECTIONS.indexOf(directions.right) === -1) HELD_DIRECTIONS.unshift(directions.right);
 
-        if (action === 'reload') startReload(playerInfo);
-        if (action === 'weapon1') switchWeapon(playerInfo, 0);
-        if (action === 'weapon2') switchWeapon(playerInfo, 1);
-        if (action === 'weapon3') switchWeapon(playerInfo, 2);
+        if (action === 'reload') offlineAdapter.sendInput({ type: 'RELOAD', playerId: playerInfo.id });
+        if (action === 'weapon1') offlineAdapter.sendInput({ type: 'SWITCH_WEAPON', playerId: playerInfo.id, slotIndex: 0 });
+        if (action === 'weapon2') offlineAdapter.sendInput({ type: 'SWITCH_WEAPON', playerId: playerInfo.id, slotIndex: 1 });
+        if (action === 'weapon3') offlineAdapter.sendInput({ type: 'SWITCH_WEAPON', playerId: playerInfo.id, slotIndex: 2 });
 
         if (action === 'leaderboard') {
             e.preventDefault();
@@ -83,10 +81,9 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (action === 'grenade' && !isPlayerDead(playerInfo)) {
             const type = getSelectedGrenadeType();
             if (type === 'C4' && hasPlacedC4(playerInfo.id)) {
-                detonateC4(playerInfo.id);
-            } else if (playerInfo.grenades[type] > 0) {
-                playerInfo.grenades[type]--;
-                throwGrenade(type, playerInfo);
+                offlineAdapter.sendInput({ type: 'DETONATE_C4', playerId: playerInfo.id });
+            } else {
+                offlineAdapter.sendInput({ type: 'THROW_GRENADE', playerId: playerInfo.id, grenadeType: type });
             }
         }
 
@@ -148,14 +145,16 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 if (roundRunning && !isPlayerDead(playerInfo)) {
                     const menuOpen = isSettingsOpen() || isBuyMenuOpen();
                     if (!menuOpen) {
-                        movement(playerInfo, deltaTime);
-                        tryFire(playerInfo, timestamp);
+                        const { dx, dy } = getMovementInput();
+                        if (dx !== 0 || dy !== 0) {
+                            offlineAdapter.sendInput({ type: 'MOVE', playerId: playerInfo.id, dx, dy });
+                        }
+                        offlineAdapter.sendInput({ type: 'FIRE', playerId: playerInfo.id, timestamp });
                     }
                 }
 
                 if (roundRunning) {
-                    updateProjectiles(environment.segments, getAllPlayers());
-                    updateGrenades(environment.segments, getAllPlayers(), timestamp);
+                    offlineAdapter.tick(environment.segments, getAllPlayers(), timestamp);
                     clientRenderer.updateVisuals();
                     updateSmokeClouds(timestamp);
                     updateAllAI(getAllPlayers(), timestamp);
@@ -199,7 +198,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     requestAnimationFrame(gameLoop);
 }
 
-function movement(playerInfo: player_info, _deltaTime: number) {
+function getMovementInput(): { dx: number; dy: number } {
     let dx = 0;
     let dy = 0;
 
@@ -210,8 +209,6 @@ function movement(playerInfo: player_info, _deltaTime: number) {
         if (dir === directions.up) dy = -1;
     }
 
-    if (dx === 0 && dy === 0) return;
-
     // Normalize diagonal so you don't move faster
     if (dx !== 0 && dy !== 0) {
         const inv = 1 / Math.SQRT2;
@@ -219,22 +216,5 @@ function movement(playerInfo: player_info, _deltaTime: number) {
         dy *= inv;
     }
 
-    dx *= SPEED;
-    dy *= SPEED;
-
-    if (dx === 0 && dy === 0) return;
-
-    const result = moveWithCollision(
-        playerInfo.current_position.x,
-        playerInfo.current_position.y,
-        dx, dy
-    );
-
-    // Play footstep if actually moved
-    if (result.x !== playerInfo.current_position.x || result.y !== playerInfo.current_position.y) {
-        playFootstep(playerInfo, performance.now());
-    }
-
-    playerInfo.current_position.x = result.x;
-    playerInfo.current_position.y = result.y;
+    return { dx, dy };
 }
