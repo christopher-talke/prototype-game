@@ -225,14 +225,14 @@ function renderBuyMenu(playerInfo: player_info) {
 
 let damageIndicatorTimeout: ReturnType<typeof setTimeout> | null = null;
 
-export function showDamageIndicator(angleDeg: number) {
+export function showDamageIndicator(angleDeg: number, playerRotation: number) {
     const el = document.getElementById('hud-damage-indicator');
     if (!el) return;
 
-    // Rotate the gradient to face direction of incoming damage
-    el.style.setProperty('--dmg-angle', `${angleDeg}deg`);
+    const relativeAngle = angleDeg - playerRotation;
+    el.style.setProperty('--dmg-angle', `${relativeAngle}deg`);
     el.classList.remove('active');
-    void el.offsetWidth; // force reflow to restart animation
+    void el.offsetWidth;
     el.classList.add('active');
 
     if (damageIndicatorTimeout) clearTimeout(damageIndicatorTimeout);

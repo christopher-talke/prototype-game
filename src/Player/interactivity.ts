@@ -116,8 +116,8 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 const facingRad = angleToRadians(newRotation - ROTATION_OFFSET);
                 const targetOffsetX = Math.cos(facingRad) * cameraOffsetDist;
                 const targetOffsetY = Math.sin(facingRad) * cameraOffsetDist;
-                currentOffsetX += (targetOffsetX - currentOffsetX) * 0.08;
-                currentOffsetY += (targetOffsetY - currentOffsetY) * 0.08;
+                currentOffsetX += (targetOffsetX - currentOffsetX) * 0.18;
+                currentOffsetY += (targetOffsetY - currentOffsetY) * 0.18;
 
                 const cameraX = (newX + currentOffsetX + MAP_OFFSET) - window.visualViewport.width / 2;
                 const cameraY = (newY + currentOffsetY + MAP_OFFSET) - window.visualViewport.height / 2;

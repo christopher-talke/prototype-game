@@ -4,9 +4,13 @@ import { createDefaultWeapon } from './weapons';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { getHealthBarElement } from '../Globals/Players';
 import { getActiveMap } from '../Maps/helpers';
+import { removeLastKnownForPlayer } from '../Player/lineOfSight';
 
 const ARMOR_ABSORPTION = 0.5;
 const RESPAWN_TIME = 3000;
+const HEALTH_BAR_VISIBLE_DURATION = 3000;
+
+const healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
 export function isPlayerDead(player: player_info): boolean {
     return player.dead;
@@ -31,14 +35,27 @@ export function applyDamage(target: player_info, rawDamage: number, attackerId: 
     }
 
     updateHealthBar(target);
+    showHealthBarTemporarily(target.id);
 }
 
+function showHealthBarTemporarily(playerId: number) {
+    const wrap = getHealthBarElement(playerId);
+    if (!wrap) return;
+    wrap.classList.add('health-visible');
+    const prev = healthBarTimers.get(playerId);
+    if (prev) clearTimeout(prev);
+    healthBarTimers.set(playerId, setTimeout(() => {
+        wrap.classList.remove('health-visible');
+        healthBarTimers.delete(playerId);
+    }, HEALTH_BAR_VISIBLE_DURATION));
+}
 function killPlayer(target: player_info, killerId: number) {
     target.dead = true;
 
     const el = getPlayerElement(target.id);
     if (el) el.classList.add('dead');
 
+    removeLastKnownForPlayer(target.id);
     recordKill(killerId, target.id);
 
     setTimeout(() => {

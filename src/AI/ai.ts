@@ -10,13 +10,21 @@ import { getWeaponDef } from '../Combat/weapons';
 import { getPlayerElement, getHealthBarElement } from '../Globals/Players';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { positionHealthBar } from '../Player/player';
+import { buyWeapon, getPlayerState } from '../Combat/gameState';
 
 const AI_SPEED = 3;
-const AI_TURN_SPEED = 4; // degrees per frame
-const AI_FIRE_CONE = 8; // must be within this angle to fire
+const AI_TURN_SPEED = 4;
+const AI_FIRE_CONE = 8;
 const AI_DETECT_RANGE = 800;
-const AI_CHASE_TIMEOUT = 3000; // ms before giving up chase
-const AI_PATROL_PAUSE = 1500; // ms to pause at each waypoint
+const AI_CHASE_TIMEOUT = 3000;
+const AI_PATROL_PAUSE = 1500;
+const STUCK_THRESHOLD = 2; // pixels moved to count as "not stuck"
+const STUCK_FRAMES_BEFORE_REROUTE = 15;
+const UNSTICK_DURATION = 600; // ms to move in random direction when stuck
+const WALL_CHECK_SHOTS = 5; // stop shooting after this many consecutive wall-hits
+
+// Preferred buy order: rifle > smg > shotgun
+const BUY_PRIORITY = ['RIFLE', 'SMG', 'SHOTGUN'];
 
 type AIState = 'patrol' | 'chase' | 'search';
 
@@ -30,17 +38,18 @@ type AIController = {
     targetLastPos: coordinates | null;
     patrolPauseUntil: number;
     lastFireTime: number;
-    consecutiveShots: number;
     // Stuck detection
     lastPos: coordinates;
     stuckFrames: number;
-    unstuckUntil: number;
-    unstuckAngle: number;
+    unstickUntil: number;
+    unstickAngle: number;
+    // Wall-hit tracking: stop firing when bullets keep hitting walls
+    wallHitShots: number;
+    hasBought: boolean;
 };
 
 const controllers: AIController[] = [];
 
-// Generate patrol points spread around the map
 function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
     const margin = 300;
@@ -66,11 +75,12 @@ export function registerAI(player: player_info) {
         targetLastPos: null,
         patrolPauseUntil: 0,
         lastFireTime: 0,
-        consecutiveShots: 0,
         lastPos: { x: player.current_position.x, y: player.current_position.y },
         stuckFrames: 0,
-        unstuckUntil: 0,
-        unstuckAngle: 0,
+        unstickUntil: 0,
+        unstickAngle: 0,
+        wallHitShots: 0,
+        hasBought: false,
     });
 }
 
@@ -85,6 +95,44 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
     const me = ai.player;
     const myCx = me.current_position.x + HALF_HIT_BOX;
     const myCy = me.current_position.y + HALF_HIT_BOX;
+
+    // Try to buy a better weapon once
+    if (!ai.hasBought) {
+        tryBuyWeapon(ai);
+    }
+
+    // Stuck detection
+    const movedDist = getDistance(myCx, myCy, ai.lastPos.x + HALF_HIT_BOX, ai.lastPos.y + HALF_HIT_BOX);
+    if (movedDist < STUCK_THRESHOLD) {
+        ai.stuckFrames++;
+    } else {
+        ai.stuckFrames = 0;
+    }
+    ai.lastPos.x = me.current_position.x;
+    ai.lastPos.y = me.current_position.y;
+
+    // If stuck too long, pick a random direction to unstick
+    if (ai.stuckFrames >= STUCK_FRAMES_BEFORE_REROUTE && timestamp > ai.unstickUntil) {
+        ai.unstickAngle = Math.random() * Math.PI * 2;
+        ai.unstickUntil = timestamp + UNSTICK_DURATION;
+        ai.stuckFrames = 0;
+        // Also regenerate patrol waypoints so we don't path into the same wall
+        if (ai.state === 'patrol') {
+            ai.waypoints = generatePatrolPoints();
+            ai.waypointIndex = 0;
+        }
+    }
+
+    // If currently unsticking, just walk in the random direction
+    if (timestamp < ai.unstickUntil) {
+        const dx = Math.cos(ai.unstickAngle) * AI_SPEED;
+        const dy = Math.sin(ai.unstickAngle) * AI_SPEED;
+        const result = moveWithCollision(me.current_position.x, me.current_position.y, dx, dy);
+        me.current_position.x = result.x;
+        me.current_position.y = result.y;
+        updateElement(ai);
+        return;
+    }
 
     // Find visible enemies
     let closestEnemy: player_info | null = null;
@@ -122,11 +170,12 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
             y: closestEnemy.current_position.y,
         };
         ai.lastSawTarget = timestamp;
+        ai.wallHitShots = 0;
     } else if (ai.state === 'chase') {
         if (timestamp - ai.lastSawTarget > AI_CHASE_TIMEOUT) {
             ai.state = 'patrol';
             ai.targetId = null;
-            ai.consecutiveShots = 0;
+            ai.wallHitShots = 0;
         } else {
             ai.state = 'search';
         }
@@ -134,7 +183,7 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         if (timestamp - ai.lastSawTarget > AI_CHASE_TIMEOUT) {
             ai.state = 'patrol';
             ai.targetId = null;
-            ai.consecutiveShots = 0;
+            ai.wallHitShots = 0;
         }
     }
 
@@ -151,13 +200,15 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
             break;
     }
 
-    // Update DOM element
+    updateElement(ai);
+}
+
+function updateElement(ai: AIController) {
+    const me = ai.player;
     const el = getPlayerElement(me.id);
     if (el) {
         el.style.transform = `translate3d(${me.current_position.x}px, ${me.current_position.y}px, 0) rotate(${me.current_position.rotation}deg)`;
     }
-
-    // Update health bar position
     const wrap = getHealthBarElement(me.id);
     if (wrap) positionHealthBar(wrap, me);
 }
@@ -191,25 +242,39 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
 
     const dist = getDistance(myCx, myCy, tx, ty);
 
-    // Turn to face target
     turnToward(ai, tx, ty);
 
-    // Move toward if too far, back off if too close
     if (dist > 200) {
         moveToward(ai, tx, ty, AI_SPEED);
     } else if (dist < 100) {
         moveToward(ai, tx, ty, -AI_SPEED * 0.5);
     }
 
-    // Fire if facing target
+    // Check if we actually have line of sight before firing
+    const hasLOS = !isLineBlocked(
+        me.current_position.x, me.current_position.y,
+        target.current_position.x, target.current_position.y,
+        environment.segments
+    );
+
+    if (!hasLOS) {
+        ai.wallHitShots++;
+        // If we've been trying to shoot through walls, stop and move toward target instead
+        if (ai.wallHitShots > WALL_CHECK_SHOTS) {
+            moveToward(ai, tx, ty, AI_SPEED);
+        }
+        return;
+    }
+
+    ai.wallHitShots = 0;
+
+    // Fire if facing target and have clear LOS
     const angleToTarget = getAngle(myCx, myCy, tx, ty);
     const facingAngle = me.current_position.rotation - ROTATION_OFFSET;
     const diff = normalizeAngle(angleToTarget - facingAngle);
 
     if (Math.abs(diff) < AI_FIRE_CONE) {
         tryAIFire(ai, timestamp);
-    } else {
-        ai.consecutiveShots = 0;
     }
 }
 
@@ -223,7 +288,6 @@ function doSearch(ai: AIController, _timestamp: number) {
     const dist = getDistance(myCx, myCy, ai.targetLastPos.x, ai.targetLastPos.y);
 
     if (dist < 30) {
-        // Reached last known position, look around
         me.current_position.rotation += AI_TURN_SPEED * 2;
         return;
     }
@@ -268,7 +332,6 @@ function tryAIFire(ai: AIController, timestamp: number) {
 
     const weaponDef = getWeaponDef(weapon.type);
 
-    // Reload if empty
     if (weapon.ammo <= 0 && !weapon.reloading) {
         weapon.reloading = true;
         setTimeout(() => {
@@ -288,15 +351,12 @@ function tryAIFire(ai: AIController, timestamp: number) {
     const centerY = me.current_position.y + HALF_HIT_BOX;
     const aimAngle = me.current_position.rotation - ROTATION_OFFSET;
 
-    // AI has some spread/inaccuracy
     const aiSpread = weaponDef.spread + 3;
 
     for (let p = 0; p < weaponDef.pellets; p++) {
-        let bulletAngle = aimAngle + (Math.random() - 0.5) * aiSpread;
+        const bulletAngle = aimAngle + (Math.random() - 0.5) * aiSpread;
         spawnBullet(me.id, centerX, centerY, bulletAngle, weaponDef.bulletSpeed, weaponDef.damage);
     }
-
-    ai.consecutiveShots++;
 
     if (weapon.ammo <= 0) {
         weapon.reloading = true;
@@ -304,6 +364,21 @@ function tryAIFire(ai: AIController, timestamp: number) {
             weapon.ammo = weapon.maxAmmo;
             weapon.reloading = false;
         }, weaponDef.reloadTime);
+    }
+}
+
+function tryBuyWeapon(ai: AIController) {
+    const state = getPlayerState(ai.player.id);
+    if (!state) return;
+
+    for (const weaponType of BUY_PRIORITY) {
+        const def = getWeaponDef(weaponType);
+        if (state.money >= def.price) {
+            if (buyWeapon(ai.player.id, weaponType, ai.player)) {
+                ai.hasBought = true;
+                return;
+            }
+        }
     }
 }
 

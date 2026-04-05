@@ -4,7 +4,6 @@
     height: 42px;
     width: 42px;
     border-radius: 25px;
-    transition: opacity 250ms ease-out;
     opacity: 0;
 }
 
@@ -57,6 +56,17 @@
     display: none;
 }
 
+/* Last Known Position Marker */
+.last-known-position {
+    position: absolute;
+    height: 20px;
+    width: 20px;
+    border-radius: 3px;
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.5s ease-out;
+}
+
 /* Team Colors */
 .player.team-1 {
     border: 2px solid #00e5ff;
@@ -65,6 +75,10 @@
 
 .player.team-1.same-team-not-visible {
     background: #00e5ff;
+}
+
+.last-known-position.team-1 {
+    background: #ff4757;
 }
 
 .player.team-1::after {
@@ -80,6 +94,10 @@
     background-color: #ff4757;
 }
 
+.last-known-position.team-2 {
+    background: #ff4757;
+}
+
 .player.team-3 {
     border: 2px solid #ffa502;
     background: rgba(255, 165, 2, 0.15);
@@ -89,6 +107,9 @@
     background-color: #ffa502;
 }
 
+.last-known-position.team-3 {
+    background: #ffa502;
+}
 
 /* Enemy health bars */
 .player-health-wrap {
@@ -98,6 +119,12 @@
     pointer-events: none;
     translate: -50% 0;
     top: -18px;
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+}
+
+.player-health-wrap.health-visible {
+    opacity: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;

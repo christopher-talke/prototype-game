@@ -133,7 +133,7 @@ export function isLineBlocked(
     if (!isSingleRayBlocked(sx, sy, tx, ty, segments)) return false;
     if (!isSingleRayBlocked(sx, sy, tx + px, ty + py, segments)) return false;
     if (!isSingleRayBlocked(sx, sy, tx - px, ty - py, segments)) return false;
-    return false;
+    return true;
 }
 
 // --- Main raycasting ---
