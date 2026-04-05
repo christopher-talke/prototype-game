@@ -12,7 +12,7 @@ import { toggleSettings } from "../Settings/settings";
 import { initShooting, tryFire, startReload, switchWeapon, getActiveWeapon } from "../Combat/shooting";
 import { updateProjectiles } from "../Combat/projectiles";
 import { checkMatchTimer, getMatchTimeRemaining } from "../Combat/gameState";
-import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition } from "../HUD/hud";
+import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard } from "../HUD/hud";
 import { isPlayerDead } from "../Combat/damage";
 import { getWeaponDef } from "../Combat/weapons";
 import { updateAllAI } from "../AI/ai";
@@ -54,6 +54,12 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             closeBuyMenu();
         }
 
+        // Leaderboard
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            showLeaderboard();
+        }
+
         renderedPlayerElement.setAttribute('moving', 'true');
     });
 
@@ -78,6 +84,10 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         const index = HELD_DIRECTIONS.indexOf(dir as string);
         if (index > -1) {
             HELD_DIRECTIONS.splice(index, 1);
+        }
+
+        if (e.key === 'Tab') {
+            hideLeaderboard();
         }
 
         renderedPlayerElement.setAttribute('moving', 'false');

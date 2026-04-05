@@ -23,6 +23,7 @@ export function initMatch(playerIds: number[]) {
             kills: 0,
             deaths: 0,
             money: STARTING_MONEY,
+            points: 0,
         });
     }
     matchStartTime = Date.now();
@@ -35,6 +36,7 @@ export function recordKill(killerId: number, victimId: number) {
 
     if (killerState) {
         killerState.kills++;
+        killerState.points += 100;
         const killerInfo = getPlayerInfo(killerId);
         const activeWeapon = killerInfo?.weapons.find(w => w.active);
         const weaponType = activeWeapon?.type || 'PISTOL';
@@ -55,6 +57,10 @@ export function recordKill(killerId: number, victimId: number) {
 
 export function getPlayerState(playerId: number): PlayerGameState | undefined {
     return playerStates.get(playerId);
+}
+
+export function getAllPlayerStates(): PlayerGameState[] {
+    return Array.from(playerStates.values());
 }
 
 export function getMatchTimeRemaining(): number {

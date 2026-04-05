@@ -1,8 +1,9 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { buyWeapon, getPlayerState } from '../Combat/gameState';
+import { buyWeapon, getPlayerState, getAllPlayerStates } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
+import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -18,6 +19,8 @@ let crosshair: HTMLElement;
 let buyMenu: HTMLElement;
 let buyMenuGrid: HTMLElement;
 let deathOverlay: HTMLElement;
+let leaderboard: HTMLElement;
+let leaderboardBody: HTMLElement;
 
 export function initHUD() {
     const container = document.createElement('div');
@@ -93,6 +96,25 @@ export function initHUD() {
     dmgIndicator.id = 'hud-damage-indicator';
     document.body.appendChild(dmgIndicator);
 
+    // Leaderboard
+    const lb = document.createElement('div');
+    lb.id = 'hud-leaderboard';
+    lb.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Points</th>
+                    <th>K</th>
+                    <th>D</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+        </table>
+    `;
+    document.body.appendChild(lb);
+
     // Cache elements
     healthBar = document.getElementById('hud-health-bar')!;
     armorBar = document.getElementById('hud-armor-bar')!;
@@ -108,6 +130,8 @@ export function initHUD() {
     buyMenu = bm;
     buyMenuGrid = document.getElementById('buymenu-grid')!;
     deathOverlay = dOverlay;
+    leaderboard = lb;
+    leaderboardBody = document.getElementById('leaderboard-body')!;
     // deathText element exists in DOM but doesn't need a JS reference
 }
 
@@ -256,6 +280,65 @@ export function showHitMarker(isKill: boolean) {
     hitMarkerTimeout = setTimeout(() => {
         crosshair.classList.remove('hit', 'kill');
     }, 300);
+}
+
+export function showLeaderboard() {
+    renderLeaderboard();
+    leaderboard.classList.add('open');
+}
+
+export function hideLeaderboard() {
+    leaderboard.classList.remove('open');
+}
+
+function renderLeaderboard() {
+    const states = getAllPlayerStates();
+    const players = getAllPlayers();
+
+    // Group by team, sort teams by total points, players within each team by points
+    const teamMap = new Map<number, { state: PlayerGameState; info: player_info | undefined }[]>();
+    for (const state of states) {
+        const info = players.find(p => p.id === state.playerId);
+        const team = info?.team ?? 0;
+        if (!teamMap.has(team)) teamMap.set(team, []);
+        teamMap.get(team)!.push({ state, info });
+    }
+
+    const sortedTeams = Array.from(teamMap.entries()).sort((a, b) => {
+        const aTotal = a[1].reduce((s, p) => s + p.state.points, 0);
+        const bTotal = b[1].reduce((s, p) => s + p.state.points, 0);
+        return bTotal - aTotal;
+    });
+
+    leaderboardBody.innerHTML = '';
+    let rank = 1;
+    let first = true;
+    for (const [team, members] of sortedTeams) {
+        if (!first) {
+            const sep = document.createElement('tr');
+            sep.classList.add('lb-team-separator');
+            sep.innerHTML = '<td colspan="5"></td>';
+            leaderboardBody.appendChild(sep);
+        }
+        first = false;
+        members.sort((a, b) => b.state.points - a.state.points);
+        for (const { state, info } of members) {
+            const name = info?.name ?? `Player${state.playerId}`;
+            const isLocal = state.playerId === ACTIVE_PLAYER;
+
+            const row = document.createElement('tr');
+            row.classList.add(`lb-team-${team}`);
+            if (isLocal) row.classList.add('lb-local');
+            row.innerHTML = `
+                <td>${rank++}</td>
+                <td>${name}</td>
+                <td>${state.points}</td>
+                <td>${state.kills}</td>
+                <td>${state.deaths}</td>
+            `;
+            leaderboardBody.appendChild(row);
+        }
+    }
 }
 
 export function spawnDamageNumber(worldX: number, worldY: number, damage: number, isKill: boolean) {

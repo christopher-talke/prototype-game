@@ -67,6 +67,7 @@ type PlayerGameState = {
   kills: number;
   deaths: number;
   money: number;
+  points: number;
 };
 
 interface wall_info {
