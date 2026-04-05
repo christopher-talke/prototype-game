@@ -1,7 +1,7 @@
 // Player
 export const PLAYER_HIT_BOX = 44;
 export const HALF_HIT_BOX = PLAYER_HIT_BOX / 2;
-export const SPEED = 3;
+export const SPEED = 6;
 
 // Field of View
 export const FOV = 55;

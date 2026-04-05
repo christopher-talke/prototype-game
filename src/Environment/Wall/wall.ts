@@ -4,6 +4,7 @@ import { app } from "../../main";
 import { getElementCoordinates } from "../../Utilities/getElementCoordinates";
 import { getRandomNumber } from "../../Utilities/getRandomNumber";
 import { environment } from '../environment';
+import { registerWallAABB } from '../../Player/collision';
 
 export function createWall(wallInfo: wall_info) {
 
@@ -13,11 +14,20 @@ export function createWall(wallInfo: wall_info) {
     newWallEntity.id = `wall-${newWallIdentifier}`;
     newWallEntity.classList.add(`wall`);
     newWallEntity.setAttribute('data-wall-id', `${newWallIdentifier}`);
+    newWallEntity.setAttribute('data-wall-type', wallInfo.type ?? 'concrete');
     newWallEntity.style.width = `${wallInfo.width}px`;
     newWallEntity.style.height = `${wallInfo.height}px`;
     newWallEntity.style.transform = `translate3d(${wallInfo.x}px, ${wallInfo.y}px, 0)`;
 
+    if (wallInfo.sprite) {
+        const img = document.createElement('img');
+        img.src = wallInfo.sprite;
+        img.classList.add('wall-sprite');
+        newWallEntity.appendChild(img);
+    }
+
     app.appendChild(newWallEntity);
+    registerWallAABB(wallInfo.x, wallInfo.y, wallInfo.width, wallInfo.height);
     addWallToCollisions(newWallEntity);
 
     return;

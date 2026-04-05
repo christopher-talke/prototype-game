@@ -6,7 +6,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #262626;
+  background-color: #1a1a2e;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -31,7 +31,7 @@ body {
   position: relative;
   height: 3000px;
   width: 3000px;
-  background-color: #282a36;
+  background-color: #0f0f1a;
 }
 
 .d-none {

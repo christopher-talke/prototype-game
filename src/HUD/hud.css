@@ -1,0 +1,391 @@
+#hud-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 1000;
+    font-family: 'Courier New', monospace;
+    user-select: none;
+}
+
+/* Health & Armor */
+#hud-status {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hud-bar-container {
+    width: 200px;
+    height: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hud-bar {
+    height: 100%;
+    transition: width 0.15s ease-out;
+}
+
+#hud-health-bar {
+    background: #4ade80;
+}
+
+#hud-armor-bar {
+    background: #60a5fa;
+}
+
+.hud-bar-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 1px;
+}
+
+/* Ammo */
+#hud-ammo {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    text-align: right;
+}
+
+#hud-ammo-count {
+    font-size: 28px;
+    color: #fff;
+    font-weight: bold;
+}
+
+#hud-ammo-max {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+#hud-weapon-name {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 4px;
+}
+
+#hud-reload-text {
+    font-size: 14px;
+    color: #fbbf24;
+    animation: blink 0.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Money */
+#hud-money {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    font-size: 18px;
+    color: #4ade80;
+    font-weight: bold;
+}
+
+/* Timer */
+#hud-timer {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    color: #fff;
+    font-weight: bold;
+}
+
+/* Score */
+#hud-score {
+    position: absolute;
+    top: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Kill Feed */
+#hud-killfeed {
+    position: absolute;
+    top: 60px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 300px;
+}
+
+.killfeed-entry {
+    font-size: 12px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px 8px;
+    border-radius: 3px;
+    animation: killfeed-fade 4s ease-out forwards;
+}
+
+@keyframes killfeed-fade {
+    0%, 70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Crosshair */
+#hud-crosshair {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    top: 0;
+    left: 0;
+}
+
+#hud-crosshair .ch-h,
+#hud-crosshair .ch-v,
+#hud-crosshair .ch-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+}
+
+/* ── PISTOL: tight white cross ── */
+#hud-crosshair[data-weapon="PISTOL"] .ch-h {
+    width: 16px; height: 3px;
+    background: #fff;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px #000;
+}
+#hud-crosshair[data-weapon="PISTOL"] .ch-v {
+    width: 3px; height: 16px;
+    background: #fff;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px #000;
+}
+#hud-crosshair[data-weapon="PISTOL"] .ch-dot { display: none; }
+
+/* ── SMG: cyan cross with center gap ── */
+#hud-crosshair[data-weapon="SMG"] .ch-h {
+    width: 24px; height: 3px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(to right, #00e5ff 8px, transparent 8px, transparent 16px, #00e5ff 16px);
+    box-shadow: 0 0 6px rgba(0,229,255,0.6);
+}
+#hud-crosshair[data-weapon="SMG"] .ch-v {
+    width: 3px; height: 24px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(to bottom, #00e5ff 8px, transparent 8px, transparent 16px, #00e5ff 16px);
+    box-shadow: 0 0 6px rgba(0,229,255,0.6);
+}
+#hud-crosshair[data-weapon="SMG"] .ch-dot { display: none; }
+
+/* ── RIFLE: green long cross with gap ── */
+#hud-crosshair[data-weapon="RIFLE"] .ch-h {
+    width: 28px; height: 2px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(to right, #50ffa0 10px, transparent 10px, transparent 18px, #50ffa0 18px);
+    box-shadow: 0 0 8px rgba(80,255,160,0.7);
+}
+#hud-crosshair[data-weapon="RIFLE"] .ch-v {
+    width: 2px; height: 28px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(to bottom, #50ffa0 10px, transparent 10px, transparent 18px, #50ffa0 18px);
+    box-shadow: 0 0 8px rgba(80,255,160,0.7);
+}
+#hud-crosshair[data-weapon="RIFLE"] .ch-dot {
+    width: 4px; height: 4px;
+    background: #50ffa0;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* ── SHOTGUN: orange circle + dot ── */
+#hud-crosshair[data-weapon="SHOTGUN"] .ch-h {
+    width: 28px; height: 28px;
+    transform: translate(-50%, -50%);
+    background: transparent;
+    border-radius: 50%;
+    border: 3px solid #ffa520;
+    box-shadow: 0 0 8px rgba(255,165,32,0.6);
+}
+#hud-crosshair[data-weapon="SHOTGUN"] .ch-v { display: none; }
+#hud-crosshair[data-weapon="SHOTGUN"] .ch-dot {
+    width: 5px; height: 5px;
+    background: #ffa520;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 4px rgba(255,165,32,0.9);
+}
+
+/* ── SNIPER: long red cross ── */
+#hud-crosshair[data-weapon="SNIPER"] .ch-h {
+    width: 40px; height: 2px;
+    background: #ff4040;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px rgba(255,64,64,0.8);
+}
+#hud-crosshair[data-weapon="SNIPER"] .ch-v {
+    width: 2px; height: 40px;
+    background: #ff4040;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px rgba(255,64,64,0.8);
+}
+#hud-crosshair[data-weapon="SNIPER"] .ch-dot {
+    width: 4px; height: 4px;
+    background: #ff4040;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Fallback (no weapon set yet) */
+#hud-crosshair:not([data-weapon]) .ch-h {
+    width: 16px; height: 3px;
+    background: #fff;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px #000;
+}
+#hud-crosshair:not([data-weapon]) .ch-v {
+    width: 3px; height: 16px;
+    background: #fff;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 1px #000;
+}
+#hud-crosshair:not([data-weapon]) .ch-dot { display: none; }
+
+/* Buy Menu */
+#hud-buymenu {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 20px;
+    pointer-events: auto;
+    z-index: 1002;
+    min-width: 400px;
+}
+
+#hud-buymenu.open {
+    display: block;
+}
+
+#hud-buymenu h3 {
+    margin: 0 0 12px 0;
+    color: #fff;
+    font-size: 16px;
+}
+
+.buymenu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.buymenu-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    color: #fff;
+}
+
+.buymenu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.buymenu-item.too-expensive {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.buymenu-item-name {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.buymenu-item-price {
+    font-size: 12px;
+    color: #4ade80;
+}
+
+.buymenu-item-stats {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 4px;
+}
+
+/* Death overlay */
+#hud-death-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(100, 0, 0, 0.3);
+    z-index: 999;
+}
+
+#hud-death-overlay.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#hud-death-text {
+    font-size: 32px;
+    color: #fff;
+    font-weight: bold;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Directional damage indicator */
+#hud-damage-indicator {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 998;
+    opacity: 0;
+    --dmg-angle: 0deg;
+    /* Gradient pointing from the damage direction toward center */
+    background: conic-gradient(
+        from calc(var(--dmg-angle) - 40deg),
+        transparent 0deg,
+        rgba(220, 20, 20, 0.55) 40deg,
+        rgba(220, 20, 20, 0.7) 80deg,
+        transparent 80deg
+    );
+    /* Vignette mask so only the edges show */
+    -webkit-mask-image: radial-gradient(
+        ellipse 70% 70% at 50% 50%,
+        transparent 55%,
+        black 100%
+    );
+    mask-image: radial-gradient(
+        ellipse 70% 70% at 50% 50%,
+        transparent 55%,
+        black 100%
+    );
+}
+
+#hud-damage-indicator.active {
+    animation: damage-flash 0.6s ease-out forwards;
+}
+
+@keyframes damage-flash {
+    0%   { opacity: 1; }
+    30%  { opacity: 0.9; }
+    100% { opacity: 0; }
+}

@@ -16,21 +16,72 @@ interface player_info {
   health: number;
   armour: number;
   team: number;
-  weapons: {
-    id: number;
-    active: boolean;
-    type: string;
-    ammo: number;
-    firing_rate: number;
-  }[];
+  dead: boolean;
+  weapons: PlayerWeapon[];
 }
+
+type PlayerWeapon = {
+  id: number;
+  active: boolean;
+  type: string;
+  ammo: number;
+  maxAmmo: number;
+  firing_rate: number;
+  reloading: boolean;
+};
+
+type WeaponDef = {
+  id: string;
+  name: string;
+  damage: number;
+  fireRate: number;
+  reloadTime: number;
+  magSize: number;
+  bulletSpeed: number;
+  price: number;
+  killReward: number;
+  pellets: number;
+  spread: number;
+  cameraOffset: number;
+  recoilPattern: { x: number; y: number }[];
+};
+
+type ProjectileState = {
+  id: number;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  speed: number;
+  damage: number;
+  ownerId: number;
+  element: HTMLElement;
+  alive: boolean;
+};
+
+type PlayerGameState = {
+  playerId: number;
+  kills: number;
+  deaths: number;
+  money: number;
+};
 
 interface wall_info {
   x: number;
   y: number;
   width: number;
   height: number;
+  type?: WallType;
+  sprite?: string; // URL or path to sprite image
 }
+
+type WallType =
+  | 'concrete'   // default - solid block
+  | 'metal'      // corrugated metal panels
+  | 'crate'      // wooden crate
+  | 'sandbag'    // cover/sandbag pile
+  | 'barrier'    // jersey barrier / road block
+  | 'pillar';    // thin structural column
 
 type coordinates = {
   x: number;
@@ -73,7 +124,6 @@ type Environment = {
   };
   segments: WallSegment[];
   corners: Corner[];
-  // Legacy collision map - kept during Phase 1-2, removed in Phase 3
   collisions: CollisionMap;
 };
 
@@ -98,4 +148,3 @@ enum RaycastTypes {
   SPRAY = "SPRAY",
   CORNERS = "CORNERS",
 }
-

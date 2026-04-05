@@ -21,12 +21,18 @@
     opacity: 1;
 }
 
+.player.dead {
+    display: none;
+}
+
 .player.same-team-not-visible {
     height: 20px !important;
     width: 20px !important;
     border-radius: 3px !important;
     opacity: 1;
     animation: flash 4s infinite;
+    margin-left: 11px;
+    margin-top: 11px;
 }
 
 @keyframes flash {
@@ -53,33 +59,74 @@
 
 /* Team Colors */
 .player.team-1 {
-    border: 1px solid rgb(251, 255, 0);
+    border: 2px solid #00e5ff;
+    background: rgba(0, 229, 255, 0.15);
 }
 
 .player.team-1.same-team-not-visible {
-    background: rgb(251, 255, 0);
+    background: #00e5ff;
 }
 
 .player.team-1::after {
-    background-color: rgb(251, 255, 0);
+    background-color: #00e5ff;
 }
 
 .player.team-2 {
-    border: 1px solid red;
+    border: 2px solid #ff4757;
+    background: rgba(255, 71, 87, 0.15);
 }
 
 .player.team-2::after {
-    background-color: red;
+    background-color: #ff4757;
 }
 
 .player.team-3 {
-    border: 1px solid rgb(247, 0, 255);
+    border: 2px solid #ffa502;
+    background: rgba(255, 165, 2, 0.15);
 }
 
 .player.team-3::after {
-    background-color: rgb(247, 0, 255);
+    background-color: #ffa502;
 }
 
+
+/* Enemy health bars */
+.player-health-wrap {
+    position: absolute;
+    width: 44px;
+    transform-origin: top left;
+    pointer-events: none;
+    translate: -50% 0;
+    top: -18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.player-health-bar,
+.player-armor-bar {
+    height: 4px;
+    border-radius: 2px;
+    transition: width 0.1s ease-out;
+}
+
+.player-health-bar {
+    width: 100%;
+    background: #4ade80;
+    box-shadow: 0 0 4px rgba(74, 222, 128, 0.5);
+}
+
+.player-armor-bar {
+    width: 100%;
+    background: #60a5fa;
+    box-shadow: 0 0 4px rgba(96, 165, 250, 0.4);
+}
+
+/* Hit flash */
+.player.hit-flash {
+    background: rgba(255, 60, 60, 0.6) !important;
+    border-color: #ff3c3c !important;
+}
 
 /* Debugging */
 .los {

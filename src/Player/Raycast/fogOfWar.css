@@ -1,5 +1,5 @@
 #fog-of-war {
     position: absolute;
-    background-color: rgb(179 179 179 / 50%);
+    background-color: rgb(200 220 255 / 12%);
     will-change: clip-path;
 }

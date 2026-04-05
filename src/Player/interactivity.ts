@@ -1,15 +1,30 @@
-import { ACTIVE_PLAYER, getPlayerInfo } from "../Globals/Players";
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from "../Globals/Players";
 import { getAngle } from '../Utilities/getAngle';
-import { MAP_OFFSET, ROTATION_OFFSET, SPEED, PLAYER_HIT_BOX } from '../constants';
+import { angleToRadians } from '../Utilities/angleToRadians';
+import { MAP_OFFSET, ROTATION_OFFSET, SPEED } from '../constants';
 import { SETTINGS } from '../main';
 import { detectOtherPlayers } from './detection';
-import { environment } from "../Environment/environment";
+import { moveWithCollision } from './collision';
+import { environment } from '../Environment/environment';
 import { keys, HELD_DIRECTIONS, directions } from './player';
 import { generateRayCast, RaycastTypes } from "./Raycast/raycast";
 import { toggleSettings } from "../Settings/settings";
+import { initShooting, tryFire, startReload, switchWeapon, getActiveWeapon } from "../Combat/shooting";
+import { updateProjectiles } from "../Combat/projectiles";
+import { checkMatchTimer, getMatchTimeRemaining } from "../Combat/gameState";
+import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition } from "../HUD/hud";
+import { isPlayerDead } from "../Combat/damage";
+import { getWeaponDef } from "../Combat/weapons";
+import { updateAllAI } from "../AI/ai";
+
+// Camera aim offset (lerped)
+let currentOffsetX = 0;
+let currentOffsetY = 0;
 
 export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targetPlayerId: number) {
     const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
+
+    initShooting(playerInfo);
 
     window.addEventListener('keydown', (e) => {
         const dir = keys[e.key];
@@ -21,10 +36,29 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             toggleSettings()
         }
 
+        // Reload
+        if (e.key.toLowerCase() === 'r') {
+            startReload(playerInfo);
+        }
+
+        // Weapon switch
+        if (e.key === '1') switchWeapon(playerInfo, 0);
+        if (e.key === '2') switchWeapon(playerInfo, 1);
+        if (e.key === '3') switchWeapon(playerInfo, 2);
+
+        // Buy menu
+        if (e.key.toLowerCase() === 'b') {
+            toggleBuyMenu(playerInfo);
+        }
+        if (e.key === 'Escape' && isBuyMenuOpen()) {
+            closeBuyMenu();
+        }
+
         renderedPlayerElement.setAttribute('moving', 'true');
     });
 
     window.addEventListener('mousemove', (e) => {
+        updateCrosshairPosition(e.clientX, e.clientY);
         if (playerInfo) {
             const currentMouseX = e.pageX;
             const currentMouseY = e.pageY;
@@ -61,13 +95,32 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 
             if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
 
-                movement(playerInfo, deltaTime);
+                checkMatchTimer();
+
+                if (!isPlayerDead(playerInfo)) {
+                    movement(playerInfo, deltaTime);
+                    tryFire(playerInfo, timestamp);
+                }
+
+                updateProjectiles(environment.segments, getAllPlayers());
+                updateAllAI(getAllPlayers(), timestamp);
 
                 const newX = playerInfo.current_position.x;
                 const newY = playerInfo.current_position.y;
                 const newRotation = playerInfo.current_position.rotation;
-                const cameraX = (playerInfo.current_position.x + MAP_OFFSET) - window.visualViewport.width / 2;
-                const cameraY = (playerInfo.current_position.y + MAP_OFFSET) - window.visualViewport.height / 2;
+
+                // Camera aim offset
+                const weapon = getActiveWeapon(playerInfo);
+                const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
+                const cameraOffsetDist = weaponDef ? weaponDef.cameraOffset : 0;
+                const facingRad = angleToRadians(newRotation - ROTATION_OFFSET);
+                const targetOffsetX = Math.cos(facingRad) * cameraOffsetDist;
+                const targetOffsetY = Math.sin(facingRad) * cameraOffsetDist;
+                currentOffsetX += (targetOffsetX - currentOffsetX) * 0.08;
+                currentOffsetY += (targetOffsetY - currentOffsetY) * 0.08;
+
+                const cameraX = (newX + currentOffsetX + MAP_OFFSET) - window.visualViewport.width / 2;
+                const cameraY = (newY + currentOffsetY + MAP_OFFSET) - window.visualViewport.height / 2;
                 window.scrollTo(cameraX, cameraY);
 
                 detectOtherPlayers(playerInfo.id);
@@ -77,6 +130,8 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 }
 
                 renderedPlayerElement.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
+
+                updateHUD(playerInfo, getMatchTimeRemaining());
             }
         }
 
@@ -88,36 +143,23 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 
 function movement(playerInfo: player_info, _deltaTime: number) {
     const held_direction = HELD_DIRECTIONS[0];
+    let dx = 0;
+    let dy = 0;
+
     if (held_direction) {
-        if (held_direction === directions.right) {
-            playerInfo.current_position.x += SPEED;
-        }
-        if (held_direction === directions.left) {
-            playerInfo.current_position.x -= SPEED;
-        }
-        if (held_direction === directions.down) {
-            playerInfo.current_position.y += SPEED;
-        }
-        if (held_direction === directions.up) {
-            playerInfo.current_position.y -= SPEED;
-        }
+        if (held_direction === directions.right) dx = SPEED;
+        if (held_direction === directions.left) dx = -SPEED;
+        if (held_direction === directions.down) dy = SPEED;
+        if (held_direction === directions.up) dy = -SPEED;
     }
 
-    if (playerInfo.current_position.x < environment.limits.left) {
-        playerInfo.current_position.x = environment.limits.left;
-    }
+    if (dx === 0 && dy === 0) return;
 
-    if (playerInfo.current_position.x > environment.limits.right - PLAYER_HIT_BOX) {
-        playerInfo.current_position.x = environment.limits.right - PLAYER_HIT_BOX;
-    }
-
-    if (playerInfo.current_position.y < environment.limits.top) {
-        playerInfo.current_position.y = environment.limits.top;
-    }
-
-    if (playerInfo.current_position.y > environment.limits.bottom - PLAYER_HIT_BOX) {
-        playerInfo.current_position.y = environment.limits.bottom - PLAYER_HIT_BOX;
-    }
-
-    return;
+    const result = moveWithCollision(
+        playerInfo.current_position.x,
+        playerInfo.current_position.y,
+        dx, dy
+    );
+    playerInfo.current_position.x = result.x;
+    playerInfo.current_position.y = result.y;
 }

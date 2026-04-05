@@ -1,6 +1,7 @@
 import './player.css'
-import { ACTIVE_PLAYER, addPlayer, registerPlayerElement } from "../Globals/Players";
+import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarElement, getHealthBarElement } from "../Globals/Players";
 import { app } from '../main';
+import { HALF_HIT_BOX } from '../constants';
 import { addPlayerInteractivity } from './interactivity';
 export { SPEED, PLAYER_HIT_BOX, FOV } from '../constants';
 
@@ -43,6 +44,21 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
     addPlayer(playerInfo);
     registerPlayerElement(playerInfo.id, newPlayerEntity);
 
+    // Health bar for enemies (not the local player)
+    if (!controllable) {
+        const wrap = document.createElement('div');
+        wrap.classList.add('player-health-wrap');
+        const bar = document.createElement('div');
+        bar.classList.add('player-health-bar');
+        const armor = document.createElement('div');
+        armor.classList.add('player-armor-bar');
+        wrap.appendChild(armor);
+        wrap.appendChild(bar);
+        app.appendChild(wrap);
+        positionHealthBar(wrap, playerInfo);
+        registerHealthBarElement(playerInfo.id, wrap);
+    }
+
     const renderedPlayerElement = newPlayerEntity;
 
     if (controllable) {
@@ -50,4 +66,20 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
     }
 
     return;
+}
+
+export function positionHealthBar(wrap: HTMLElement, playerInfo: player_info) {
+    const x = playerInfo.current_position.x + HALF_HIT_BOX;
+    const y = playerInfo.current_position.y;
+    wrap.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
+
+export function updateHealthBar(playerInfo: player_info) {
+    const wrap = getHealthBarElement(playerInfo.id);
+    if (!wrap) return;
+    const bar = wrap.querySelector('.player-health-bar') as HTMLElement;
+    const armor = wrap.querySelector('.player-armor-bar') as HTMLElement;
+    if (bar) bar.style.width = `${Math.max(0, playerInfo.health)}%`;
+    if (armor) armor.style.width = `${Math.max(0, playerInfo.armour)}%`;
+    positionHealthBar(wrap, playerInfo);
 }

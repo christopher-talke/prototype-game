@@ -34,7 +34,7 @@ function angleToRadians(deg: number): number {
  * Ray: origin + t * dir, t >= 0
  * Segment: p1 + u * (p2 - p1), 0 <= u <= 1
  */
-function raySegmentIntersect(
+export function raySegmentIntersect(
     ox: number, oy: number,
     dx: number, dy: number,
     x1: number, y1: number,
@@ -91,9 +91,9 @@ function castRay(
 }
 
 /**
- * Check if a line segment between two points is blocked by any wall segment.
+ * Check if a single ray from (sx,sy) toward (tx,ty) is blocked.
  */
-export function isLineBlocked(
+function isSingleRayBlocked(
     sx: number, sy: number,
     tx: number, ty: number,
     segments: WallSegment[]
@@ -102,19 +102,37 @@ export function isLineBlocked(
     const dy = ty - sy;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 1e-10) return false;
-
     const ndx = dx / dist;
     const ndy = dy / dist;
-
     for (const seg of segments) {
-        const t = raySegmentIntersect(
-            sx, sy, ndx, ndy,
-            seg.x1, seg.y1, seg.x2, seg.y2
-        );
-        if (t !== null && t > 0.5 && t < dist - 0.5) {
-            return true;
-        }
+        const t = raySegmentIntersect(sx, sy, ndx, ndy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (t !== null && t > 0.5 && t < dist - 0.5) return true;
     }
+    return false;
+}
+
+/**
+ * Check if a line segment between two points is blocked by any wall segment.
+ * Tests center + 3 offset points on the target so players near walls remain visible.
+ */
+export function isLineBlocked(
+    sx: number, sy: number,
+    tx: number, ty: number,
+    segments: WallSegment[]
+): boolean {
+    // Perpendicular offset to check points slightly to each side of target center
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1e-10) return false;
+    const OFFSET = 10;
+    const px = (-dy / dist) * OFFSET;
+    const py = (dx / dist) * OFFSET;
+
+    // Visible if ANY of the sample points is unblocked
+    if (!isSingleRayBlocked(sx, sy, tx, ty, segments)) return false;
+    if (!isSingleRayBlocked(sx, sy, tx + px, ty + py, segments)) return false;
+    if (!isSingleRayBlocked(sx, sy, tx - px, ty - py, segments)) return false;
     return false;
 }
 
