@@ -195,16 +195,27 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 }
 
 function movement(playerInfo: player_info, _deltaTime: number) {
-    const held_direction = HELD_DIRECTIONS[0];
     let dx = 0;
     let dy = 0;
 
-    if (held_direction) {
-        if (held_direction === directions.right) dx = SPEED;
-        if (held_direction === directions.left) dx = -SPEED;
-        if (held_direction === directions.down) dy = SPEED;
-        if (held_direction === directions.up) dy = -SPEED;
+    for (const dir of HELD_DIRECTIONS) {
+        if (dir === directions.right) dx = 1;
+        if (dir === directions.left) dx = -1;
+        if (dir === directions.down) dy = 1;
+        if (dir === directions.up) dy = -1;
     }
+
+    if (dx === 0 && dy === 0) return;
+
+    // Normalize diagonal so you don't move faster
+    if (dx !== 0 && dy !== 0) {
+        const inv = 1 / Math.SQRT2;
+        dx *= inv;
+        dy *= inv;
+    }
+
+    dx *= SPEED;
+    dy *= SPEED;
 
     if (dx === 0 && dy === 0) return;
 
