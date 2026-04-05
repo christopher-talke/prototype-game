@@ -130,6 +130,8 @@ Cache the 4 `.grenade-slot` elements at `initHUD()` time. Replace per-frame `que
 
 ## Phase 3: Separate Game State from Rendering (Multiplayer Foundation)
 
+### STATUS: COMPLETED
+
 This is the critical architectural change that enables both online play and cleaner offline code. Currently every mutation function (damage, kill, move, buy) directly touches the DOM. We need to split this into: **state mutation** (portable, can run on server) and **rendering** (client-only, reacts to state).
 
 ### 3A. GameEvent system
