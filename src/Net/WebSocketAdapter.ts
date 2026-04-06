@@ -52,6 +52,9 @@ export class WebSocketAdapter implements NetAdapter {
     // Smoothed reconciliation target for local player
     private _reconTarget: { x: number; y: number } | null = null;
 
+    // Late-join snapshot data (populated when joining a playing game)
+    private _lateJoinPlayers: PlayerSnapshot[] | null = null;
+
     /** Register a callback that fires once when the server signals game start. */
     set onGameStart(cb: (() => void) | null) {
         this._onGameStart = cb;
@@ -108,11 +111,20 @@ export class WebSocketAdapter implements NetAdapter {
         this._localGrenades.clear();
         this._interpTargets.clear();
         this._pendingMove = null;
+        this._lateJoinPlayers = null;
     }
 
     getLocalPlayerId(): number | null {
         return this.localPlayerId;
     }
+
+    getLateJoinPlayers(): PlayerSnapshot[] | null {
+        const data = this._lateJoinPlayers;
+        this._lateJoinPlayers = null;
+        return data;
+    }
+
+    onPlayerJoined: ((player: PlayerSnapshot) => void) | null = null;
 
     private ensurePlayerState(playerId: number): PlayerGameState {
         let state = this._playerStates.get(playerId);
@@ -307,6 +319,17 @@ export class WebSocketAdapter implements NetAdapter {
                 this.connected = true;
                 this.localPlayerId = msg.playerId;
                 setLocalPlayerId(msg.playerId);
+                // Late join: server sent current players and phase='playing'
+                if ((msg as any).phase === 'playing' && msg.players.length > 0) {
+                    this._lateJoinPlayers = msg.players;
+                    this._matchActive = true;
+                    this._roundActive = true;
+                    hideLobbyScreen();
+                    if (this._onGameStart) {
+                        this._onGameStart();
+                        this._onGameStart = null;
+                    }
+                }
                 break;
             case 'events':
                 console.log('[CLIENT] events received:', msg.events.length, msg.events.map((e: any) => e.type));
@@ -457,6 +480,10 @@ export class WebSocketAdapter implements NetAdapter {
                 }
                 break;
             case 'player_joined':
+                if (msg.player && this.onPlayerJoined) {
+                    this.onPlayerJoined(msg.player);
+                }
+                break;
             case 'player_left':
                 break;
         }

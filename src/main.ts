@@ -117,9 +117,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function spawnOnlinePlayers() {
+        const localId = webSocketAdapter.getLocalPlayerId();
+
+        // Late join: use snapshot data from server
+        const lateJoinPlayers = webSocketAdapter.getLateJoinPlayers();
+        if (lateJoinPlayers) {
+            for (const sp of lateJoinPlayers) {
+                const info: player_info = {
+                    id: sp.id,
+                    name: sp.name,
+                    team: sp.team,
+                    current_position: { x: sp.x, y: sp.y, rotation: sp.rotation },
+                    health: sp.health,
+                    armour: sp.armour,
+                    dead: sp.dead,
+                    weapons: sp.weapons,
+                    grenades: sp.grenades,
+                };
+                createPlayer(info, sp.id === localId);
+            }
+            return;
+        }
+
+        // Normal lobby start
         const lobby = getLobbyState();
         if (!lobby) return;
-        const localId = webSocketAdapter.getLocalPlayerId();
         for (const lp of lobby.players) {
             const spawns = ACTIVE_MAP.teamSpawns[lp.team] ?? Object.values(ACTIVE_MAP.teamSpawns).flat();
             const spawn = spawns[0];
@@ -190,6 +212,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         setAdapter(webSocketAdapter);
         stopMenuMusic();
         document.body.style.cursor = 'none';
+    };
+
+    // When a new player joins mid-game, create their DOM element
+    webSocketAdapter.onPlayerJoined = (snapshot) => {
+        const info: player_info = {
+            id: snapshot.id,
+            name: snapshot.name,
+            team: snapshot.team,
+            current_position: { x: snapshot.x, y: snapshot.y, rotation: snapshot.rotation },
+            health: snapshot.health,
+            armour: snapshot.armour,
+            dead: snapshot.dead,
+            weapons: snapshot.weapons,
+            grenades: snapshot.grenades,
+        };
+        createPlayer(info, false);
     };
 
     await hideLoadingScreen();

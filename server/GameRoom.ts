@@ -49,6 +49,79 @@ export class GameRoom {
             this.hostConnId = conn.id;
         }
 
+        if (this.phase === 'playing') {
+            // Late join: add player to sim as dead, send full game state
+            const spawns = Arena.teamSpawns[team] ?? Arena.teamSpawns[1];
+            const spawn = spawns[(id - 1) % spawns.length];
+            const playerInfo: player_info = {
+                id,
+                name,
+                team,
+                dead: true,
+                health: 0,
+                armour: 0,
+                current_position: { x: spawn.x, y: spawn.y, rotation: 0 },
+                weapons: [createDefaultWeapon()],
+                grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
+            };
+            this.sim.addPlayer(playerInfo);
+
+            // Send welcome with current player list
+            const currentPlayers = this.sim.getPlayers().map((p) => {
+                const state = this.sim.getPlayerState(p.id);
+                return {
+                    id: p.id,
+                    name: p.name,
+                    team: p.team,
+                    x: p.current_position.x,
+                    y: p.current_position.y,
+                    rotation: p.current_position.rotation,
+                    health: p.health,
+                    armour: p.armour,
+                    dead: p.dead,
+                    money: state?.money ?? 0,
+                    weapons: p.weapons,
+                    grenades: p.grenades,
+                };
+            });
+
+            conn.send(JSON.stringify({
+                v: 1,
+                t: 'welcome',
+                playerId: id,
+                mapData: {
+                    version: 1,
+                    name: this.mapName,
+                    width: 3000,
+                    height: 3000,
+                    teamSpawns: Arena.teamSpawns,
+                    patrolPoints: Arena.patrolPoints,
+                    walls: Arena.walls.map((w) => ({ x: w.x, y: w.y, width: w.width, height: w.height, type: w.type })),
+                },
+                config: this.config,
+                players: currentPlayers,
+                isHost: false,
+                phase: this.phase,
+            }));
+
+            // Notify existing players
+            this.broadcast({ v: 1, t: 'player_joined', player: {
+                id,
+                name,
+                team,
+                x: spawn.x,
+                y: spawn.y,
+                rotation: 0,
+                health: 0,
+                armour: 0,
+                dead: true,
+                money: 0,
+                weapons: playerInfo.weapons,
+                grenades: playerInfo.grenades,
+            } });
+            return;
+        }
+
         // Send welcome
         conn.send(JSON.stringify({
             v: 1,
@@ -138,6 +211,17 @@ export class GameRoom {
 
         if (this.phase === 'lobby' || this.phase === 'starting') {
             this.broadcastLobbyState();
+        }
+    }
+
+    isEmpty(): boolean {
+        return this.players.size === 0;
+    }
+
+    destroy(): void {
+        if (this.countdownTimer) {
+            clearInterval(this.countdownTimer);
+            this.countdownTimer = null;
         }
     }
 

@@ -45,6 +45,11 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
         room.onPlayerLeave(conn);
+        if (room.isEmpty()) {
+            room.destroy();
+            rooms.delete(roomId);
+            console.log(`[SERVER] Room '${roomId}' culled (empty)`);
+        }
     });
 });
 

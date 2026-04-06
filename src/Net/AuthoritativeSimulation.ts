@@ -100,6 +100,30 @@ export class AuthoritativeSimulation {
         }
     }
 
+    addPlayer(player: player_info) {
+        this.players.push(player);
+        this.weaponStates.set(player.id, {
+            lastFireTime: 0,
+            consecutiveShots: 0,
+            recoilResetTime: 0,
+            reloadStartTime: 0,
+            nextShellTime: 0,
+        });
+        this.respawnStates.set(player.id, { deathTime: 0 });
+        if (this.match.active) {
+            this.match.playerStates.set(player.id, {
+                playerId: player.id,
+                kills: 0,
+                deaths: 0,
+                money: getConfig().economy.startingMoney,
+                points: 0,
+            });
+            if (!this.match.teamRoundWins[player.team]) {
+                this.match.teamRoundWins[player.team] = 0;
+            }
+        }
+    }
+
     getPlayers(): player_info[] {
         return this.players;
     }

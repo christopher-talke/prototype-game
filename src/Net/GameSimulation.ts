@@ -474,7 +474,7 @@ export class GameSimulation {
             const rad = (angleDeg * Math.PI) / 180;
             const dx = Math.cos(rad);
             const dy = Math.sin(rad);
-            events.push(...this.spawnBullet(ownerId, x, y, dx, dy, def.shrapnelSpeed, def.shrapnelDamage));
+            events.push(...this.spawnBullet(ownerId, x, y, dx, dy, def.shrapnelSpeed, def.shrapnelDamage, 'SHRAPNEL'));
         }
 
         return events;

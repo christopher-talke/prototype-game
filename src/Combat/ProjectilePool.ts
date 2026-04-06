@@ -15,18 +15,19 @@ export function initProjectilePool() {
     }
 }
 
-export function acquireProjectile(isSniper: boolean): { element: HTMLElement; poolIndex: number } | null {
+export function acquireProjectile(weaponType?: string): { element: HTMLElement; poolIndex: number } | null {
     if (freeStack.length === 0) return null;
     const poolIndex = freeStack.pop()!;
     const element = poolElements[poolIndex];
     element.style.display = '';
-    if (isSniper) element.classList.add('projectile-sniper');
+    if (weaponType === 'SNIPER') element.classList.add('projectile-sniper');
+    else if (weaponType === 'SHRAPNEL') element.classList.add('projectile-shrapnel');
     return { element, poolIndex };
 }
 
 export function releaseProjectile(poolIndex: number) {
     const element = poolElements[poolIndex];
     element.style.display = 'none';
-    element.classList.remove('projectile-sniper');
+    element.classList.remove('projectile-sniper', 'projectile-shrapnel');
     freeStack.push(poolIndex);
 }

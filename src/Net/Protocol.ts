@@ -84,6 +84,7 @@ export type ServerMessage =
           config: GameModeConfig;
           players: PlayerSnapshot[];
           isHost?: boolean;
+          phase?: string;
       }
     | { v: 1; t: 'player_joined'; player: PlayerSnapshot }
     | { v: 1; t: 'player_left'; playerId: number }

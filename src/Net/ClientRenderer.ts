@@ -25,8 +25,12 @@ class ClientRendererImpl {
     private healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
     private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
     private lastFireSoundTime = new Map<number, number>(); // ownerId -> timestamp (dedup for shotgun)
+    private detonatedGrenades = new Set<number>(); // prevent duplicate detonation effects
+    private initialized = false;
 
     init() {
+        if (this.initialized) return;
+        this.initialized = true;
         gameEventBus.subscribe((event) => this.handleEvent(event));
     }
 
@@ -118,7 +122,10 @@ class ClientRendererImpl {
     // -- Bullet rendering --
 
     private onBulletSpawn(event: BulletSpawnEvent) {
-        const acquired = acquireProjectile(event.weaponType === 'SNIPER');
+        // Skip rendering shrapnel bullets (no weaponType) - they're server-side damage mechanics
+        if (!event.weaponType) return;
+
+        const acquired = acquireProjectile(event.weaponType);
         if (acquired) {
             acquired.element.style.transform = `translate3d(${event.x}px, ${event.y}px, 0)`;
             this.bulletElements.set(event.bulletId, acquired);
@@ -233,6 +240,9 @@ class ClientRendererImpl {
     }
 
     private onGrenadeDetonate(event: GrenadeDetonateEvent) {
+        if (this.detonatedGrenades.has(event.grenadeId)) return;
+        this.detonatedGrenades.add(event.grenadeId);
+
         switch (event.grenadeType) {
             case 'FRAG':
                 this.spawnExplosionRing(event.x, event.y, event.radius, false);
@@ -307,6 +317,7 @@ class ClientRendererImpl {
             el.remove();
         }
         this.corpseMarkers.length = 0;
+        this.detonatedGrenades.clear();
     }
 
     // -- Helpers --

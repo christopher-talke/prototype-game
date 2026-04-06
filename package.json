@@ -6,6 +6,7 @@
     "license": "MIT - Custom License (see LICENSE file)",
     "scripts": {
         "dev": "vite",
+        "dev:ws": "tsx server/ws-server.ts",
         "format": "prettier --write .",
         "build": "tsc && vite build",
         "preview": "vite preview"
