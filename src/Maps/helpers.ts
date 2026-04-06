@@ -1,9 +1,7 @@
 import { Arena } from './arena';
-import { LOSShowcase } from './showcase';
 
 const MAPS: Record<string, MapData> = {
     Arena,
-    LOSShowcase,
 };
 
 let activeMap: MapData = Arena;

@@ -2,7 +2,8 @@ import './aimline.css';
 import { app } from '../main';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { angleToRadians } from '../Utilities/angleToRadians';
-import { getActiveWeapon, getConsecutiveShots } from '../Combat/shooting';
+import { getActiveWeapon } from '../Combat/shooting';
+import { offlineAdapter } from '../Net/OfflineAdapter';
 import { getWeaponDef } from '../Combat/weapons';
 import { raySegmentIntersect } from './Raycast/raycast';
 import { environment } from '../Environment/environment';
@@ -90,7 +91,7 @@ export function updateAimLine(playerInfo: player_info) {
     }
 
     // Spread calculation
-    const shots = getConsecutiveShots();
+    const shots = offlineAdapter.authSim.getConsecutiveShots(playerInfo.id);
     const spreadMult = Math.min(1 + shots * SPREAD_GROWTH_PER_SHOT, MAX_SPREAD_MULTIPLIER);
     const baseSpread = weaponDef.spread;
     const currentSpread = baseSpread * spreadMult;

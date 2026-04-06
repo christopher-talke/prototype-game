@@ -2,18 +2,16 @@ import { getAngle } from '../Utilities/getAngle';
 import { getDistance } from '../Utilities/getDistance';
 import { isLineBlocked } from '../Player/Raycast/raycast';
 import { environment } from '../Environment/environment';
-import { moveWithCollision } from '../Player/collision';
-import { spawnBullet } from '../Combat/projectiles';
 import { isPlayerDead } from '../Combat/damage';
 import { getActiveWeapon } from '../Combat/shooting';
 import { getWeaponDef, isWeaponAllowed } from '../Combat/weapons';
 import { getPlayerElement, getHealthBarElement } from '../Globals/Players';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { positionHealthBar } from '../Player/player';
-import { buyWeapon, getPlayerState } from '../Combat/gameState';
-import { playSoundAtPlayer, playFootstep } from '../Audio/audio';
-import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
 import { getConfig } from '../Config/activeConfig';
+import { SETTINGS } from '../main';
+import { getActiveMap } from '../Maps/helpers';
+import { offlineAdapter } from '../Net/OfflineAdapter';
 
 const STUCK_THRESHOLD = 2;
 const STUCK_FRAMES_BEFORE_REROUTE = 15;
@@ -48,14 +46,34 @@ const controllers: AIController[] = [];
 
 function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
+
+    const currentMap = getActiveMap();
+    if (currentMap.patrolPoints.length > 0) {
+        return currentMap.patrolPoints;
+    }
+    
     const margin = 300;
     const mapMin = 200;
     const mapMax = 2700;
     for (let i = 0; i < 6; i++) {
-        points.push({
+
+        const newPoint = {
             x: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
             y: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
-        });
+        }
+
+        if (SETTINGS.debug) { // Show patrol points for debugging
+            const el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.width = '10px';
+            el.style.height = '10px';
+            el.style.backgroundColor = 'purple';
+            el.style.left = `${newPoint.x - 5}px`;
+            el.style.top = `${newPoint.y - 5}px`;
+            document.body.appendChild(el);
+        }
+
+        points.push(newPoint);
     }
     return points;
 }
@@ -121,12 +139,9 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
 
     // If currently unsticking, just walk in the random direction
     if (timestamp < ai.unstickUntil) {
-        const aiSpeed = getConfig().ai.speed;
-        const dx = Math.cos(ai.unstickAngle) * aiSpeed;
-        const dy = Math.sin(ai.unstickAngle) * aiSpeed;
-        const result = moveWithCollision(me.current_position.x, me.current_position.y, dx, dy);
-        me.current_position.x = result.x;
-        me.current_position.y = result.y;
+        const dx = Math.cos(ai.unstickAngle);
+        const dy = Math.sin(ai.unstickAngle);
+        offlineAdapter.sendInput({ type: 'MOVE', playerId: me.id, dx, dy });
         updateElement(ai);
         return;
     }
@@ -285,25 +300,22 @@ function doSearch(ai: AIController, _timestamp: number) {
     turnToward(ai, ai.targetLastPos.x, ai.targetLastPos.y);
 }
 
-function moveToward(ai: AIController, tx: number, ty: number, speed: number) {
+function moveToward(ai: AIController, tx: number, ty: number, _speed: number) {
     const me = ai.player;
     const myCx = me.current_position.x + HALF_HIT_BOX;
     const myCy = me.current_position.y + HALF_HIT_BOX;
 
     const angle = Math.atan2(ty - myCy, tx - myCx);
-    const dx = Math.cos(angle) * speed;
-    const dy = Math.sin(angle) * speed;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
 
-    const prevX = me.current_position.x;
-    const prevY = me.current_position.y;
-    const result = moveWithCollision(me.current_position.x, me.current_position.y, dx, dy);
-    me.current_position.x = result.x;
-    me.current_position.y = result.y;
+    // AI speed is applied by AuthoritativeSimulation via config.player.speed
+    // but AI has its own speed config - scale the input accordingly
+    const aiSpeed = getConfig().ai.speed;
+    const playerSpeed = getConfig().player.speed;
+    const scale = playerSpeed > 0 ? aiSpeed / playerSpeed : 1;
 
-    // Play footstep if actually moved
-    if (result.x !== prevX || result.y !== prevY) {
-        playFootstep(me, performance.now());
-    }
+    offlineAdapter.sendInput({ type: 'MOVE', playerId: me.id, dx: dx * scale, dy: dy * scale });
 }
 
 function turnToward(ai: AIController, tx: number, ty: number) {
@@ -326,94 +338,36 @@ function tryAIFire(ai: AIController, timestamp: number) {
     const weapon = getActiveWeapon(me);
     if (!weapon) return;
 
-    const weaponDef = getWeaponDef(weapon.type);
-
     if (weapon.ammo <= 0 && !weapon.reloading) {
-        weapon.reloading = true;
-        startAIReload(weapon, weaponDef, me);
+        offlineAdapter.sendInput({ type: 'RELOAD', playerId: me.id });
         return;
     }
 
     if (weapon.reloading) {
-        // AI with shell-reload weapons can interrupt reload to fire
+        const weaponDef = getWeaponDef(weapon.type);
         if (weaponDef.shellReloadTime && weapon.ammo > 0) {
-            weapon.reloading = false;
+            // Let fire input interrupt shell reload
         } else {
             return;
         }
     }
-    if (timestamp - ai.lastFireTime < weaponDef.fireRate) return;
 
-    ai.lastFireTime = timestamp;
-    weapon.ammo--;
-
-    playSoundAtPlayer(getWeaponSoundId(weapon.type), me);
-
-    const centerX = me.current_position.x + HALF_HIT_BOX;
-    const centerY = me.current_position.y + HALF_HIT_BOX;
-    const aimAngle = me.current_position.rotation - ROTATION_OFFSET;
-
-    const aiSpread = weaponDef.spread + 3;
-
-    for (let p = 0; p < weaponDef.pellets; p++) {
-        const bulletAngle = aimAngle + (Math.random() - 0.5) * aiSpread;
-        spawnBullet(me.id, centerX, centerY, bulletAngle, weaponDef.bulletSpeed, weaponDef.damage, weaponDef.id);
-    }
-
-    if (weapon.ammo <= 0) {
-        weapon.reloading = true;
-        startAIReload(weapon, weaponDef, me);
-    }
-
-    // Mechanical sound (shotgun pump, sniper bolt, etc.)
-    if (weaponDef.mechanicalSound && weaponDef.mechanicalDelay && weapon.ammo > 0) {
-        const soundId = weaponDef.mechanicalSound;
-        const player = me;
-        setTimeout(() => {
-            playSoundAtPlayer(soundId, player);
-        }, weaponDef.mechanicalDelay);
-    }
-}
-
-function startAIReload(weapon: PlayerWeapon, weaponDef: WeaponDef, player: player_info) {
-    if (weaponDef.shellReloadTime) {
-        // Shell-by-shell reload
-        loadAIShell(weapon, weaponDef, player);
-    } else {
-        playSoundAtPlayer(getWeaponReloadSoundId(weapon.type), player);
-        setTimeout(() => {
-            weapon.ammo = weapon.maxAmmo;
-            weapon.reloading = false;
-        }, weaponDef.reloadTime);
-    }
-}
-
-function loadAIShell(weapon: PlayerWeapon, weaponDef: WeaponDef, player: player_info) {
-    playSoundAtPlayer('shotgun_shell', player);
-
-    setTimeout(() => {
-        if (!weapon.reloading) return; // cancelled by firing
-        weapon.ammo++;
-        if (weapon.ammo < weapon.maxAmmo) {
-            loadAIShell(weapon, weaponDef, player);
-        } else {
-            weapon.reloading = false;
-        }
-    }, weaponDef.shellReloadTime!);
+    // Send fire input - AuthoritativeSimulation handles fire rate, ammo, recoil
+    // Sound is played by ClientRenderer.onBulletSpawn
+    offlineAdapter.sendInput({ type: 'FIRE', playerId: me.id, timestamp });
 }
 
 function tryBuyWeapon(ai: AIController) {
-    const state = getPlayerState(ai.player.id);
+    const state = offlineAdapter.authSim.getPlayerState(ai.player.id);
     if (!state) return;
 
     for (const weaponType of BUY_PRIORITY) {
         if (!isWeaponAllowed(weaponType)) continue;
         const def = getWeaponDef(weaponType);
         if (state.money >= def.price) {
-            if (buyWeapon(ai.player.id, weaponType, ai.player)) {
-                ai.hasBought = true;
-                return;
-            }
+            offlineAdapter.sendInput({ type: 'BUY_WEAPON', playerId: ai.player.id, weaponType });
+            ai.hasBought = true;
+            return;
         }
     }
 }

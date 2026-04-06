@@ -18,6 +18,10 @@ export function registerWallAABB(x: number, y: number, w: number, h: number) {
     wallAABBs.push({ x, y, w, h });
 }
 
+export function getWallAABBs(): readonly { x: number; y: number; w: number; h: number }[] {
+    return wallAABBs;
+}
+
 /**
  * Checks if a point collides with any registered wall's axis-aligned bounding box (AABB).
  * @param px The x-coordinate of the point.

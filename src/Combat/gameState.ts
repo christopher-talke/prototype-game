@@ -18,13 +18,13 @@ let matchWinner: number | null = null;
 
 // Kill feed callback - set by HUD
 let onKillCallback: ((killerName: string, victimName: string, weaponType: string) => void) | null = null;
-let onRoundEndCallback: ((winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) => void) | null = null;
+let onRoundEndCallback: ((winningTeam: number, teamWins: Record<number, number>, isFinal: boolean) => void) | null = null;
 
 export function setOnKillCallback(cb: (killerName: string, victimName: string, weaponType: string) => void) {
     onKillCallback = cb;
 }
 
-export function setOnRoundEndCallback(cb: (winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) => void) {
+export function setOnRoundEndCallback(cb: (winningTeam: number, teamWins: Record<number, number>, isFinal: boolean) => void) {
     onRoundEndCallback = cb;
 }
 
@@ -142,8 +142,12 @@ export function getCurrentRound(): number {
     return currentRound;
 }
 
-export function getTeamRoundWins(): Map<number, number> {
-    return teamRoundWins;
+export function getTeamRoundWins(): Record<number, number> {
+    const result: Record<number, number> = {};
+    for (const [team, wins] of teamRoundWins) {
+        result[team] = wins;
+    }
+    return result;
 }
 
 export function getMatchWinner(): number | null {
@@ -173,8 +177,13 @@ function endRound() {
         matchWinner = bestTeam;
     }
 
+    const teamWinsRecord: Record<number, number> = {};
+    for (const [team, wins2] of teamRoundWins) {
+        teamWinsRecord[team] = wins2;
+    }
+
     if (onRoundEndCallback) {
-        onRoundEndCallback(bestTeam, teamRoundWins, isFinal);
+        onRoundEndCallback(bestTeam, teamWinsRecord, isFinal);
     }
 
     // Start next round after intermission (unless match is over)

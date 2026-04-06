@@ -4,24 +4,27 @@
 import '../Combat/combat.css';
 import '../Combat/grenade.css';
 import { gameEventBus, type GameEvent } from './GameEvent';
-import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent } from './GameEvent';
-import { simulation } from './GameSimulation';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent } from './GameEvent';
 import { acquireProjectile, releaseProjectile } from '../Combat/ProjectilePool';
 import { ACTIVE_PLAYER, getPlayerElement, getPlayerInfo, getHealthBarElement } from '../Globals/Players';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { removeLastKnownForPlayer } from '../Player/lineOfSight';
-import { recordKill } from '../Combat/gameState';
 import { playSoundAtPlayer, playSound } from '../Audio/audio';
-import { showHitMarker, spawnDamageNumber, showDamageIndicator } from '../HUD/hud';
+import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
+import { getActiveWeapon } from '../Combat/shooting';
+import { getWeaponDef } from '../Combat/weapons';
+import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '../HUD/hud';
 import { spawnSmoke } from '../Combat/smoke';
 import { app } from '../main';
 import { getConfig } from '../Config/activeConfig';
+import { offlineAdapter } from './OfflineAdapter';
 
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
     private grenadeElements = new Map<number, HTMLElement>();
     private healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
     private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
+    private lastFireSoundTime = new Map<number, number>(); // ownerId -> timestamp (dedup for shotgun)
 
     init() {
         gameEventBus.subscribe((event) => this.handleEvent(event));
@@ -68,21 +71,31 @@ class ClientRendererImpl {
             case 'SMOKE_DEPLOY':
                 this.onSmokeDeploy(event);
                 break;
+            case 'KILL_FEED':
+                this.onKillFeed(event);
+                break;
             case 'ROUND_START':
                 this.onRoundStart();
+                break;
+            case 'ROUND_END':
+                this.onRoundEnd(event);
+                break;
+            case 'RELOAD_START':
+                this.onReloadStart(event);
                 break;
         }
     }
 
     // Called each frame after simulation tick to sync DOM positions
     updateVisuals() {
-        for (const p of simulation.getProjectiles()) {
+        const sim = offlineAdapter.authSim.simulation;
+        for (const p of sim.getProjectiles()) {
             const entry = this.bulletElements.get(p.id);
             if (entry) {
                 entry.element.style.transform = `translate3d(${Math.round(p.x)}px, ${Math.round(p.y)}px, 0)`;
             }
         }
-        for (const g of simulation.getGrenades()) {
+        for (const g of sim.getGrenades()) {
             const el = this.grenadeElements.get(g.id);
             if (el && !g.detonated) {
                 el.style.transform = `translate3d(${Math.round(g.x)}px, ${Math.round(g.y)}px, 0)`;
@@ -97,6 +110,25 @@ class ClientRendererImpl {
         if (acquired) {
             acquired.element.style.transform = `translate3d(${event.x}px, ${event.y}px, 0)`;
             this.bulletElements.set(event.bulletId, acquired);
+        }
+
+        // Play weapon fire sound (deduplicated for shotgun pellets)
+        const now = performance.now();
+        const lastSound = this.lastFireSoundTime.get(event.ownerId) ?? 0;
+        if (now - lastSound > 30) {
+            this.lastFireSoundTime.set(event.ownerId, now);
+            const owner = getPlayerInfo(event.ownerId);
+            if (owner && event.weaponType) {
+                playSoundAtPlayer(getWeaponSoundId(event.weaponType), owner);
+
+                // Mechanical sound (shotgun pump, sniper bolt)
+                const weaponDef = getWeaponDef(event.weaponType);
+                const weapon = getActiveWeapon(owner);
+                if (weaponDef.mechanicalSound && weaponDef.mechanicalDelay && weapon && weapon.ammo > 0) {
+                    const soundId = weaponDef.mechanicalSound;
+                    setTimeout(() => playSoundAtPlayer(soundId, owner), weaponDef.mechanicalDelay);
+                }
+            }
         }
     }
 
@@ -158,14 +190,13 @@ class ClientRendererImpl {
         this.corpseMarkers.push({ el: corpse, timer: corpseTimer });
 
         removeLastKnownForPlayer(event.targetId);
-        recordKill(event.killerId, event.targetId);
 
-        setTimeout(() => {
-            if (target.dead) {
-                const events = simulation.respawnPlayer(target);
-                gameEventBus.emitAll(events);
-            }
-        }, getConfig().player.respawnTime);
+        // Record kill and emit kill feed through AuthoritativeSimulation
+        const killEvents = offlineAdapter.authSim.recordKill(event.killerId, event.targetId);
+        gameEventBus.emitAll(killEvents);
+
+        // Notify death for respawn tracking (AuthoritativeSimulation.tick handles respawn)
+        offlineAdapter.authSim.notifyPlayerDeath(event.targetId, performance.now());
     }
 
     private onPlayerRespawn(event: PlayerRespawnEvent) {
@@ -244,7 +275,26 @@ class ClientRendererImpl {
         spawnSmoke(event.x, event.y, event.radius, event.duration);
     }
 
-    // -- Round events --
+    // -- Reload --
+
+    private onReloadStart(event: ReloadStartEvent) {
+        const player = getPlayerInfo(event.playerId);
+        if (!player) return;
+        const weapon = getActiveWeapon(player);
+        if (weapon) {
+            playSoundAtPlayer(getWeaponReloadSoundId(weapon.type), player);
+        }
+    }
+
+    // -- Match events --
+
+    private onKillFeed(event: KillFeedEvent) {
+        addKillFeedEntry(event.killerName, event.victimName, event.weaponType);
+    }
+
+    private onRoundEnd(event: RoundEndEvent) {
+        showRoundEndBanner(event.winningTeam, event.teamWins, event.isFinal);
+    }
 
     private onRoundStart() {
         for (const { el, timer } of this.corpseMarkers) {

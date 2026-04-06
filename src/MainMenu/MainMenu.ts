@@ -1,6 +1,9 @@
 import './menu.css';
 import { GAME_MODES } from '../Config/modes/index';
 import { toggleSettings } from '../Settings/settings';
+import { webSocketAdapter } from '../Net/WebSocketAdapter';
+import { showLobbyScreen } from '../Net/LobbyScreen';
+import { getConfig } from '../Config/activeConfig';
 
 type Screen = 'main' | 'mode-select' | 'how-to-play';
 
@@ -43,6 +46,29 @@ function wireEvents() {
 
     // Main screen
     menuEl.querySelector('#btn-offline')?.addEventListener('click', () => showScreen('mode-select'));
+    menuEl.querySelector('#btn-online')?.addEventListener('click', async () => {
+        const roomCode = window.prompt('Enter room code', 'default')?.trim();
+        if (!roomCode) return;
+        const name = window.prompt('Enter player name', 'Player')?.trim() || 'Player';
+
+        try {
+            await webSocketAdapter.connect(`ws://localhost:8080/room/${encodeURIComponent(roomCode)}`, name);
+            const localPlayerId = webSocketAdapter.getLocalPlayerId() ?? 0;
+            hideMainMenu();
+            showLobbyScreen(localPlayerId, {
+                host: localPlayerId,
+                players: [],
+                config: getConfig(),
+                mapName: 'Arena',
+                started: false,
+            });
+        } catch {
+            window.alert('Could not connect to multiplayer server.');
+        }
+    });
+    menuEl.querySelector('#btn-editor')?.addEventListener('click', () => {
+        window.location.href = '/editor.html';
+    });
     menuEl.querySelector('#btn-settings')?.addEventListener('click', toggleSettings);
     menuEl.querySelector('#btn-howto')?.addEventListener('click', () => showScreen('how-to-play'));
 
@@ -84,14 +110,12 @@ function buildMainScreen(): string {
                 Offline
             </button>
 
-            <button class="menu-btn disabled">
+            <button id="btn-online" class="menu-btn">
                 Online
-                <span class="menu-btn-tag">COMING SOON</span>
             </button>
 
-            <button class="menu-btn disabled">
+            <button id="btn-editor" class="menu-btn">
                 Map Editor
-                <span class="menu-btn-tag">COMING SOON</span>
             </button>
 
             <button id="btn-settings" class="menu-btn">

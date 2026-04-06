@@ -4,6 +4,38 @@
 // Cover objects in open areas, no tight pinch points
 
 export const Arena: MapData = {
+    patrolPoints: [
+        // Patrol points in corridors
+        { x: 1100, y: 300 }, // top corridor
+        { x: 1100, y: 700 },
+        { x: 1100, y: 1200 },
+        { x: 1100, y: 1600 },
+        { x: 1100, y: 2000 },
+
+        { x: 1900, y: 300 }, // top corridor
+        { x: 1900, y: 700 },
+        { x: 1900, y: 1200 },
+        { x: 1900, y: 1600 },
+        { x: 1900, y: 2000 },
+
+        { x: 300, y: 1100 }, // left corridor
+        { x: 700, y: 1100 },
+        { x: 1200, y: 1100 },
+        { x: 1600, y: 1100 },
+        { x: 2000, y: 1100 },
+
+        { x: 300, y: 1900 }, // right corridor
+        { x: 700, y: 1900 },
+        { x: 1200, y: 1900 },
+        { x: 1600, y: 1900 },
+        { x: 2000, y: 1900 },
+
+        // Patrol points in center plaza
+        { x: 1300, y: 1300 },
+        { x: 1700, y: 1300 },
+        { x: 1300, y: 1700 },
+        { x: 1700, y: 1700 },
+    ],
     teamSpawns: {
         1: [
             { x: 440, y: 440 }, // top-left room

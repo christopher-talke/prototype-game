@@ -1,7 +1,7 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS, isWeaponAllowed } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound, buyHealth, buyArmor } from '../Combat/gameState';
+import { offlineAdapter } from '../Net/OfflineAdapter';
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
@@ -242,7 +242,7 @@ export function initHUD() {
 }
 
 export function updateHUD(playerInfo: player_info, timeRemaining: number) {
-    const state = getPlayerState(playerInfo.id);
+    const state = offlineAdapter.authSim.getPlayerState(playerInfo.id);
     if (!state) return;
 
     // Health bar
@@ -287,9 +287,9 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     timerDisplay.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
 
     // Round score
-    const wins = getTeamRoundWins();
-    const round = getCurrentRound();
-    const winsArr = Array.from(wins.entries()).sort((a, b) => a[0] - b[0]);
+    const wins = offlineAdapter.authSim.getTeamRoundWins();
+    const round = offlineAdapter.authSim.getCurrentRound();
+    const winsArr = Object.entries(wins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
     const winsText = winsArr.map(([t, w]) => `T${t}: ${w}`).join('  ');
     roundScoreDisplay.textContent = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
 
@@ -356,7 +356,7 @@ export function closeBuyMenu() {
 }
 
 function renderBuyMenu(playerInfo: player_info) {
-    const state = getPlayerState(playerInfo.id);
+    const state = offlineAdapter.authSim.getPlayerState(playerInfo.id);
     if (!state) return;
 
     buyMenuGrid.innerHTML = '';
@@ -374,8 +374,8 @@ function renderBuyMenu(playerInfo: player_info) {
     }
 
     const healthAndArmour =  [
-        ['Health', getConfig().economy.healthCost, () => buyHealth(playerInfo.id, playerInfo)],
-        ['Armor', getConfig().economy.armorCost, () => buyArmor(playerInfo.id, playerInfo)],
+        ['Health', getConfig().economy.healthCost, () => offlineAdapter.authSim.buyHealth(playerInfo.id)],
+        ['Armor', getConfig().economy.armorCost, () => offlineAdapter.authSim.buyArmor(playerInfo.id)],
     ] as [string, number, () => void][];
     for (const [label, cost, buy] of healthAndArmour) {
         const item = document.createElement('div');
@@ -416,7 +416,7 @@ function renderBuyMenu(playerInfo: player_info) {
 
         item.addEventListener('click', () => {
             if (state.money >= wDef.price) {
-                buyWeapon(playerInfo.id, wDef.id, playerInfo);
+                offlineAdapter.sendInput({ type: 'BUY_WEAPON', playerId: playerInfo.id, weaponType: wDef.id });
                 renderBuyMenu(playerInfo); // Re-render to update money
             }
         });
@@ -445,7 +445,7 @@ function renderBuyMenu(playerInfo: player_info) {
 
         item.addEventListener('click', () => {
             if (!owned && state.money >= gDef.price) {
-                buyGrenade(playerInfo.id, gDef.id, playerInfo);
+                offlineAdapter.sendInput({ type: 'BUY_GRENADE', playerId: playerInfo.id, grenadeType: gDef.id });
                 renderBuyMenu(playerInfo);
             }
         });
@@ -536,14 +536,14 @@ export function hideLeaderboard() {
  * @param isFinal Whether this round is the final round of the match.
  * @returns void
  */
-export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) {
+export function showRoundEndBanner(winningTeam: number, teamWins: Record<number, number>, isFinal: boolean) {
     if (isFinal) {
         showMatchEndOverlay(winningTeam, teamWins);
         return;
     }
 
     const sub = document.getElementById('round-banner-sub')!;
-    const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
+    const winsArr = Object.entries(teamWins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
     const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
     sub.innerHTML = `Team ${winningTeam} wins!<br /><br />${scoreText}`;
 
@@ -575,12 +575,12 @@ export function hideMatchEndOverlay() {
  * @param winningTeam The team that won the match.
  * @param teamWins A map of team IDs to their respective win counts.
  */
-function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>) {
+function showMatchEndOverlay(winningTeam: number, teamWins: Record<number, number>) {
     const winnerEl = document.getElementById('match-end-winner')!;
     const scoreEl = document.getElementById('match-end-score')!;
     winnerEl.innerHTML = `Team ${winningTeam} wins the match!`;
 
-    const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
+    const winsArr = Object.entries(teamWins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
     scoreEl.innerHTML = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
 
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
@@ -601,7 +601,7 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>)
  * @returns void
  */
 function renderLeaderboard() {
-    const states = getAllPlayerStates();
+    const states = offlineAdapter.authSim.getAllPlayerStates();
     const players = getAllPlayers();
 
     // Group by team, sort teams by total points, players within each team by points

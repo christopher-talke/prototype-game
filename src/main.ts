@@ -7,8 +7,7 @@ import { drawCollisionOverlay } from './Environment/generateCollisionMap';
 import { environment, generateEnvironment } from './Environment/environment';
 import { createWall } from './Environment/Wall/wall';
 import { MAP_OFFSET } from './constants';
-import { initMatch, endMatch, setOnKillCallback, setOnRoundEndCallback } from './Combat/gameState';
-import { initHUD, addKillFeedEntry, showRoundEndBanner, setOnReturnToMenuCallback, hideMatchEndOverlay } from './HUD/hud';
+import { initHUD, setOnReturnToMenuCallback, hideMatchEndOverlay } from './HUD/hud';
 import { getActiveMap } from './Maps/helpers';
 import { registerAI } from './AI/ai';
 import { resumeAudioContext, playMenuMusic, stopMenuMusic } from './Audio/audio';
@@ -19,6 +18,10 @@ import { getConfig, setGameMode } from './Config/activeConfig';
 import { showMainMenu, hideMainMenu } from './MainMenu/MainMenu';
 import { GAME_MODES_MAP } from './Config/modes/index';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from './Loading/LoadingScreen';
+import { offlineAdapter } from './Net/OfflineAdapter';
+import { getWallAABBs } from './Player/collision';
+import { getAllPlayers } from './Globals/Players';
+import { gameEventBus } from './Net/GameEvent';
 
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
@@ -85,8 +88,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setLoadingProgress(60, 'initializing hud');
     initHUD();
-    setOnKillCallback(addKillFeedEntry);
-    setOnRoundEndCallback(showRoundEndBanner);
     await nextFrame();
 
     setLoadingProgress(70, 'loading sounds');
@@ -98,17 +99,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     resumeAudioContext();
     playMenuMusic();
 
+    // Wire up AuthoritativeSimulation with map data after walls are built
+    const authSim = offlineAdapter.authSim;
+    authSim.setMap(
+        [...getWallAABBs()],
+        { ...environment.limits },
+        [...environment.segments],
+        ACTIVE_MAP.teamSpawns,
+        ACTIVE_MAP.patrolPoints,
+    );
+    authSim.setPlayers(getAllPlayers());
+
     function launchMatch(modeId: string) {
         const entry = GAME_MODES_MAP.get(modeId);
         if (entry) setGameMode(entry.partial);
         stopMenuMusic();
-        initMatch(PLAYERS.map((p) => p.id));
+        const playerIds = getAllPlayers().map((p) => p.id);
+        authSim.initMatch(playerIds);
+        const events = authSim.startRound();
+        gameEventBus.emitAll(events);
         hideMainMenu();
         document.body.style.cursor = 'none';
     }
 
     function returnToMenu() {
-        endMatch();
+        authSim.endMatch();
         hideMatchEndOverlay();
         document.body.style.cursor = 'auto';
         playMenuMusic();

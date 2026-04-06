@@ -160,7 +160,7 @@ export type RoundStartEvent = {
 export type RoundEndEvent = {
     type: 'ROUND_END';
     winningTeam: number;
-    teamWins: Map<number, number>;
+    teamWins: Record<number, number>;
     isFinal: boolean;
 };
 
@@ -177,7 +177,16 @@ export type ReloadCompleteEvent = {
 
 // -- Player input (what the client sends to the server) --
 
-export type PlayerInput = { type: 'MOVE'; playerId: number; dx: number; dy: number } | { type: 'ROTATE'; playerId: number; rotation: number } | { type: 'FIRE'; playerId: number; timestamp: number } | { type: 'RELOAD'; playerId: number } | { type: 'SWITCH_WEAPON'; playerId: number; slotIndex: number } | { type: 'THROW_GRENADE'; playerId: number; grenadeType: GrenadeType; chargePercent: number } | { type: 'DETONATE_C4'; playerId: number } | { type: 'BUY_WEAPON'; playerId: number; weaponType: string } | { type: 'BUY_GRENADE'; playerId: number; grenadeType: GrenadeType };
+export type PlayerInput =
+    | { type: 'MOVE'; playerId: number; dx: number; dy: number }
+    | { type: 'ROTATE'; playerId: number; rotation: number }
+    | { type: 'FIRE'; playerId: number; timestamp: number }
+    | { type: 'RELOAD'; playerId: number }
+    | { type: 'SWITCH_WEAPON'; playerId: number; slotIndex: number }
+    | { type: 'THROW_GRENADE'; playerId: number; grenadeType: GrenadeType; chargePercent: number; aimDx: number; aimDy: number }
+    | { type: 'DETONATE_C4'; playerId: number }
+    | { type: 'BUY_WEAPON'; playerId: number; weaponType: string }
+    | { type: 'BUY_GRENADE'; playerId: number; grenadeType: GrenadeType };
 
 // -- Event bus --
 

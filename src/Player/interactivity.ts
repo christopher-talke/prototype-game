@@ -9,16 +9,15 @@ import { HELD_DIRECTIONS, directions } from './player';
 import { generateRayCast, RaycastTypes } from './Raycast/raycast';
 import { toggleSettings, isSettingsOpen, closeSettings } from '../Settings/settings';
 import { getActionForKey } from '../Settings/keybinds';
-import { initShooting, getActiveWeapon } from '../Combat/shooting';
-import { checkMatchTimer, getMatchTimeRemaining, isRoundActive } from '../Combat/gameState';
+import { initShooting, getActiveWeapon, getIsFiring } from '../Combat/shooting';
+import { offlineAdapter } from '../Net/OfflineAdapter';
 import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '../HUD/hud';
 import { isPlayerDead } from '../Combat/damage';
 import { getWeaponDef } from '../Combat/weapons';
 import { updateAllAI } from '../AI/ai';
-import { hasPlacedC4, setMouseWorldPosition } from '../Combat/grenadeProjectiles';
+import { setMouseWorldPosition, getMouseWorldPosition } from '../Combat/grenadeProjectiles';
 import { updateSmokeClouds } from '../Combat/smoke';
 import { clientRenderer } from '../Net/ClientRenderer';
-import { offlineAdapter } from '../Net/OfflineAdapter';
 import { initADS, updateAimLine } from './aimline';
 import { getConfig } from '../Config/activeConfig';
 
@@ -119,7 +118,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         // Grenades - start charging on keydown
         if (action === 'grenade' && !isPlayerDead(playerInfo) && !grenadeCharging) {
             const type = getSelectedGrenadeType();
-            if (type === 'C4' && hasPlacedC4(playerInfo.id)) {
+            if (type === 'C4' && offlineAdapter.authSim.simulation.hasPlacedC4(playerInfo.id)) {
                 offlineAdapter.sendInput({ type: 'DETONATE_C4', playerId: playerInfo.id });
             } else if (playerInfo.grenades[type] > 0) {
                 grenadeCharging = true;
@@ -176,7 +175,18 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             const type = getSelectedGrenadeType();
             const chargePercent = getGrenadeChargePercent();
             grenadeCharging = false;
-            offlineAdapter.sendInput({ type: 'THROW_GRENADE', playerId: playerInfo.id, grenadeType: type, chargePercent });
+
+            // Calculate aim direction from player center to mouse world position
+            const mouseWorld = getMouseWorldPosition();
+            const cx = playerInfo.current_position.x + HALF_HIT_BOX;
+            const cy = playerInfo.current_position.y + HALF_HIT_BOX;
+            const tdx = mouseWorld.x - cx;
+            const tdy = mouseWorld.y - cy;
+            const dist = Math.sqrt(tdx * tdx + tdy * tdy);
+            const aimDx = dist > 0 ? tdx / dist : 0;
+            const aimDy = dist > 0 ? tdy / dist : 0;
+
+            offlineAdapter.sendInput({ type: 'THROW_GRENADE', playerId: playerInfo.id, grenadeType: type, chargePercent, aimDx, aimDy });
         }
 
         renderedPlayerElement.setAttribute('moving', 'false');
@@ -198,8 +208,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             lastTime = timestamp - (deltaTime % targetFrameTime);
 
             if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
-                checkMatchTimer();
-                const roundRunning = isRoundActive();
+                const roundRunning = offlineAdapter.authSim.isRoundActive();
 
                 if (roundRunning && !isPlayerDead(playerInfo)) {
                     const menuOpen = isSettingsOpen() || isBuyMenuOpen() || isPauseOpen();
@@ -208,7 +217,9 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                         if (dx !== 0 || dy !== 0) {
                             offlineAdapter.sendInput({ type: 'MOVE', playerId: playerInfo.id, dx, dy });
                         }
-                        offlineAdapter.sendInput({ type: 'FIRE', playerId: playerInfo.id, timestamp });
+                        if (getIsFiring()) {
+                            offlineAdapter.sendInput({ type: 'FIRE', playerId: playerInfo.id, timestamp });
+                        }
                     }
                 }
 
@@ -247,7 +258,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 
                 updateAimLine(playerInfo);
 
-                updateHUD(playerInfo, getMatchTimeRemaining());
+                updateHUD(playerInfo, offlineAdapter.authSim.getMatchTimeRemaining());
             }
         }
 

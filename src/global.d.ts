@@ -136,6 +136,7 @@ type GrenadeState = {
 
 type MapData = {
     teamSpawns: Record<number, coordinates[]>;
+    patrolPoints: coordinates[];
     walls: wall_info[];
 };
 
