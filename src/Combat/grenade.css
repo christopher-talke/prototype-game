@@ -10,10 +10,22 @@
     pointer-events: none;
 }
 
-.grenade-FRAG { background: #4a7a3a; border: 1px solid #2d4a24; }
-.grenade-FLASH { background: #e0e0e0; border: 1px solid #aaa; }
-.grenade-SMOKE { background: #888; border: 1px solid #666; }
-.grenade-C4 { background: #c43030; border: 1px solid #8a1c1c; }
+.grenade-FRAG {
+    background: #4a7a3a;
+    border: 1px solid #2d4a24;
+}
+.grenade-FLASH {
+    background: #e0e0e0;
+    border: 1px solid #aaa;
+}
+.grenade-SMOKE {
+    background: #888;
+    border: 1px solid #666;
+}
+.grenade-C4 {
+    background: #c43030;
+    border: 1px solid #8a1c1c;
+}
 
 .grenade-C4.placed {
     box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6);
@@ -21,8 +33,13 @@
 }
 
 @keyframes c4-blink {
-    0%, 100% { box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6); }
-    50% { box-shadow: 0 0 2px 1px rgba(255, 60, 60, 0.2); }
+    0%,
+    100% {
+        box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 2px 1px rgba(255, 60, 60, 0.2);
+    }
 }
 
 /* Explosion ring */
@@ -72,8 +89,12 @@
 }
 
 @keyframes flash-fade {
-    0% { opacity: var(--flash-intensity, 1); }
-    100% { opacity: 0; }
+    0% {
+        opacity: var(--flash-intensity, 1);
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
 /* Smoke cloud */
@@ -92,11 +113,23 @@
 }
 
 @keyframes smoke-appear {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 @keyframes smoke-disappear {
-    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
 }

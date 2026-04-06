@@ -1,8 +1,8 @@
 import './settings.css';
-import { SETTINGS } from "../main";
-import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from "../Audio/audio";
-import { removeElements } from "../Utilities/removeElements";
-import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from "./keybinds";
+import { SETTINGS } from '../main';
+import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '../Audio/audio';
+import { removeElements } from '../Utilities/removeElements';
+import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from './keybinds';
 
 let settingsEl: HTMLElement | null = null;
 let isOpen = false;
@@ -53,10 +53,10 @@ function buildSettingsUI() {
     settingsEl.querySelector('#settings-close')!.addEventListener('click', closeSettings);
 
     // Tab switching
-    settingsEl.querySelectorAll('.settings-tab').forEach(tab => {
+    settingsEl.querySelectorAll('.settings-tab').forEach((tab) => {
         tab.addEventListener('click', () => {
-            settingsEl!.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
-            settingsEl!.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+            settingsEl!.querySelectorAll('.settings-tab').forEach((t) => t.classList.remove('active'));
+            settingsEl!.querySelectorAll('.settings-panel').forEach((p) => p.classList.remove('active'));
             tab.classList.add('active');
             const panel = settingsEl!.querySelector(`[data-panel="${tab.getAttribute('data-tab')}"]`);
             panel?.classList.add('active');
@@ -75,14 +75,18 @@ function refreshKeybindsTab() {
     const panel = document.getElementById('settings-controls');
     if (!panel) return;
     const binds = getAllBinds();
-    panel.innerHTML = binds.map(b => `
+    panel.innerHTML = binds
+        .map(
+            (b) => `
         <div class="keybind-row" data-action="${b.action}">
             <span class="keybind-label">${b.label}</span>
             <button class="keybind-btn">${getKeyDisplayName(b.key)}</button>
         </div>
-    `).join('');
+    `,
+        )
+        .join('');
 
-    panel.querySelectorAll('.keybind-btn').forEach(btn => {
+    panel.querySelectorAll('.keybind-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
             cancelListening();
             const row = (e.target as HTMLElement).closest('.keybind-row') as HTMLElement;
@@ -211,4 +215,3 @@ function buildGameTab() {
         }
     });
 }
-

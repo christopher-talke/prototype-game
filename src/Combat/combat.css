@@ -3,7 +3,9 @@
     width: 4px;
     height: 4px;
     background: #ffcc00;
-    box-shadow: 0 0 4px 1px #ffcc00, 0 0 8px 2px rgba(255, 204, 0, 0.25);
+    box-shadow:
+        0 0 4px 1px #ffcc00,
+        0 0 8px 2px rgba(255, 204, 0, 0.25);
     border-radius: 50%;
     pointer-events: none;
     z-index: 50;
@@ -17,7 +19,9 @@
     margin-left: -5px;
     margin-top: -5px;
     background: #fff;
-    box-shadow: 0 0 6px 2px #ffcc00, 0 0 14px 4px rgba(255, 204, 0, 0.4);
+    box-shadow:
+        0 0 6px 2px #ffcc00,
+        0 0 14px 4px rgba(255, 204, 0, 0.4);
 }
 
 /* Damage numbers */
@@ -29,7 +33,9 @@
     font-size: 16px;
     font-weight: bold;
     color: #fff;
-    text-shadow: 0 0 4px #000, 1px 1px 0 #000;
+    text-shadow:
+        0 0 4px #000,
+        1px 1px 0 #000;
     animation: damage-float 0.8s ease-out forwards;
     translate: -50% 0;
     white-space: nowrap;
@@ -38,12 +44,20 @@
 .damage-number.kill {
     color: #ff4040;
     font-size: 20px;
-    text-shadow: 0 0 8px rgba(255, 64, 64, 0.8), 1px 1px 0 #000;
+    text-shadow:
+        0 0 8px rgba(255, 64, 64, 0.8),
+        1px 1px 0 #000;
 }
 
 @keyframes damage-float {
-    0%   { opacity: 1; margin-top: 0; }
-    100% { opacity: 0; margin-top: -40px; }
+    0% {
+        opacity: 1;
+        margin-top: 0;
+    }
+    100% {
+        opacity: 0;
+        margin-top: -40px;
+    }
 }
 
 /* Hit marker on crosshair */
@@ -84,6 +98,10 @@
 }
 
 @keyframes hitmarker-flash {
-    0%   { opacity: 1; }
-    100% { opacity: 0; }
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
 }

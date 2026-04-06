@@ -17,10 +17,7 @@ function normalizeAngle(a: number): number {
 }
 
 function isFacingTarget(sourcePlayerInfo: player_info, targetPlayerInfo: player_info): boolean {
-    const angleToTarget = getAngle(
-        sourcePlayerInfo.current_position.x, sourcePlayerInfo.current_position.y,
-        targetPlayerInfo.current_position.x, targetPlayerInfo.current_position.y
-    );
+    const angleToTarget = getAngle(sourcePlayerInfo.current_position.x, sourcePlayerInfo.current_position.y, targetPlayerInfo.current_position.x, targetPlayerInfo.current_position.y);
     const facingAngle = sourcePlayerInfo.current_position.rotation - ROTATION_OFFSET;
     const diff = normalizeAngle(angleToTarget - facingAngle);
     return diff > -FOV && diff < FOV;
@@ -69,11 +66,14 @@ function showLastKnown(key: string, targetPlayerInfo: player_info) {
     const y = targetPlayerInfo.current_position.y + HALF_HIT_BOX - 10;
     el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 
-    lastKnownTimers.set(key, setTimeout(() => {
-        if (el) el.style.opacity = '0';
-        // Remove from DOM after CSS transition completes
-        setTimeout(() => removeLastKnown(key), 500);
-    }, LAST_KNOWN_FADE_DURATION));
+    lastKnownTimers.set(
+        key,
+        setTimeout(() => {
+            if (el) el.style.opacity = '0';
+            // Remove from DOM after CSS transition completes
+            setTimeout(() => removeLastKnown(key), 500);
+        }, LAST_KNOWN_FADE_DURATION),
+    );
 }
 
 function removeLastKnown(key: string) {
@@ -111,7 +111,6 @@ export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info
 
     const existingLosEl = document.getElementById(`los-${targetPlayerInfo.id}-${sourcePlayerInfo.id}`);
     if (!existingLosEl) {
-
         const newLosEntity = window.document.createElement('div');
         newLosEntity.id = `los-${targetPlayerInfo.id}-${sourcePlayerInfo.id}`;
         newLosEntity.classList.add(`los`);

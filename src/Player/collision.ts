@@ -15,22 +15,14 @@ export function collidesWithWall(px: number, py: number): boolean {
     const cx = px + COLLISION_MARGIN;
     const cy = py + COLLISION_MARGIN;
     for (const wall of wallAABBs) {
-        if (
-            cx < wall.x + wall.w &&
-            cx + CBOX > wall.x &&
-            cy < wall.y + wall.h &&
-            cy + CBOX > wall.y
-        ) {
+        if (cx < wall.x + wall.w && cx + CBOX > wall.x && cy < wall.y + wall.h && cy + CBOX > wall.y) {
             return true;
         }
     }
     return false;
 }
 
-export function moveWithCollision(
-    currentX: number, currentY: number,
-    dx: number, dy: number
-): { x: number; y: number } {
+export function moveWithCollision(currentX: number, currentY: number, dx: number, dy: number): { x: number; y: number } {
     // If already inside a wall (e.g. just spawned), allow movement out
     const alreadyStuck = collidesWithWall(currentX, currentY);
 

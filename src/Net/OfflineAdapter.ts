@@ -28,12 +28,7 @@ export class OfflineAdapter implements NetAdapter {
             case 'MOVE': {
                 const prevX = player.current_position.x;
                 const prevY = player.current_position.y;
-                const result = moveWithCollision(
-                    player.current_position.x,
-                    player.current_position.y,
-                    input.dx * getConfig().player.speed,
-                    input.dy * getConfig().player.speed,
-                );
+                const result = moveWithCollision(player.current_position.x, player.current_position.y, input.dx * getConfig().player.speed, input.dy * getConfig().player.speed);
                 player.current_position.x = result.x;
                 player.current_position.y = result.y;
                 if (result.x !== prevX || result.y !== prevY) {

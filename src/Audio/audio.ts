@@ -129,7 +129,11 @@ export function playMenuMusic() {
 
 export function stopMenuMusic() {
     if (musicSource) {
-        try { musicSource.stop(); } catch (_) { /* already stopped */ }
+        try {
+            musicSource.stop();
+        } catch (_) {
+            /* already stopped */
+        }
         musicSource.disconnect();
         musicSource = null;
     }

@@ -1,25 +1,22 @@
 const STORAGE_KEY = 'game-keybinds';
 
-export type ActionId =
-    | 'moveUp' | 'moveDown' | 'moveLeft' | 'moveRight'
-    | 'reload' | 'weapon1' | 'weapon2' | 'weapon3'
-    | 'grenade' | 'buyMenu' | 'leaderboard' | 'settings';
+export type ActionId = 'moveUp' | 'moveDown' | 'moveLeft' | 'moveRight' | 'reload' | 'weapon1' | 'weapon2' | 'weapon3' | 'grenade' | 'buyMenu' | 'leaderboard' | 'settings';
 
 type KeybindEntry = { action: ActionId; label: string; key: string };
 
 const DEFAULT_BINDS: KeybindEntry[] = [
-    { action: 'moveUp',      label: 'Move Up',      key: 'w' },
-    { action: 'moveDown',    label: 'Move Down',     key: 's' },
-    { action: 'moveLeft',    label: 'Move Left',     key: 'a' },
-    { action: 'moveRight',   label: 'Move Right',    key: 'd' },
-    { action: 'reload',      label: 'Reload',        key: 'r' },
-    { action: 'weapon1',     label: 'Weapon 1',      key: '1' },
-    { action: 'weapon2',     label: 'Weapon 2',      key: '2' },
-    { action: 'weapon3',     label: 'Weapon 3',      key: '3' },
-    { action: 'grenade',     label: 'Throw Grenade', key: 'g' },
-    { action: 'buyMenu',     label: 'Buy Menu',      key: 'b' },
-    { action: 'leaderboard', label: 'Leaderboard',   key: 'Tab' },
-    { action: 'settings',    label: 'Settings',      key: 'l' },
+    { action: 'moveUp', label: 'Move Up', key: 'w' },
+    { action: 'moveDown', label: 'Move Down', key: 's' },
+    { action: 'moveLeft', label: 'Move Left', key: 'a' },
+    { action: 'moveRight', label: 'Move Right', key: 'd' },
+    { action: 'reload', label: 'Reload', key: 'r' },
+    { action: 'weapon1', label: 'Weapon 1', key: '1' },
+    { action: 'weapon2', label: 'Weapon 2', key: '2' },
+    { action: 'weapon3', label: 'Weapon 3', key: '3' },
+    { action: 'grenade', label: 'Throw Grenade', key: 'g' },
+    { action: 'buyMenu', label: 'Buy Menu', key: 'b' },
+    { action: 'leaderboard', label: 'Leaderboard', key: 'Tab' },
+    { action: 'settings', label: 'Settings', key: 'l' },
 ];
 
 // Runtime bind map: key (lowercase) -> action
@@ -56,7 +53,7 @@ export function getKeyDisplayName(key: string): string {
 }
 
 export function getAllBinds(): { action: ActionId; label: string; key: string }[] {
-    return DEFAULT_BINDS.map(b => ({
+    return DEFAULT_BINDS.map((b) => ({
         action: b.action,
         label: b.label,
         key: actionToKey.get(b.action) ?? b.key,
@@ -87,7 +84,9 @@ function saveBinds() {
     for (const [action, key] of actionToKey) {
         data[action] = key;
     }
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {}
 }
 
 function loadBinds() {
@@ -95,7 +94,7 @@ function loadBinds() {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const data = JSON.parse(raw) as Record<string, string>;
-            const merged = DEFAULT_BINDS.map(b => ({
+            const merged = DEFAULT_BINDS.map((b) => ({
                 ...b,
                 key: data[b.action] ?? b.key,
             }));

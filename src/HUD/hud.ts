@@ -232,7 +232,7 @@ export function initHUD() {
     });
 
     // Cache grenade slot elements
-    grenadeHud.querySelectorAll('.grenade-slot').forEach(slot => {
+    grenadeHud.querySelectorAll('.grenade-slot').forEach((slot) => {
         const type = slot.getAttribute('data-type') as GrenadeType;
         const count = slot.querySelector('.grenade-count') as HTMLElement;
         grenadeSlotCache.set(type, { slot: slot as HTMLElement, count });
@@ -353,7 +353,7 @@ function renderBuyMenu(playerInfo: player_info) {
 
     buyMenuGrid.innerHTML = '';
 
-    Object.values(WEAPON_DEFS).forEach(wDef => {
+    Object.values(WEAPON_DEFS).forEach((wDef) => {
         if (wDef.price === 0) return; // Don't show pistol (free)
         if (!isWeaponAllowed(wDef.id)) return;
 
@@ -385,7 +385,7 @@ function renderBuyMenu(playerInfo: player_info) {
     grenadeHeader.textContent = 'GRENADES';
     buyMenuGrid.appendChild(grenadeHeader);
 
-    Object.values(GRENADE_DEFS).forEach(gDef => {
+    Object.values(GRENADE_DEFS).forEach((gDef) => {
         const item = document.createElement('div');
         item.classList.add('buymenu-item');
         const owned = playerInfo.grenades[gDef.id] >= 1;
@@ -509,9 +509,7 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         roundBanner.classList.add('won');
         playSound('round_win');
-    } 
-    
-    else {
+    } else {
         roundBanner.classList.add('lost');
         playSound('round_lose');
     }
@@ -520,7 +518,7 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
 }
 
 /**
- * Match end overlay is similar to round end banner but with more info and a return to menu button. 
+ * Match end overlay is similar to round end banner but with more info and a return to menu button.
  * It stays until the player clicks the button, so no auto-hide timeout.
  */
 export function hideMatchEndOverlay() {
@@ -543,9 +541,7 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>)
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         winnerEl.classList.add('won');
         playSound('match_win');
-    } 
-    
-    else {
+    } else {
         winnerEl.classList.add('lost');
         playSound('match_lose');
     }
@@ -555,7 +551,7 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>)
 
 /**
  * Renders the leaderboard by fetching all player states and info.
- * Grouping them by team, sorting teams and players by points, and then creating table rows for each player with their rank, name, points, kills, and deaths. 
+ * Grouping them by team, sorting teams and players by points, and then creating table rows for each player with their rank, name, points, kills, and deaths.
  * The local player is highlighted in the leaderboard.
  * @returns void
  */
@@ -566,7 +562,7 @@ function renderLeaderboard() {
     // Group by team, sort teams by total points, players within each team by points
     const teamMap = new Map<number, { state: PlayerGameState; info: player_info | undefined }[]>();
     for (const state of states) {
-        const info = players.find(p => p.id === state.playerId);
+        const info = players.find((p) => p.id === state.playerId);
         const team = info?.team ?? 0;
         if (!teamMap.has(team)) teamMap.set(team, []);
         teamMap.get(team)!.push({ state, info });
@@ -619,7 +615,7 @@ function renderLeaderboard() {
 export function spawnDamageNumber(worldX: number, worldY: number, damage: number, isKill: boolean) {
     const el = document.createElement('div');
     el.classList.add('damage-number');
-    
+
     if (isKill) el.classList.add('kill');
     el.textContent = isKill ? `${damage} 💀` : `${damage}`;
     el.style.transform = `translate3d(${worldX}px, ${worldY}px, 0)`;

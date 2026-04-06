@@ -58,12 +58,7 @@ export function isSmoked(x1: number, y1: number, x2: number, y2: number): boolea
     return false;
 }
 
-function lineIntersectsCircle(
-    x1: number, y1: number,
-    x2: number, y2: number,
-    cx: number, cy: number,
-    r: number
-): boolean {
+function lineIntersectsCircle(x1: number, y1: number, x2: number, y2: number, cx: number, cy: number, r: number): boolean {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const fx = x1 - cx;
@@ -72,7 +67,7 @@ function lineIntersectsCircle(
     const a = dx * dx + dy * dy;
     if (a < 1e-10) {
         // Degenerate line (point)
-        return (fx * fx + fy * fy) <= r * r;
+        return fx * fx + fy * fy <= r * r;
     }
 
     const b = 2 * (fx * dx + fy * dy);

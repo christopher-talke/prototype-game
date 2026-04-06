@@ -50,7 +50,7 @@ export class GameSimulation {
 
     applyDamage(target: player_info, rawDamage: number, attackerId: number): GameEvent[] {
         if (target.dead) return [];
-        
+
         const isFriendly = target.team === getPlayerInfo(attackerId)?.team;
         const friendlyFireEnabled = getConfig().match.friendlyFire;
         if (!friendlyFireEnabled && isFriendly) return [];
@@ -112,38 +112,43 @@ export class GameSimulation {
         target.weapons = [createDefaultWeapon()];
         target.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
 
-        return [{
-            type: 'PLAYER_RESPAWN',
-            playerId: target.id,
-            x: spawn.x,
-            y: spawn.y,
-            rotation: target.current_position.rotation,
-        }];
+        return [
+            {
+                type: 'PLAYER_RESPAWN',
+                playerId: target.id,
+                x: spawn.x,
+                y: spawn.y,
+                rotation: target.current_position.rotation,
+            },
+        ];
     }
 
     // -- Projectiles --
 
-    spawnBullet(
-        ownerId: number,
-        x: number,
-        y: number,
-        dx: number,
-        dy: number,
-        speed: number,
-        damage: number,
-        weaponType?: string,
-    ): GameEvent[] {
+    spawnBullet(ownerId: number, x: number, y: number, dx: number, dy: number, speed: number, damage: number, weaponType?: string): GameEvent[] {
         const id = this.nextProjectileId++;
         this.projectiles.push({
-            id, x, y, dx, dy, speed, damage, ownerId, alive: true, weaponType,
-        });
-        return [{
-            type: 'BULLET_SPAWN',
-            bulletId: id,
+            id,
+            x,
+            y,
+            dx,
+            dy,
+            speed,
+            damage,
             ownerId,
-            x, y,
+            alive: true,
             weaponType,
-        }];
+        });
+        return [
+            {
+                type: 'BULLET_SPAWN',
+                bulletId: id,
+                ownerId,
+                x,
+                y,
+                weaponType,
+            },
+        ];
     }
 
     tickProjectiles(segments: WallSegment[], players: player_info[]): GameEvent[] {
@@ -158,10 +163,7 @@ export class GameSimulation {
 
             // Wall collision
             for (const seg of segments) {
-                const t = raySegmentIntersect(
-                    p.x, p.y, p.dx, p.dy,
-                    seg.x1, seg.y1, seg.x2, seg.y2,
-                );
+                const t = raySegmentIntersect(p.x, p.y, p.dx, p.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                 if (t !== null && t >= 0 && t <= p.speed) {
                     p.alive = false;
                     events.push({ type: 'BULLET_REMOVED', bulletId: p.id });
@@ -239,30 +241,31 @@ export class GameSimulation {
 
     // -- Grenades --
 
-    throwGrenade(
-        type: GrenadeType,
-        ownerId: number,
-        x: number,
-        y: number,
-        dx: number,
-        dy: number,
-        speed: number,
-        timestamp: number,
-    ): GameEvent[] {
+    throwGrenade(type: GrenadeType, ownerId: number, x: number, y: number, dx: number, dy: number, speed: number, timestamp: number): GameEvent[] {
         const id = this.nextGrenadeId++;
         this.grenadesList.push({
-            id, type, x, y, dx, dy, speed, ownerId,
+            id,
+            type,
+            x,
+            y,
+            dx,
+            dy,
+            speed,
+            ownerId,
             spawnTime: timestamp,
             detonated: false,
         });
-        return [{
-            type: 'GRENADE_SPAWN',
-            grenadeId: id,
-            grenadeType: type,
-            ownerId,
-            x, y,
-            isC4: type === 'C4',
-        }];
+        return [
+            {
+                type: 'GRENADE_SPAWN',
+                grenadeId: id,
+                grenadeType: type,
+                ownerId,
+                x,
+                y,
+                isC4: type === 'C4',
+            },
+        ];
     }
 
     detonateC4(playerId: number, segments: WallSegment[]): GameEvent[] {
@@ -276,14 +279,10 @@ export class GameSimulation {
     }
 
     hasPlacedC4(playerId: number): boolean {
-        return this.grenadesList.some(g => g.type === 'C4' && g.ownerId === playerId && !g.detonated);
+        return this.grenadesList.some((g) => g.type === 'C4' && g.ownerId === playerId && !g.detonated);
     }
 
-    tickGrenades(
-        segments: WallSegment[],
-        allPlayers: player_info[],
-        timestamp: number,
-    ): GameEvent[] {
+    tickGrenades(segments: WallSegment[], allPlayers: player_info[], timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
 
         for (let i = this.grenadesList.length - 1; i >= 0; i--) {
@@ -304,10 +303,7 @@ export class GameSimulation {
                 // Wall bounce
                 let bounced = false;
                 for (const seg of segments) {
-                    const t = raySegmentIntersect(
-                        g.x, g.y, g.dx, g.dy,
-                        seg.x1, seg.y1, seg.x2, seg.y2,
-                    );
+                    const t = raySegmentIntersect(g.x, g.y, g.dx, g.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                     if (t !== null && t >= 0 && t <= g.speed) {
                         const sx = seg.x2 - seg.x1;
                         const sy = seg.y2 - seg.y1;
@@ -358,11 +354,7 @@ export class GameSimulation {
         return this.grenadesList;
     }
 
-    private detonateGrenade(
-        g: SimGrenade,
-        allPlayers: player_info[],
-        segments: WallSegment[],
-    ): GameEvent[] {
+    private detonateGrenade(g: SimGrenade, allPlayers: player_info[], segments: WallSegment[]): GameEvent[] {
         g.detonated = true;
         const def = getGrenadeDef(g.type);
         const events: GameEvent[] = [];
@@ -400,12 +392,7 @@ export class GameSimulation {
         return events;
     }
 
-    private applyExplosionDamage(
-        g: SimGrenade,
-        def: GrenadeDef,
-        allPlayers: player_info[],
-        segments: WallSegment[],
-    ): GameEvent[] {
+    private applyExplosionDamage(g: SimGrenade, def: GrenadeDef, allPlayers: player_info[], segments: WallSegment[]): GameEvent[] {
         const events: GameEvent[] = [];
 
         for (const player of allPlayers) {
@@ -420,7 +407,7 @@ export class GameSimulation {
             if (dist > def.radius) continue;
             if (isLineBlocked(g.x, g.y, pcx, pcy, segments)) continue;
 
-            const falloff = 1 - (dist / def.radius);
+            const falloff = 1 - dist / def.radius;
             const damage = Math.round(def.damage * falloff);
 
             const wasAlive = !player.dead;
@@ -442,11 +429,7 @@ export class GameSimulation {
         return events;
     }
 
-    private applyFlashEffect(
-        g: SimGrenade,
-        def: GrenadeDef,
-        allPlayers: player_info[],
-    ): GameEvent[] {
+    private applyFlashEffect(g: SimGrenade, def: GrenadeDef, allPlayers: player_info[]): GameEvent[] {
         const events: GameEvent[] = [];
 
         for (const player of allPlayers) {
@@ -460,7 +443,7 @@ export class GameSimulation {
 
             if (dist > def.radius) continue;
 
-            const intensity = Math.max(0.2, 1 - (dist / def.radius));
+            const intensity = Math.max(0.2, 1 - dist / def.radius);
             const duration = def.effectDuration * intensity;
 
             events.push({
@@ -474,12 +457,7 @@ export class GameSimulation {
         return events;
     }
 
-    private spawnShrapnel(
-        x: number,
-        y: number,
-        ownerId: number,
-        def: GrenadeDef,
-    ): GameEvent[] {
+    private spawnShrapnel(x: number, y: number, ownerId: number, def: GrenadeDef): GameEvent[] {
         if (!def.shrapnelCount || !def.shrapnelDamage || !def.shrapnelSpeed) return [];
 
         const events: GameEvent[] = [];
@@ -487,13 +465,10 @@ export class GameSimulation {
 
         for (let i = 0; i < def.shrapnelCount; i++) {
             const angleDeg = angleStep * i + (Math.random() - 0.5) * angleStep * 0.6;
-            const rad = angleDeg * Math.PI / 180;
+            const rad = (angleDeg * Math.PI) / 180;
             const dx = Math.cos(rad);
             const dy = Math.sin(rad);
-            events.push(...this.spawnBullet(
-                ownerId, x, y, dx, dy,
-                def.shrapnelSpeed, def.shrapnelDamage,
-            ));
+            events.push(...this.spawnBullet(ownerId, x, y, dx, dy, def.shrapnelSpeed, def.shrapnelDamage));
         }
 
         return events;

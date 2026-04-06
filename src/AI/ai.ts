@@ -146,11 +146,7 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
 
         if (dist > getConfig().ai.detectRange) continue;
 
-        const blocked = isLineBlocked(
-            me.current_position.x, me.current_position.y,
-            other.current_position.x, other.current_position.y,
-            environment.segments
-        );
+        const blocked = isLineBlocked(me.current_position.x, me.current_position.y, other.current_position.x, other.current_position.y, environment.segments);
 
         if (!blocked && dist < closestDist) {
             closestEnemy = other;
@@ -248,11 +244,7 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
     }
 
     // Check if we actually have line of sight before firing
-    const hasLOS = !isLineBlocked(
-        me.current_position.x, me.current_position.y,
-        target.current_position.x, target.current_position.y,
-        environment.segments
-    );
+    const hasLOS = !isLineBlocked(me.current_position.x, me.current_position.y, target.current_position.x, target.current_position.y, environment.segments);
 
     if (!hasLOS) {
         ai.wallHitShots++;

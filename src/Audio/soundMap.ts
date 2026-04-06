@@ -53,7 +53,7 @@ const HUD_SOUNDS: Record<string, string> = {
     round_lose: '/sounds/hud/round_lose.mp3',
     match_win: '/sounds/hud/match_win.mp3',
     match_lose: '/sounds/hud/match_lose.mp3',
-}
+};
 
 export function getWeaponSoundId(weaponType: string): string {
     return `shoot_${weaponType}`;

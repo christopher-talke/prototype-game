@@ -24,8 +24,11 @@ export function setLoadingProgress(percent: number, text: string) {
 }
 
 export function hideLoadingScreen(): Promise<void> {
-    return new Promise(resolve => {
-        if (!el) { resolve(); return; }
+    return new Promise((resolve) => {
+        if (!el) {
+            resolve();
+            return;
+        }
         el.classList.add('fade-out');
         setTimeout(() => {
             el?.remove();

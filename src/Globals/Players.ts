@@ -2,7 +2,7 @@ const PLAYERS = [] as player_info[];
 const PLAYERS_MAP = new Map<number, player_info>();
 const PLAYER_ELEMENTS = new Map<number, HTMLElement>();
 const HEALTH_BAR_ELEMENTS = new Map<number, HTMLElement>();
-export let ACTIVE_PLAYER = null as null | number
+export let ACTIVE_PLAYER = null as null | number;
 
 export function addPlayer(player_info: player_info) {
     if (!PLAYERS_MAP.has(player_info.id)) {
@@ -28,7 +28,7 @@ export function getHealthBarElement(playerId: number): HTMLElement | undefined {
 }
 
 export function getOtherPlayers(excludeId: number): player_info[] {
-    return PLAYERS.filter(p => p.id !== excludeId);
+    return PLAYERS.filter((p) => p.id !== excludeId);
 }
 
 export function getAllPlayers(): player_info[] {
@@ -40,5 +40,5 @@ export function getPlayerInfo(playerId: number) {
 }
 
 export function setActivePlayer(playerId: number) {
-    ACTIVE_PLAYER = playerId
+    ACTIVE_PLAYER = playerId;
 }

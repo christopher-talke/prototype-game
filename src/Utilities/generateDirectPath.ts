@@ -1,5 +1,4 @@
 export function generateDirectPath(sourceCoords: coordinates, targetCoords: coordinates, collisions: CollisionMap) {
-    
     let sourceX = Math.floor(sourceCoords.x);
     let sourceY = Math.floor(sourceCoords.y);
 
@@ -8,58 +7,53 @@ export function generateDirectPath(sourceCoords: coordinates, targetCoords: coor
 
     let gapBetweenX = sourceCoords.x - targetX;
     let gapBetweenY = sourceCoords.y - targetY;
-    if (gapBetweenX < 0) gapBetweenX = gapBetweenX * -1
-    if (gapBetweenY < 0) gapBetweenY = gapBetweenY * -1
+    if (gapBetweenX < 0) gapBetweenX = gapBetweenX * -1;
+    if (gapBetweenY < 0) gapBetweenY = gapBetweenY * -1;
 
     let combined = [];
 
     let biggestDistance = gapBetweenX > gapBetweenY ? gapBetweenX : gapBetweenY;
 
     for (let i = 0; i < biggestDistance; i++) {
-      let newPositionX = (gapBetweenX / biggestDistance);
-      let newPositionY = (gapBetweenY / biggestDistance);
+        let newPositionX = gapBetweenX / biggestDistance;
+        let newPositionY = gapBetweenY / biggestDistance;
 
-      if (targetX < sourceX) {
-  
-          if (targetX > sourceX) {
-              sourceX = targetX
-          }
-  
-          sourceX = sourceX - newPositionX
-      } else {
-  
-          if (targetX < sourceX) {
-              sourceX = targetX
-          }
-  
-          sourceX = sourceX + newPositionX
-      }
-  
-      if (targetY < sourceY) {
+        if (targetX < sourceX) {
+            if (targetX > sourceX) {
+                sourceX = targetX;
+            }
 
-          if (targetY > sourceY) {
-              sourceY = targetY
-          }
-  
-          sourceY = sourceY - newPositionY
-      } else {
-          
-          if (targetY < sourceY) {
-              sourceY = targetY
-          }
-  
-          sourceY = sourceY + newPositionY
-      }
+            sourceX = sourceX - newPositionX;
+        } else {
+            if (targetX < sourceX) {
+                sourceX = targetX;
+            }
 
-      if (collisions && collisions[`${Math.floor(sourceX)},${Math.floor(sourceY)}`]) {
-        i = biggestDistance + 1
-      } else {
-          combined.push({
-            x: Math.floor(sourceX),
-            y: Math.floor(sourceY)
-          })
-      }
-      
+            sourceX = sourceX + newPositionX;
+        }
+
+        if (targetY < sourceY) {
+            if (targetY > sourceY) {
+                sourceY = targetY;
+            }
+
+            sourceY = sourceY - newPositionY;
+        } else {
+            if (targetY < sourceY) {
+                sourceY = targetY;
+            }
+
+            sourceY = sourceY + newPositionY;
+        }
+
+        if (collisions && collisions[`${Math.floor(sourceX)},${Math.floor(sourceY)}`]) {
+            i = biggestDistance + 1;
+        } else {
+            combined.push({
+                x: Math.floor(sourceX),
+                y: Math.floor(sourceY),
+            });
+        }
     }
 
     return combined;

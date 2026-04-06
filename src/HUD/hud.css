@@ -78,8 +78,13 @@
 }
 
 @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
 }
 
 /* Money */
@@ -138,9 +143,7 @@
     pointer-events: none;
     opacity: 0;
     background: rgba(8, 8, 16, 0.92);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
     width: 100%;
     height: 100vh;
@@ -153,17 +156,13 @@
 
 #hud-round-banner.active.won {
     background: rgba(32, 128, 32, 0.25);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
 }
 
 #hud-round-banner.active.lost {
     background: rgba(128, 32, 32, 0.25);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
 }
 
@@ -172,7 +171,9 @@
     font-size: 48px;
     font-weight: bold;
     color: #fff;
-    text-shadow: 0 0 20px rgba(255, 200, 50, 0.6), 0 2px 8px rgba(0, 0, 0, 0.8);
+    text-shadow:
+        0 0 20px rgba(255, 200, 50, 0.6),
+        0 2px 8px rgba(0, 0, 0, 0.8);
     letter-spacing: 4px;
 }
 
@@ -190,9 +191,7 @@
     inset: 0;
     z-index: 9000;
     background: rgba(8, 8, 16, 0.92);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
     flex-direction: column;
     align-items: center;
@@ -226,7 +225,10 @@
     letter-spacing: 3px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
 }
 
 #pause-resume:hover {
@@ -249,9 +251,7 @@
     width: 100vw;
     height: 100vh;
     background: rgba(8, 8, 16, 0.92);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
     z-index: 1200;
     display: flex;
@@ -271,17 +271,13 @@
 
 #hud-match-end.active.won {
     background: rgba(32, 128, 32, 0.25);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
 }
 
 #hud-match-end.active.lost {
     background: rgba(128, 32, 32, 0.25);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
 }
 
@@ -316,7 +312,10 @@
     letter-spacing: 3px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    transition:
+        background 0.12s,
+        border-color 0.12s,
+        color 0.12s;
 }
 
 #match-end-return:hover {
@@ -347,7 +346,9 @@
     pointer-events: none;
     opacity: 0;
     transform: scale(0.6) translateY(-10px);
-    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    transition:
+        transform 0.2s ease-out,
+        opacity 0.2s ease-out;
 }
 
 .kill-banner.active {
@@ -358,7 +359,9 @@
 .kill-banner.fade-out {
     opacity: 0;
     transform: scale(0.95) translateY(-10px);
-    transition: transform 0.5s ease-in, opacity 0.5s ease-in;
+    transition:
+        transform 0.5s ease-in,
+        opacity 0.5s ease-in;
 }
 
 .kill-banner-icon {
@@ -374,14 +377,18 @@
     letter-spacing: 4px;
     text-transform: uppercase;
     color: #fff;
-    text-shadow: 0 0 8px rgba(255, 64, 64, 0.5), 0 1px 2px rgba(0, 0, 0, 0.8);
+    text-shadow:
+        0 0 8px rgba(255, 64, 64, 0.5),
+        0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .kill-banner-name {
     font-size: 16px;
     font-weight: 600;
     color: #ff6b6b;
-    text-shadow: 0 0 6px rgba(255, 64, 64, 0.4), 0 1px 2px rgba(0, 0, 0, 0.8);
+    text-shadow:
+        0 0 6px rgba(255, 64, 64, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 /* Grenade HUD */
@@ -470,8 +477,13 @@
 }
 
 @keyframes killfeed-fade {
-    0%, 70% { opacity: 1; }
-    100% { opacity: 0; }
+    0%,
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
 /* Crosshair */
@@ -492,88 +504,106 @@
 }
 
 /* ── PISTOL: tight white cross ── */
-#hud-crosshair[data-weapon="PISTOL"] .ch-h {
-    width: 16px; height: 3px;
+#hud-crosshair[data-weapon='PISTOL'] .ch-h {
+    width: 16px;
+    height: 3px;
     background: #fff;
     transform: translate(-50%, -50%);
     box-shadow: 0 0 0 1px #000;
 }
-#hud-crosshair[data-weapon="PISTOL"] .ch-v {
-    width: 3px; height: 16px;
+#hud-crosshair[data-weapon='PISTOL'] .ch-v {
+    width: 3px;
+    height: 16px;
     background: #fff;
     transform: translate(-50%, -50%);
     box-shadow: 0 0 0 1px #000;
 }
-#hud-crosshair[data-weapon="PISTOL"] .ch-dot { display: none; }
+#hud-crosshair[data-weapon='PISTOL'] .ch-dot {
+    display: none;
+}
 
 /* ── SMG: cyan cross with center gap ── */
-#hud-crosshair[data-weapon="SMG"] .ch-h {
-    width: 24px; height: 3px;
+#hud-crosshair[data-weapon='SMG'] .ch-h {
+    width: 24px;
+    height: 3px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to right, #00e5ff 8px, transparent 8px, transparent 16px, #00e5ff 16px);
-    box-shadow: 0 0 6px rgba(0,229,255,0.6);
+    box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
 }
-#hud-crosshair[data-weapon="SMG"] .ch-v {
-    width: 3px; height: 24px;
+#hud-crosshair[data-weapon='SMG'] .ch-v {
+    width: 3px;
+    height: 24px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to bottom, #00e5ff 8px, transparent 8px, transparent 16px, #00e5ff 16px);
-    box-shadow: 0 0 6px rgba(0,229,255,0.6);
+    box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
 }
-#hud-crosshair[data-weapon="SMG"] .ch-dot { display: none; }
+#hud-crosshair[data-weapon='SMG'] .ch-dot {
+    display: none;
+}
 
 /* ── RIFLE: green long cross with gap ── */
-#hud-crosshair[data-weapon="RIFLE"] .ch-h {
-    width: 28px; height: 2px;
+#hud-crosshair[data-weapon='RIFLE'] .ch-h {
+    width: 28px;
+    height: 2px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to right, #50ffa0 10px, transparent 10px, transparent 18px, #50ffa0 18px);
-    box-shadow: 0 0 8px rgba(80,255,160,0.7);
+    box-shadow: 0 0 8px rgba(80, 255, 160, 0.7);
 }
-#hud-crosshair[data-weapon="RIFLE"] .ch-v {
-    width: 2px; height: 28px;
+#hud-crosshair[data-weapon='RIFLE'] .ch-v {
+    width: 2px;
+    height: 28px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to bottom, #50ffa0 10px, transparent 10px, transparent 18px, #50ffa0 18px);
-    box-shadow: 0 0 8px rgba(80,255,160,0.7);
+    box-shadow: 0 0 8px rgba(80, 255, 160, 0.7);
 }
-#hud-crosshair[data-weapon="RIFLE"] .ch-dot {
-    width: 4px; height: 4px;
+#hud-crosshair[data-weapon='RIFLE'] .ch-dot {
+    width: 4px;
+    height: 4px;
     background: #50ffa0;
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
 
 /* ── SHOTGUN: orange circle + dot ── */
-#hud-crosshair[data-weapon="SHOTGUN"] .ch-h {
-    width: 28px; height: 28px;
+#hud-crosshair[data-weapon='SHOTGUN'] .ch-h {
+    width: 28px;
+    height: 28px;
     transform: translate(-50%, -50%);
     background: transparent;
     border-radius: 50%;
     border: 3px solid #ffa520;
-    box-shadow: 0 0 8px rgba(255,165,32,0.6);
+    box-shadow: 0 0 8px rgba(255, 165, 32, 0.6);
 }
-#hud-crosshair[data-weapon="SHOTGUN"] .ch-v { display: none; }
-#hud-crosshair[data-weapon="SHOTGUN"] .ch-dot {
-    width: 5px; height: 5px;
+#hud-crosshair[data-weapon='SHOTGUN'] .ch-v {
+    display: none;
+}
+#hud-crosshair[data-weapon='SHOTGUN'] .ch-dot {
+    width: 5px;
+    height: 5px;
     background: #ffa520;
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 4px rgba(255,165,32,0.9);
+    box-shadow: 0 0 4px rgba(255, 165, 32, 0.9);
 }
 
 /* ── SNIPER: long red cross ── */
-#hud-crosshair[data-weapon="SNIPER"] .ch-h {
-    width: 40px; height: 2px;
+#hud-crosshair[data-weapon='SNIPER'] .ch-h {
+    width: 40px;
+    height: 2px;
     background: #ff4040;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 8px rgba(255,64,64,0.8);
+    box-shadow: 0 0 8px rgba(255, 64, 64, 0.8);
 }
-#hud-crosshair[data-weapon="SNIPER"] .ch-v {
-    width: 2px; height: 40px;
+#hud-crosshair[data-weapon='SNIPER'] .ch-v {
+    width: 2px;
+    height: 40px;
     background: #ff4040;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 8px rgba(255,64,64,0.8);
+    box-shadow: 0 0 8px rgba(255, 64, 64, 0.8);
 }
-#hud-crosshair[data-weapon="SNIPER"] .ch-dot {
-    width: 4px; height: 4px;
+#hud-crosshair[data-weapon='SNIPER'] .ch-dot {
+    width: 4px;
+    height: 4px;
     background: #ff4040;
     border-radius: 50%;
     transform: translate(-50%, -50%);
@@ -581,18 +611,22 @@
 
 /* Fallback (no weapon set yet) */
 #hud-crosshair:not([data-weapon]) .ch-h {
-    width: 16px; height: 3px;
+    width: 16px;
+    height: 3px;
     background: #fff;
     transform: translate(-50%, -50%);
     box-shadow: 0 0 0 1px #000;
 }
 #hud-crosshair:not([data-weapon]) .ch-v {
-    width: 3px; height: 16px;
+    width: 3px;
+    height: 16px;
     background: #fff;
     transform: translate(-50%, -50%);
     box-shadow: 0 0 0 1px #000;
 }
-#hud-crosshair:not([data-weapon]) .ch-dot { display: none; }
+#hud-crosshair:not([data-weapon]) .ch-dot {
+    display: none;
+}
 
 /* Buy Menu */
 #hud-buymenu {
@@ -602,9 +636,7 @@
     left: 50%;
     transform: translate(-50%, -50%);
     background: rgba(8, 8, 16, 0.97);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     padding: 20px;
@@ -638,7 +670,9 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 10px;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
     color: rgba(255, 255, 255, 0.85);
     font-family: 'Courier New', monospace;
     text-align: left;
@@ -708,24 +742,10 @@
     opacity: 0;
     --dmg-angle: 0deg;
     /* Gradient pointing from the damage direction toward center */
-    background: conic-gradient(
-        from calc(var(--dmg-angle) - 40deg),
-        transparent 0deg,
-        rgba(220, 20, 20, 0.55) 40deg,
-        rgba(220, 20, 20, 0.7) 80deg,
-        transparent 80deg
-    );
+    background: conic-gradient(from calc(var(--dmg-angle) - 40deg), transparent 0deg, rgba(220, 20, 20, 0.55) 40deg, rgba(220, 20, 20, 0.7) 80deg, transparent 80deg);
     /* Vignette mask so only the edges show */
-    -webkit-mask-image: radial-gradient(
-        ellipse 70% 70% at 50% 50%,
-        transparent 55%,
-        black 100%
-    );
-    mask-image: radial-gradient(
-        ellipse 70% 70% at 50% 50%,
-        transparent 55%,
-        black 100%
-    );
+    -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, transparent 55%, black 100%);
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, transparent 55%, black 100%);
 }
 
 #hud-damage-indicator.active {
@@ -733,9 +753,15 @@
 }
 
 @keyframes damage-flash {
-    0%   { opacity: 1; }
-    30%  { opacity: 0.9; }
-    100% { opacity: 0; }
+    0% {
+        opacity: 1;
+    }
+    30% {
+        opacity: 0.9;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
 /* Leaderboard */

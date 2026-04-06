@@ -1,4 +1,4 @@
-import { generateCollisionMap } from "./generateCollisionMap"
+import { generateCollisionMap } from './generateCollisionMap';
 
 export const environment = {
     limits: {
@@ -10,7 +10,7 @@ export const environment = {
     segments: [],
     corners: [],
     collisions: {},
-} as Environment
+} as Environment;
 
 export function generateEnvironment() {
     environment.collisions = generateCollisionMap(environment);
@@ -30,7 +30,7 @@ export function generateEnvironment() {
             cornerSet.add(coord);
         }
     });
-    cornerSet.forEach(coord => {
+    cornerSet.forEach((coord) => {
         const [x, y] = coord.split(',');
         environment.corners.push({ x: Number(x), y: Number(y) });
     });

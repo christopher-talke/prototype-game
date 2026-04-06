@@ -27,10 +27,12 @@ HOW TO PLAY
 ## Architecture
 
 ### New: `src/Config/modes/index.ts`
+
 All mode definitions as `{ id, name, description, tags, partial: DeepPartial<GameModeConfig> }[]`.
 No per-file splitting -- all modes in one place so adding a new one is trivially visible.
 
 ### New: `src/MainMenu/MainMenu.ts`
+
 - `showMainMenu(onPlay: (modeId: string) => void)` -- mounts overlay, wires up all screens
 - Internal state machine: `'main' | 'mode-select' | 'how-to-play'`
 - `hideMainMenu()` -- fades overlay out, unmounts
@@ -38,6 +40,7 @@ No per-file splitting -- all modes in one place so adding a new one is trivially
 - No dependencies on game state -- pure UI
 
 ### New: `src/MainMenu/menu.css`
+
 - Full-screen fixed overlay, `z-index: 9500` (above HUD at 1000)
 - Dark opaque background with subtle CSS grid texture
 - Font: 'Courier New', monospace -- matches existing HUD aesthetic
@@ -46,6 +49,7 @@ No per-file splitting -- all modes in one place so adding a new one is trivially
 - Fade-out animation on game start
 
 ### Modified: `src/main.ts`
+
 - Remove `initMatch()` from DOMContentLoaded
 - After player/AI setup, call `showMainMenu(onPlay)` instead
 - `onPlay(modeId)`: `setGameMode(GAME_MODES[modeId].partial)` -> `initMatch(playerIds)` -> `hideMainMenu()`
@@ -53,12 +57,12 @@ No per-file splitting -- all modes in one place so adding a new one is trivially
 
 ## Game Modes
 
-| ID | Name | Key Overrides |
-|----|------|---------------|
-| `tdm` | Team Deathmatch | defaults (empty partial) |
-| `snipers-only` | Snipers Only | allowedWeapons: ['SNIPER'], startingWeapons: ['SNIPER'], startingMoney: 0 |
-| `low-gravity` | Low Gravity | speed: 9, grenadeFriction: 0.98, bulletSpeedMultiplier: 1.3 |
-| `one-shot-kill` | One-Shot Kill | maxHealth: 1, startingArmor: 0, globalDamageMultiplier: 100 |
+| ID              | Name            | Key Overrides                                                             |
+| --------------- | --------------- | ------------------------------------------------------------------------- |
+| `tdm`           | Team Deathmatch | defaults (empty partial)                                                  |
+| `snipers-only`  | Snipers Only    | allowedWeapons: ['SNIPER'], startingWeapons: ['SNIPER'], startingMoney: 0 |
+| `low-gravity`   | Low Gravity     | speed: 9, grenadeFriction: 0.98, bulletSpeedMultiplier: 1.3               |
+| `one-shot-kill` | One-Shot Kill   | maxHealth: 1, startingArmor: 0, globalDamageMultiplier: 100               |
 
 ## Aesthetic Notes
 
@@ -70,9 +74,11 @@ and small tag pills (e.g. "ALL WEAPONS", "FAST", "LETHAL").
 ## Files Changed
 
 New:
+
 - `src/Config/modes/index.ts`
 - `src/MainMenu/MainMenu.ts`
 - `src/MainMenu/menu.css`
 
 Modified:
+
 - `src/main.ts` -- defer initMatch, add showMainMenu call

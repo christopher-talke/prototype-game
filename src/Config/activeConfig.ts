@@ -8,10 +8,7 @@ function deepMerge<T extends Record<string, any>>(base: T, partial: DeepPartial<
     for (const key of Object.keys(partial) as (keyof T)[]) {
         const val = partial[key];
         if (val === undefined) continue;
-        if (
-            typeof val === 'object' && val !== null && !Array.isArray(val) &&
-            typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])
-        ) {
+        if (typeof val === 'object' && val !== null && !Array.isArray(val) && typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])) {
             result[key] = deepMerge(base[key] as any, val as any);
         } else {
             result[key] = val as any;

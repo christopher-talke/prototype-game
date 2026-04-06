@@ -19,7 +19,9 @@ const INDICATOR_TIP_OFFSET = 27;
 const SPREAD_GROWTH_PER_SHOT = 0.4;
 const MAX_SPREAD_MULTIPLIER = 3;
 
-export function isADS(): boolean { return adsActive; }
+export function isADS(): boolean {
+    return adsActive;
+}
 
 export function initADS() {
     window.addEventListener('mousedown', (e) => {
@@ -43,7 +45,10 @@ export function updateAimLine(playerInfo: player_info) {
     if (!aimLineEl) createAimLineElements();
 
     const weapon = getActiveWeapon(playerInfo);
-    if (!weapon) { hideAimLine(); return; }
+    if (!weapon) {
+        hideAimLine();
+        return;
+    }
 
     const weaponDef = getWeaponDef(weapon.type);
     const cx = playerInfo.current_position.x + HALF_HIT_BOX;

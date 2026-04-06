@@ -56,11 +56,7 @@ export function hasPlacedC4(playerId: number): boolean {
     return simulation.hasPlacedC4(playerId);
 }
 
-export function updateGrenades(
-    segments: WallSegment[],
-    allPlayers: player_info[],
-    timestamp: number,
-) {
+export function updateGrenades(segments: WallSegment[], allPlayers: player_info[], timestamp: number) {
     const events = simulation.tickGrenades(segments, allPlayers, timestamp);
     gameEventBus.emitAll(events);
 }

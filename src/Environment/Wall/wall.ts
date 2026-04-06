@@ -1,13 +1,12 @@
-import './wall.css'
+import './wall.css';
 
-import { app } from "../../main";
-import { getElementCoordinates } from "../../Utilities/getElementCoordinates";
-import { getRandomNumber } from "../../Utilities/getRandomNumber";
+import { app } from '../../main';
+import { getElementCoordinates } from '../../Utilities/getElementCoordinates';
+import { getRandomNumber } from '../../Utilities/getRandomNumber';
 import { environment } from '../environment';
 import { registerWallAABB } from '../../Player/collision';
 
 export function createWall(wallInfo: wall_info) {
-
     const newWallEntity = window.document.createElement('div');
     const newWallIdentifier = getRandomNumber(1000, 9999);
 
@@ -45,7 +44,7 @@ export function addWallToCollisions(element: HTMLElement) {
         ray: true,
         projectile: true,
         isCorner: true,
-    }
+    };
 
     const face_collision: Collision = {
         type: 'WALL',
@@ -53,7 +52,7 @@ export function addWallToCollisions(element: HTMLElement) {
         ray: true,
         projectile: true,
         isCorner: false,
-    }
+    };
 
     const left = Math.floor(coords.left);
     const right = Math.floor(coords.right);
@@ -81,12 +80,7 @@ export function addWallToCollisions(element: HTMLElement) {
     environment.collisions = { ...newCollisions, ...collisionsToAdd };
 
     // Add wall segments
-    environment.segments.push(
-        { x1: left, y1: top, x2: right, y2: top },
-        { x1: right, y1: top, x2: right, y2: bottom },
-        { x1: right, y1: bottom, x2: left, y2: bottom },
-        { x1: left, y1: bottom, x2: left, y2: top },
-    );
+    environment.segments.push({ x1: left, y1: top, x2: right, y2: top }, { x1: right, y1: top, x2: right, y2: bottom }, { x1: right, y1: bottom, x2: left, y2: bottom }, { x1: left, y1: bottom, x2: left, y2: top });
 
     // Rebuild corners list
     environment.corners = [];
@@ -96,7 +90,7 @@ export function addWallToCollisions(element: HTMLElement) {
             cornerSet.add(coord);
         }
     });
-    cornerSet.forEach(coord => {
+    cornerSet.forEach((coord) => {
         const [x, y] = coord.split(',');
         environment.corners.push({ x: Number(x), y: Number(y) });
     });

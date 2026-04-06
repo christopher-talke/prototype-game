@@ -8,7 +8,7 @@
 }
 
 .player::after {
-    content: "";
+    content: '';
     position: absolute;
     top: -6px;
     left: 21px;
@@ -40,7 +40,7 @@
 }
 
 .corpse-marker::before {
-    content: "\2620";
+    content: '\2620';
     font-size: 20px;
     line-height: 1;
     opacity: 0.8;
@@ -65,10 +65,18 @@
 }
 
 @keyframes corpse-life {
-    0%   { opacity: 0; }
-    6%   { opacity: 0.5; }
-    75%  { opacity: 0.5; }
-    100% { opacity: 0; }
+    0% {
+        opacity: 0;
+    }
+    6% {
+        opacity: 0.5;
+    }
+    75% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 0;
+    }
 }
 
 .player.same-team-not-visible {
@@ -210,19 +218,19 @@
     transform-origin: top left;
 }
 
-.ray { 
+.ray {
     position: absolute;
     height: 1px;
     background-color: rgba(255, 255, 255, 1);
     transform-origin: top left;
 }
 
-.ray.corner[data-visible="true"] {
+.ray.corner[data-visible='true'] {
     height: 0px;
     background-color: rgba(255, 255, 255, 0);
     border-top: 1px dotted orange;
 }
 
-.ray.corner[data-visible="false"] {
+.ray.corner[data-visible='false'] {
     display: none;
 }

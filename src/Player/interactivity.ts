@@ -1,4 +1,4 @@
-import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from "../Globals/Players";
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '../Globals/Players';
 import { getAngle } from '../Utilities/getAngle';
 import { angleToRadians } from '../Utilities/angleToRadians';
 import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET } from '../constants';
@@ -6,19 +6,19 @@ import { SETTINGS } from '../main';
 import { detectOtherPlayers } from './detection';
 import { environment } from '../Environment/environment';
 import { HELD_DIRECTIONS, directions } from './player';
-import { generateRayCast, RaycastTypes } from "./Raycast/raycast";
-import { toggleSettings, isSettingsOpen, closeSettings } from "../Settings/settings";
-import { getActionForKey } from "../Settings/keybinds";
-import { initShooting, getActiveWeapon } from "../Combat/shooting";
-import { checkMatchTimer, getMatchTimeRemaining, isRoundActive } from "../Combat/gameState";
-import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from "../HUD/hud";
-import { isPlayerDead } from "../Combat/damage";
-import { getWeaponDef } from "../Combat/weapons";
-import { updateAllAI } from "../AI/ai";
-import { hasPlacedC4, setMouseWorldPosition } from "../Combat/grenadeProjectiles";
-import { updateSmokeClouds } from "../Combat/smoke";
-import { clientRenderer } from "../Net/ClientRenderer";
-import { offlineAdapter } from "../Net/OfflineAdapter";
+import { generateRayCast, RaycastTypes } from './Raycast/raycast';
+import { toggleSettings, isSettingsOpen, closeSettings } from '../Settings/settings';
+import { getActionForKey } from '../Settings/keybinds';
+import { initShooting, getActiveWeapon } from '../Combat/shooting';
+import { checkMatchTimer, getMatchTimeRemaining, isRoundActive } from '../Combat/gameState';
+import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '../HUD/hud';
+import { isPlayerDead } from '../Combat/damage';
+import { getWeaponDef } from '../Combat/weapons';
+import { updateAllAI } from '../AI/ai';
+import { hasPlacedC4, setMouseWorldPosition } from '../Combat/grenadeProjectiles';
+import { updateSmokeClouds } from '../Combat/smoke';
+import { clientRenderer } from '../Net/ClientRenderer';
+import { offlineAdapter } from '../Net/OfflineAdapter';
 import { initADS, updateAimLine } from './aimline';
 import { getConfig } from '../Config/activeConfig';
 // Camera aim offset (lerped)
@@ -34,7 +34,7 @@ export function getSelectedGrenadeType(): GrenadeType {
 }
 
 function cycleGrenade(delta: number) {
-    selectedGrenadeIndex = ((selectedGrenadeIndex + delta) % GRENADE_ORDER.length + GRENADE_ORDER.length) % GRENADE_ORDER.length;
+    selectedGrenadeIndex = (((selectedGrenadeIndex + delta) % GRENADE_ORDER.length) + GRENADE_ORDER.length) % GRENADE_ORDER.length;
 }
 
 // Grenade charge state
@@ -57,9 +57,18 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (isSettingsOpen() && e.key !== 'Escape') return;
 
         if (e.key === 'Escape') {
-            if (isSettingsOpen()) { closeSettings(); return; }
-            if (isBuyMenuOpen()) { closeBuyMenu(); return; }
-            if (isPauseOpen()) { closePause(); return; }
+            if (isSettingsOpen()) {
+                closeSettings();
+                return;
+            }
+            if (isBuyMenuOpen()) {
+                closeBuyMenu();
+                return;
+            }
+            if (isPauseOpen()) {
+                closePause();
+                return;
+            }
             openPause();
             return;
         }
@@ -124,10 +133,22 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     window.addEventListener('keyup', (e) => {
         const action = getActionForKey(e.key);
 
-        if (action === 'moveUp') { const i = HELD_DIRECTIONS.indexOf(directions.up); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
-        if (action === 'moveDown') { const i = HELD_DIRECTIONS.indexOf(directions.down); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
-        if (action === 'moveLeft') { const i = HELD_DIRECTIONS.indexOf(directions.left); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
-        if (action === 'moveRight') { const i = HELD_DIRECTIONS.indexOf(directions.right); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }
+        if (action === 'moveUp') {
+            const i = HELD_DIRECTIONS.indexOf(directions.up);
+            if (i > -1) HELD_DIRECTIONS.splice(i, 1);
+        }
+        if (action === 'moveDown') {
+            const i = HELD_DIRECTIONS.indexOf(directions.down);
+            if (i > -1) HELD_DIRECTIONS.splice(i, 1);
+        }
+        if (action === 'moveLeft') {
+            const i = HELD_DIRECTIONS.indexOf(directions.left);
+            if (i > -1) HELD_DIRECTIONS.splice(i, 1);
+        }
+        if (action === 'moveRight') {
+            const i = HELD_DIRECTIONS.indexOf(directions.right);
+            if (i > -1) HELD_DIRECTIONS.splice(i, 1);
+        }
 
         if (action === 'leaderboard') {
             hideLeaderboard();
@@ -161,7 +182,6 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             lastTime = timestamp - (deltaTime % targetFrameTime);
 
             if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
-
                 checkMatchTimer();
                 const roundRunning = isRoundActive();
 
@@ -197,14 +217,14 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 currentOffsetX += (targetOffsetX - currentOffsetX) * 0.18;
                 currentOffsetY += (targetOffsetY - currentOffsetY) * 0.18;
 
-                const cameraX = (newX + currentOffsetX + MAP_OFFSET) - window.visualViewport.width / 2;
-                const cameraY = (newY + currentOffsetY + MAP_OFFSET) - window.visualViewport.height / 2;
+                const cameraX = newX + currentOffsetX + MAP_OFFSET - window.visualViewport.width / 2;
+                const cameraY = newY + currentOffsetY + MAP_OFFSET - window.visualViewport.height / 2;
                 window.scrollTo(cameraX, cameraY);
 
                 detectOtherPlayers(playerInfo.id);
 
-                if (SETTINGS.raycast.type !== "DISABLED") {
-                    generateRayCast(playerInfo, { type: RaycastTypes.CORNERS })
+                if (SETTINGS.raycast.type !== 'DISABLED') {
+                    generateRayCast(playerInfo, { type: RaycastTypes.CORNERS });
                 }
 
                 renderedPlayerElement.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;

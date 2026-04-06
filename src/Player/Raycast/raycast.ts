@@ -1,13 +1,13 @@
-import { environment } from "../../Environment/environment";
-import { app, SETTINGS } from "../../main";
-import { getAngle } from "../../Utilities/getAngle";
-import { getDistance } from "../../Utilities/getDistance";
-import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from "../../constants";
-import { isSmoked } from "../../Combat/smoke";
+import { environment } from '../../Environment/environment';
+import { app, SETTINGS } from '../../main';
+import { getAngle } from '../../Utilities/getAngle';
+import { getDistance } from '../../Utilities/getDistance';
+import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from '../../constants';
+import { isSmoked } from '../../Combat/smoke';
 
 export enum RaycastTypes {
     SPRAY = 'SPRAY',
-    CORNERS = 'CORNERS'
+    CORNERS = 'CORNERS',
 }
 
 // --- Angle utilities ---
@@ -35,12 +35,7 @@ function angleToRadians(deg: number): number {
  * Ray: origin + t * dir, t >= 0
  * Segment: p1 + u * (p2 - p1), 0 <= u <= 1
  */
-export function raySegmentIntersect(
-    ox: number, oy: number,
-    dx: number, dy: number,
-    x1: number, y1: number,
-    x2: number, y2: number
-): number | null {
+export function raySegmentIntersect(ox: number, oy: number, dx: number, dy: number, x1: number, y1: number, x2: number, y2: number): number | null {
     const sx = x2 - x1;
     const sy = y2 - y1;
 
@@ -60,11 +55,7 @@ export function raySegmentIntersect(
  * Cast a single ray from origin at given angle, test against all wall segments.
  * Returns the nearest intersection point.
  */
-function castRay(
-    originX: number, originY: number,
-    angleDeg: number,
-    segments: WallSegment[]
-): coordinates {
+function castRay(originX: number, originY: number, angleDeg: number, segments: WallSegment[]): coordinates {
     const rad = angleToRadians(angleDeg);
     const dirX = Math.cos(rad);
     const dirY = Math.sin(rad);
@@ -72,10 +63,7 @@ function castRay(
     let nearestT = Infinity;
 
     for (const seg of segments) {
-        const t = raySegmentIntersect(
-            originX, originY, dirX, dirY,
-            seg.x1, seg.y1, seg.x2, seg.y2
-        );
+        const t = raySegmentIntersect(originX, originY, dirX, dirY, seg.x1, seg.y1, seg.x2, seg.y2);
         if (t !== null && t < nearestT) {
             nearestT = t;
         }
@@ -94,11 +82,7 @@ function castRay(
 /**
  * Check if a single ray from (sx,sy) toward (tx,ty) is blocked.
  */
-function isSingleRayBlocked(
-    sx: number, sy: number,
-    tx: number, ty: number,
-    segments: WallSegment[]
-): boolean {
+function isSingleRayBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     const dx = tx - sx;
     const dy = ty - sy;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -120,13 +104,9 @@ function isSingleRayBlocked(
  * @param tx The target X coordinate.
  * @param ty The target Y coordinate.
  * @param segments The array of wall segments to check against.
- * @returns 
+ * @returns
  */
-export function isLineBlocked(
-    sx: number, sy: number,
-    tx: number, ty: number,
-    segments: WallSegment[]
-): boolean {
+export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     // Smoke blocks line of sight
     if (isSmoked(sx, sy, tx, ty)) return true;
 
@@ -146,7 +126,6 @@ export function isLineBlocked(
     return true;
 }
 
-
 /**
  * Generates a raycast from the player's position based on the provided configuration.
  * @param playerInfo The player's information including position and rotation.
@@ -154,7 +133,6 @@ export function isLineBlocked(
  * @returns void
  */
 export function generateRayCast(playerInfo: player_info, config: raycast_config) {
-
     const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
     const centerY = playerInfo.current_position.y + HALF_HIT_BOX;
 
@@ -181,11 +159,7 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
                 const hitDown = castRay(centerX, centerY, angleToCorner + CORNER_RAY_OFFSET_DEGREES, segments);
                 const hitCenter = castRay(centerX, centerY, angleToCorner, segments);
 
-                raycastPath.push(
-                    { x: hitUp.x, y: hitUp.y, d: normalizeAngle(angleToCorner - CORNER_RAY_OFFSET_DEGREES - facingAngle) },
-                    { x: hitCenter.x, y: hitCenter.y, d: normalizeAngle(angleToCorner - facingAngle) },
-                    { x: hitDown.x, y: hitDown.y, d: normalizeAngle(angleToCorner + CORNER_RAY_OFFSET_DEGREES - facingAngle) },
-                );
+                raycastPath.push({ x: hitUp.x, y: hitUp.y, d: normalizeAngle(angleToCorner - CORNER_RAY_OFFSET_DEGREES - facingAngle) }, { x: hitCenter.x, y: hitCenter.y, d: normalizeAngle(angleToCorner - facingAngle) }, { x: hitDown.x, y: hitDown.y, d: normalizeAngle(angleToCorner + CORNER_RAY_OFFSET_DEGREES - facingAngle) });
 
                 if (SETTINGS.debug) {
                     drawRay(centerX, centerY, hitCenter.x, hitCenter.y, `corner-${corner.x}-${corner.y}`, visible, 'corner');
@@ -203,15 +177,9 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     raycastPath.sort((a, b) => a.d - b.d);
 
     // Assemble full polygon path
-    const fullPath: coordinates[] = [
-        { x: centerX, y: centerY },
-        { x: lowerHit.x, y: lowerHit.y },
-        ...raycastPath,
-        { x: upperHit.x, y: upperHit.y },
-        { x: centerX, y: centerY },
-    ];
+    const fullPath: coordinates[] = [{ x: centerX, y: centerY }, { x: lowerHit.x, y: lowerHit.y }, ...raycastPath, { x: upperHit.x, y: upperHit.y }, { x: centerX, y: centerY }];
 
-    const polygonPath = 'polygon(' + fullPath.map(p => `${Math.round(p.x)}px ${Math.round(p.y)}px`).join(',') + ')';
+    const polygonPath = 'polygon(' + fullPath.map((p) => `${Math.round(p.x)}px ${Math.round(p.y)}px`).join(',') + ')';
 
     const fogOfWar = document.getElementById('fog-of-war');
     if (fogOfWar) {

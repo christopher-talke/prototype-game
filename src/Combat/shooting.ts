@@ -12,11 +12,15 @@ let consecutiveShots = 0;
 let recoilResetTimeout: ReturnType<typeof setTimeout> | null = null;
 let shellReloadTimer: ReturnType<typeof setTimeout> | null = null;
 
-export function getConsecutiveShots(): number { return consecutiveShots; }
-export function getIsFiring(): boolean { return isFiring; }
+export function getConsecutiveShots(): number {
+    return consecutiveShots;
+}
+export function getIsFiring(): boolean {
+    return isFiring;
+}
 
 export function getActiveWeapon(playerInfo: player_info): PlayerWeapon | undefined {
-    return playerInfo.weapons.find(w => w.active);
+    return playerInfo.weapons.find((w) => w.active);
 }
 
 const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #hud-pause, #hud-match-end';
@@ -93,14 +97,7 @@ export function tryFire(playerInfo: player_info, timestamp: number) {
         if (weaponDef.spread > 0) {
             bulletAngle += (Math.random() - 0.5) * weaponDef.spread;
         }
-        spawnBullet(
-            playerInfo.id,
-            centerX, centerY,
-            bulletAngle,
-            weaponDef.bulletSpeed,
-            weaponDef.damage,
-            weaponDef.id
-        );
+        spawnBullet(playerInfo.id, centerX, centerY, bulletAngle, weaponDef.bulletSpeed, weaponDef.damage, weaponDef.id);
     }
 
     // Auto-reload on empty

@@ -1,12 +1,12 @@
-import './player.css'
-import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarElement, getHealthBarElement } from "../Globals/Players";
+import './player.css';
+import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarElement, getHealthBarElement } from '../Globals/Players';
 import { app } from '../main';
 import { HALF_HIT_BOX } from '../constants';
 import { addPlayerInteractivity } from './interactivity';
 import { createDefaultWeapon } from '../Combat/weapons';
 export { PLAYER_HIT_BOX, FOV } from '../constants';
 
-export const HELD_DIRECTIONS = [] as string[]
+export const HELD_DIRECTIONS = [] as string[];
 
 export const directions: Record<string, string> = {
     up: 'up',
@@ -27,7 +27,6 @@ export const keys: Record<string, string | undefined> = {
 };
 
 export function createPlayer(playerInfo: player_info, controllable: boolean = false) {
-
     const newPlayerEntity = window.document.createElement('div');
     const newPlayerIdentifier = playerInfo.id;
 
@@ -90,7 +89,7 @@ export function generatePlayers(num: number, teams: number, teamSpawns: Record<n
     const teamCounters: Record<number, number> = {};
     for (let i = 0; i < num; i++) {
         const team = Math.floor(i / Math.ceil(num / teams)) + 1;
-        teamCounters[team] = (teamCounters[team] ?? 0);
+        teamCounters[team] = teamCounters[team] ?? 0;
         const spawns = teamSpawns[team] ?? Object.values(teamSpawns).flat();
         const spawn = spawns[teamCounters[team] % spawns.length];
         teamCounters[team]++;

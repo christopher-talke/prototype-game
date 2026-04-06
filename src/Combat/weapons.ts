@@ -155,7 +155,7 @@ export function getWeaponDef(type: string): WeaponDef {
         merged.bulletSpeed = Math.round(merged.bulletSpeed * config.physics.bulletSpeedMultiplier);
     }
     if (config.weapons.recoilMultiplier !== 1.0) {
-        merged.recoilPattern = merged.recoilPattern.map(p => ({
+        merged.recoilPattern = merged.recoilPattern.map((p) => ({
             x: p.x * config.weapons.recoilMultiplier,
             y: p.y * config.weapons.recoilMultiplier,
         }));

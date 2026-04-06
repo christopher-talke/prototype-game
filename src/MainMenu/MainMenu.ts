@@ -32,7 +32,7 @@ export function hideMainMenu() {
 
 function showScreen(screen: Screen) {
     if (!menuEl) return;
-    menuEl.querySelectorAll<HTMLElement>('.menu-panel').forEach(p => p.classList.remove('active'));
+    menuEl.querySelectorAll<HTMLElement>('.menu-panel').forEach((p) => p.classList.remove('active'));
     menuEl.querySelector<HTMLElement>(`#screen-${screen}`)?.classList.add('active');
 }
 
@@ -47,10 +47,10 @@ function wireEvents() {
     menuEl.querySelector('#btn-howto')?.addEventListener('click', () => showScreen('how-to-play'));
 
     // Mode select
-    menuEl.querySelectorAll<HTMLElement>('.mode-card').forEach(card => {
+    menuEl.querySelectorAll<HTMLElement>('.mode-card').forEach((card) => {
         card.addEventListener('click', () => {
             selectedModeId = card.dataset.modeId ?? 'tdm';
-            menuEl?.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+            menuEl?.querySelectorAll('.mode-card').forEach((c) => c.classList.remove('selected'));
             card.classList.add('selected');
         });
     });
@@ -106,15 +106,17 @@ function buildMainScreen(): string {
 }
 
 function buildModeSelectScreen(): string {
-    const cards = GAME_MODES.map(mode => `
+    const cards = GAME_MODES.map(
+        (mode) => `
         <button class="mode-card${mode.id === selectedModeId ? ' selected' : ''}" data-mode-id="${mode.id}">
             <div class="mode-card-name">${mode.name}</div>
             <div class="mode-card-desc">${mode.description}</div>
             <div class="mode-card-tags">
-                ${mode.tags.map(t => `<span class="mode-tag">${t}</span>`).join('')}
+                ${mode.tags.map((t) => `<span class="mode-tag">${t}</span>`).join('')}
             </div>
         </button>
-    `).join('');
+    `,
+    ).join('');
 
     return `
         <div id="screen-mode-select" class="menu-panel">
@@ -142,12 +144,16 @@ function buildHowToPlayScreen(): string {
         ['Esc', 'Close menu'],
     ];
 
-    const rows = controls.map(([key, action]) => `
+    const rows = controls
+        .map(
+            ([key, action]) => `
         <tr>
             <td>${key}</td>
             <td>${action}</td>
         </tr>
-    `).join('');
+    `,
+        )
+        .join('');
 
     return `
         <div id="screen-how-to-play" class="menu-panel">

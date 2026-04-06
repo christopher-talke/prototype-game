@@ -3,14 +3,7 @@ import { angleToRadians } from '../Utilities/angleToRadians';
 import { simulation } from '../Net/GameSimulation';
 import { gameEventBus } from '../Net/GameEvent';
 
-export function spawnBullet(
-    ownerId: number,
-    originX: number, originY: number,
-    angleDeg: number,
-    speed: number,
-    damage: number,
-    weaponType: string
-) {
+export function spawnBullet(ownerId: number, originX: number, originY: number, angleDeg: number, speed: number, damage: number, weaponType: string) {
     const rad = angleToRadians(angleDeg);
     const dx = Math.cos(rad);
     const dy = Math.sin(rad);
@@ -19,10 +12,7 @@ export function spawnBullet(
     gameEventBus.emitAll(events);
 }
 
-export function updateProjectiles(
-    segments: WallSegment[],
-    players: player_info[],
-) {
+export function updateProjectiles(segments: WallSegment[], players: player_info[]) {
     const events = simulation.tickProjectiles(segments, players);
     gameEventBus.emitAll(events);
 }

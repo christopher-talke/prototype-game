@@ -46,7 +46,7 @@ export function initMatch(playerIds: number[]) {
 
     // Discover teams from players
     const players = getAllPlayers();
-    const teams = new Set(players.map(p => p.team));
+    const teams = new Set(players.map((p) => p.team));
     for (const team of teams) {
         teamRoundWins.set(team, 0);
     }
@@ -88,7 +88,7 @@ export function recordKill(killerId: number, victimId: number) {
         killerState.kills++;
         killerState.points += 100;
         const killerInfo = getPlayerInfo(killerId);
-        const activeWeapon = killerInfo?.weapons.find(w => w.active);
+        const activeWeapon = killerInfo?.weapons.find((w) => w.active);
         const weaponType = activeWeapon?.type || 'PISTOL';
         const weaponDef = getWeaponDef(weaponType);
         killerState.money += Math.round(weaponDef.killReward * getConfig().economy.killRewardMultiplier);
@@ -189,7 +189,7 @@ function resetAllPlayers() {
     const teamCounters: Record<number, number> = {};
 
     for (const player of players) {
-        teamCounters[player.team] = (teamCounters[player.team] ?? 0);
+        teamCounters[player.team] = teamCounters[player.team] ?? 0;
         const spawns = teamSpawns[player.team] ?? Object.values(teamSpawns).flat();
         const spawn = spawns[teamCounters[player.team] % spawns.length];
         teamCounters[player.team]++;
@@ -234,14 +234,14 @@ export function buyWeapon(playerId: number, weaponType: string, playerInfo: play
     if (!spendMoney(playerId, weaponDef.price)) return false;
 
     // Check if player already has this weapon
-    const existing = playerInfo.weapons.find(w => w.type === weaponType);
+    const existing = playerInfo.weapons.find((w) => w.type === weaponType);
     if (existing) {
         existing.ammo = existing.maxAmmo;
         return true;
     }
 
     // Deactivate current weapon
-    playerInfo.weapons.forEach(w => w.active = false);
+    playerInfo.weapons.forEach((w) => (w.active = false));
 
     // Add new weapon
     playerInfo.weapons.push({

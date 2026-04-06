@@ -4,12 +4,7 @@
 import '../Combat/combat.css';
 import '../Combat/grenade.css';
 import { gameEventBus, type GameEvent } from './GameEvent';
-import type {
-    BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent,
-    PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent,
-    GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent,
-    ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent,
-} from './GameEvent';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent } from './GameEvent';
 import { simulation } from './GameSimulation';
 import { acquireProjectile, releaseProjectile } from '../Combat/ProjectilePool';
 import { ACTIVE_PLAYER, getPlayerElement, getPlayerInfo, getHealthBarElement } from '../Globals/Players';
@@ -29,25 +24,53 @@ class ClientRendererImpl {
     private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
 
     init() {
-        gameEventBus.subscribe(event => this.handleEvent(event));
+        gameEventBus.subscribe((event) => this.handleEvent(event));
     }
 
     private handleEvent(event: GameEvent) {
         switch (event.type) {
-            case 'BULLET_SPAWN': this.onBulletSpawn(event); break;
-            case 'BULLET_REMOVED': this.onBulletRemoved(event); break;
-            case 'BULLET_HIT': this.onBulletHit(event); break;
-            case 'PLAYER_DAMAGED': this.onPlayerDamaged(event); break;
-            case 'PLAYER_KILLED': this.onPlayerKilled(event); break;
-            case 'PLAYER_RESPAWN': this.onPlayerRespawn(event); break;
-            case 'GRENADE_SPAWN': this.onGrenadeSpawn(event); break;
-            case 'GRENADE_DETONATE': this.onGrenadeDetonate(event); break;
-            case 'GRENADE_BOUNCE': this.onGrenadeBounce(event); break;
-            case 'GRENADE_REMOVED': this.onGrenadeRemoved(event); break;
-            case 'EXPLOSION_HIT': this.onExplosionHit(event); break;
-            case 'FLASH_EFFECT': this.onFlashEffect(event); break;
-            case 'SMOKE_DEPLOY': this.onSmokeDeploy(event); break;
-            case 'ROUND_START': this.onRoundStart(); break;
+            case 'BULLET_SPAWN':
+                this.onBulletSpawn(event);
+                break;
+            case 'BULLET_REMOVED':
+                this.onBulletRemoved(event);
+                break;
+            case 'BULLET_HIT':
+                this.onBulletHit(event);
+                break;
+            case 'PLAYER_DAMAGED':
+                this.onPlayerDamaged(event);
+                break;
+            case 'PLAYER_KILLED':
+                this.onPlayerKilled(event);
+                break;
+            case 'PLAYER_RESPAWN':
+                this.onPlayerRespawn(event);
+                break;
+            case 'GRENADE_SPAWN':
+                this.onGrenadeSpawn(event);
+                break;
+            case 'GRENADE_DETONATE':
+                this.onGrenadeDetonate(event);
+                break;
+            case 'GRENADE_BOUNCE':
+                this.onGrenadeBounce(event);
+                break;
+            case 'GRENADE_REMOVED':
+                this.onGrenadeRemoved(event);
+                break;
+            case 'EXPLOSION_HIT':
+                this.onExplosionHit(event);
+                break;
+            case 'FLASH_EFFECT':
+                this.onFlashEffect(event);
+                break;
+            case 'SMOKE_DEPLOY':
+                this.onSmokeDeploy(event);
+                break;
+            case 'ROUND_START':
+                this.onRoundStart();
+                break;
         }
     }
 
@@ -93,7 +116,7 @@ class ClientRendererImpl {
         if (event.targetId === ACTIVE_PLAYER) {
             const target = getPlayerInfo(event.targetId);
             if (target) {
-                const angle = Math.atan2(event.bulletDy, event.bulletDx) * 180 / Math.PI;
+                const angle = (Math.atan2(event.bulletDy, event.bulletDx) * 180) / Math.PI;
                 showDamageIndicator(angle, target.current_position.rotation);
             }
         }
@@ -130,7 +153,7 @@ class ClientRendererImpl {
         app.appendChild(corpse);
         const corpseTimer = setTimeout(() => {
             corpse.remove();
-            this.corpseMarkers = this.corpseMarkers.filter(c => c.el !== corpse);
+            this.corpseMarkers = this.corpseMarkers.filter((c) => c.el !== corpse);
         }, 5000);
         this.corpseMarkers.push({ el: corpse, timer: corpseTimer });
 
@@ -224,7 +247,10 @@ class ClientRendererImpl {
     // -- Round events --
 
     private onRoundStart() {
-        for (const { el, timer } of this.corpseMarkers) { clearTimeout(timer); el.remove(); }
+        for (const { el, timer } of this.corpseMarkers) {
+            clearTimeout(timer);
+            el.remove();
+        }
         this.corpseMarkers.length = 0;
     }
 
@@ -236,10 +262,13 @@ class ClientRendererImpl {
         wrap.classList.add('health-visible');
         const prev = this.healthBarTimers.get(playerId);
         if (prev) clearTimeout(prev);
-        this.healthBarTimers.set(playerId, setTimeout(() => {
-            wrap.classList.remove('health-visible');
-            this.healthBarTimers.delete(playerId);
-        }, getConfig().player.healthBarVisibleDuration));
+        this.healthBarTimers.set(
+            playerId,
+            setTimeout(() => {
+                wrap.classList.remove('health-visible');
+                this.healthBarTimers.delete(playerId);
+            }, getConfig().player.healthBarVisibleDuration),
+        );
     }
 
     private showFlashOverlay(intensity: number, duration: number) {

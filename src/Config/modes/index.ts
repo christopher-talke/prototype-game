@@ -75,6 +75,4 @@ export const GAME_MODES: ModeEntry[] = [
     },
 ];
 
-export const GAME_MODES_MAP = new Map<string, ModeEntry>(
-    GAME_MODES.map(m => [m.id, m])
-);
+export const GAME_MODES_MAP = new Map<string, ModeEntry>(GAME_MODES.map((m) => [m.id, m]));

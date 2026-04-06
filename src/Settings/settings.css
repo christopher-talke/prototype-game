@@ -5,9 +5,7 @@
     transform: translate(-50%, -50%);
     z-index: 10000;
     background: rgba(8, 8, 16, 0.97);
-    background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
     background-size: 40px 40px;
     border: 1px solid rgba(255, 255, 255, 0.15);
     width: 420px;
@@ -44,7 +42,9 @@
     padding: 0 4px;
     line-height: 1;
 }
-.settings-header button:hover { color: #00e5ff; }
+.settings-header button:hover {
+    color: #00e5ff;
+}
 
 .settings-tabs {
     display: flex;
@@ -63,9 +63,13 @@
     letter-spacing: 2px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
+    transition:
+        color 0.15s,
+        border-color 0.15s;
 }
-.settings-tab:hover { color: rgba(255, 255, 255, 0.8); }
+.settings-tab:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
 .settings-tab.active {
     color: #fbbf24;
     border-bottom-color: #fbbf24;
@@ -77,8 +81,12 @@
     overflow-y: auto;
 }
 
-.settings-panel { display: none; }
-.settings-panel.active { display: block; }
+.settings-panel {
+    display: none;
+}
+.settings-panel.active {
+    display: block;
+}
 
 /* Keybind rows */
 .keybind-row {
@@ -103,9 +111,14 @@
     font-family: 'Courier New', monospace;
     cursor: pointer;
     text-align: center;
-    transition: border-color 0.12s, color 0.12s;
+    transition:
+        border-color 0.12s,
+        color 0.12s;
 }
-.keybind-btn:hover { border-color: rgba(0, 229, 255, 0.5); color: #00e5ff; }
+.keybind-btn:hover {
+    border-color: rgba(0, 229, 255, 0.5);
+    color: #00e5ff;
+}
 .keybind-btn.listening {
     border-color: #fbbf24;
     color: #fbbf24;
@@ -113,8 +126,12 @@
 }
 
 @keyframes pulse-border {
-    from { border-color: #fbbf24; }
-    to { border-color: #b8860b; }
+    from {
+        border-color: #fbbf24;
+    }
+    to {
+        border-color: #b8860b;
+    }
 }
 
 /* Audio / Game settings rows */
@@ -131,7 +148,7 @@
     font-size: 13px;
 }
 
-.settings-row input[type="range"] {
+.settings-row input[type='range'] {
     flex: 1;
     accent-color: #fbbf24;
 }
@@ -152,7 +169,7 @@
     font-size: 13px;
 }
 
-.settings-row input[type="checkbox"] {
+.settings-row input[type='checkbox'] {
     accent-color: #fbbf24;
     width: 16px;
     height: 16px;

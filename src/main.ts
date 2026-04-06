@@ -1,6 +1,6 @@
-import './style.css'
+import './style.css';
 
-import { createPlayer, generatePlayers } from './Player/player'
+import { createPlayer, generatePlayers } from './Player/player';
 import { setActivePlayer } from './Globals/Players';
 import { drawFogOfWar } from './Player/Raycast/fogOfWar';
 import { drawCollisionOverlay } from './Environment/generateCollisionMap';
@@ -23,17 +23,17 @@ import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from './Load
 export const app = document.getElementById('app') as HTMLElement;
 export { MAP_OFFSET };
 export const SETTINGS: GameSettings = {
-  debug: false,
-  gameMode: 'tdm',
-  raycast: {
-    type: 'MAIN_THREAD'
-  },
-  audio: {
-    masterVolume: 0.4,
-    sfxVolume: 0.6,
-    musicVolume: 0.5,
-    muted: false,
-  }
+    debug: false,
+    gameMode: 'tdm',
+    raycast: {
+        type: 'MAIN_THREAD',
+    },
+    audio: {
+        masterVolume: 0.4,
+        sfxVolume: 0.6,
+        musicVolume: 0.5,
+        muted: false,
+    },
 };
 
 const ACTIVE_MAP = getActiveMap();
@@ -42,81 +42,81 @@ const PLAYERS = generatePlayers(config.match.maxPlayers, config.match.teamsCount
 
 // Yield to browser so it can paint between heavy init steps
 function nextFrame(): Promise<void> {
-  return new Promise(resolve => requestAnimationFrame(() => resolve()));
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  showLoadingScreen();
-  await nextFrame();
+    showLoadingScreen();
+    await nextFrame();
 
-  setLoadingProgress(5, 'generating environment');
-  generateEnvironment();
-  await nextFrame();
+    setLoadingProgress(5, 'generating environment');
+    generateEnvironment();
+    await nextFrame();
 
-  setLoadingProgress(15, 'drawing fog of war');
-  drawFogOfWar();
-  await nextFrame();
+    setLoadingProgress(15, 'drawing fog of war');
+    drawFogOfWar();
+    await nextFrame();
 
-  setLoadingProgress(20, 'initializing systems');
-  initProjectilePool();
-  clientRenderer.init();
+    setLoadingProgress(20, 'initializing systems');
+    initProjectilePool();
+    clientRenderer.init();
 
-  setLoadingProgress(30, 'building walls');
-  for (const wall of ACTIVE_MAP.walls) {
-    createWall(wall);
-  }
-  await nextFrame();
-
-  if (SETTINGS.debug) {
-    drawCollisionOverlay(environment);
-  }
-
-  setLoadingProgress(45, 'creating players');
-  for (const player of PLAYERS) {
-    if (player.id === 1) {
-      setActivePlayer(player.id);
+    setLoadingProgress(30, 'building walls');
+    for (const wall of ACTIVE_MAP.walls) {
+        createWall(wall);
     }
-    createPlayer(player, player.id === 1);
-    if (player.id !== 1) {
-      registerAI(player);
+    await nextFrame();
+
+    if (SETTINGS.debug) {
+        drawCollisionOverlay(environment);
     }
-  }
-  await nextFrame();
 
-  setLoadingProgress(60, 'initializing hud');
-  initHUD();
-  setOnKillCallback(addKillFeedEntry);
-  setOnRoundEndCallback(showRoundEndBanner);
-  await nextFrame();
+    setLoadingProgress(45, 'creating players');
+    for (const player of PLAYERS) {
+        if (player.id === 1) {
+            setActivePlayer(player.id);
+        }
+        createPlayer(player, player.id === 1);
+        if (player.id !== 1) {
+            registerAI(player);
+        }
+    }
+    await nextFrame();
 
-  setLoadingProgress(70, 'loading sounds');
-  await loadAllSounds();
+    setLoadingProgress(60, 'initializing hud');
+    initHUD();
+    setOnKillCallback(addKillFeedEntry);
+    setOnRoundEndCallback(showRoundEndBanner);
+    await nextFrame();
 
-  setLoadingProgress(100, 'ready');
-  await nextFrame();
+    setLoadingProgress(70, 'loading sounds');
+    await loadAllSounds();
 
-  resumeAudioContext();
-  playMenuMusic();
+    setLoadingProgress(100, 'ready');
+    await nextFrame();
 
-  function launchMatch(modeId: string) {
-    const entry = GAME_MODES_MAP.get(modeId);
-    if (entry) setGameMode(entry.partial);
-    stopMenuMusic();
-    initMatch(PLAYERS.map(p => p.id));
-    hideMainMenu();
-    document.body.style.cursor = 'none';
-  }
-
-  function returnToMenu() {
-    endMatch();
-    hideMatchEndOverlay();
-    document.body.style.cursor = 'auto';
+    resumeAudioContext();
     playMenuMusic();
+
+    function launchMatch(modeId: string) {
+        const entry = GAME_MODES_MAP.get(modeId);
+        if (entry) setGameMode(entry.partial);
+        stopMenuMusic();
+        initMatch(PLAYERS.map((p) => p.id));
+        hideMainMenu();
+        document.body.style.cursor = 'none';
+    }
+
+    function returnToMenu() {
+        endMatch();
+        hideMatchEndOverlay();
+        document.body.style.cursor = 'auto';
+        playMenuMusic();
+        showMainMenu(launchMatch);
+    }
+
+    setOnReturnToMenuCallback(returnToMenu);
+
+    await hideLoadingScreen();
     showMainMenu(launchMatch);
-  }
-
-  setOnReturnToMenuCallback(returnToMenu);
-
-  await hideLoadingScreen();
-  showMainMenu(launchMatch);
-})
+});
