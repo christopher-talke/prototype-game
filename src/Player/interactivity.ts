@@ -6,7 +6,7 @@ import { SETTINGS } from '../Globals/App';
 import { detectOtherPlayers } from './detection';
 import { environment } from '../Environment/environment';
 import { HELD_DIRECTIONS, directions } from './player';
-import { generateRayCast, RaycastTypes } from './Raycast/raycast';
+import { generateRayCast, generateFOVCone, tickAdaptiveQuality, RaycastTypes } from './Raycast/raycast';
 import { toggleSettings, isSettingsOpen, closeSettings } from '../Settings/settings';
 import { getActionForKey } from '../Settings/keybinds';
 import { initShooting, getActiveWeapon, getIsFiring } from '../Combat/shooting';
@@ -289,8 +289,11 @@ function startGameLoop() {
 
                 detectOtherPlayers(loopPlayer.id);
 
-                if (SETTINGS.raycast.type !== 'DISABLED') {
+                if (SETTINGS.raycast.type === 'MAIN_THREAD') {
                     generateRayCast(loopPlayer, { type: RaycastTypes.CORNERS });
+                    tickAdaptiveQuality(timestamp);
+                } else {
+                    generateFOVCone(loopPlayer);
                 }
 
                 loopPlayerEl.classList.add('visible');

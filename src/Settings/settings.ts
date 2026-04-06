@@ -187,8 +187,8 @@ function buildGameTab() {
         <div class="settings-row">
             <label>Raycasting</label>
             <select id="opt-raycast">
-                <option value="DISABLED" ${SETTINGS.raycast.type === 'DISABLED' ? 'selected' : ''}>Disabled</option>
-                <option value="MAIN_THREAD" ${SETTINGS.raycast.type === 'MAIN_THREAD' ? 'selected' : ''}>Enabled</option>
+                <option value="DISABLED" ${SETTINGS.raycast.type === 'DISABLED' ? 'selected' : ''}>Simplified FOV Cone</option>
+                <option value="MAIN_THREAD" ${SETTINGS.raycast.type === 'MAIN_THREAD' ? 'selected' : ''}>Full Raycasting</option>
             </select>
         </div>
     `;
@@ -209,9 +209,8 @@ function buildGameTab() {
         SETTINGS.raycast.type = val;
         if (val === 'DISABLED') {
             removeElements(document.querySelectorAll('.ray'));
-            document.getElementById('fog-of-war')?.classList.add('d-none');
-        } else {
-            document.getElementById('fog-of-war')?.classList.remove('d-none');
         }
+        // fog-of-war stays visible in both modes (FOV cone uses it when raycasting is off)
+        document.getElementById('fog-of-war')?.classList.remove('d-none');
     });
 }
