@@ -209,8 +209,9 @@ function buildGameTab() {
         SETTINGS.raycast.type = val;
         if (val === 'DISABLED') {
             removeElements(document.querySelectorAll('.ray'));
+            document.getElementById('fog-of-war')?.classList.add('d-none');
+        } else {
+            document.getElementById('fog-of-war')?.classList.remove('d-none');
         }
-        // fog-of-war stays visible in both modes (FOV cone uses it when raycasting is off)
-        document.getElementById('fog-of-war')?.classList.remove('d-none');
     });
 }

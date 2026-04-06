@@ -4,6 +4,17 @@
     will-change: clip-path;
 }
 
+/* FOV cone lines (simplified mode) */
+.fov-line {
+    position: absolute;
+    height: 0;
+    display: none;
+    pointer-events: none;
+    z-index: 9;
+    transform-origin: 0 0;
+    border-top: 1px solid rgba(200, 220, 255, 0.35);
+}
+
 /* Adaptive quality modal */
 #adaptive-quality-modal {
     display: flex;

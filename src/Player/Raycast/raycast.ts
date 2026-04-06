@@ -47,10 +47,6 @@ let lastCastRot = NaN;
 const POSITION_THRESHOLD = 0.5;
 const ROTATION_THRESHOLD = 0.5;
 
-// --- 30fps throttle ---
-let lastRaycastTime = 0;
-const RAYCAST_INTERVAL = 33; // ~30fps
-
 // --- Pre-allocated reusable buffers ---
 const rayPathBuffer: RayPoint[] = [];
 let polyStringParts: string[] = [];
@@ -132,10 +128,6 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     const centerY = playerInfo.current_position.y + HALF_HIT_BOX;
     const rotation = playerInfo.current_position.rotation;
 
-    // 30fps throttle
-    const now = performance.now();
-    if (now - lastRaycastTime < RAYCAST_INTERVAL) return;
-
     // Frame skipping: skip if player hasn't moved or rotated
     const dx = centerX - lastCastX;
     const dy = centerY - lastCastY;
@@ -145,7 +137,6 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     lastCastX = centerX;
     lastCastY = centerY;
     lastCastRot = rotation;
-    lastRaycastTime = now;
 
     if (SETTINGS.debug) {
         for (const el of Array.from(document.querySelectorAll('.ray'))) el.remove();
@@ -249,28 +240,65 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     }
 }
 
-// --- FOV cone: lightweight fallback when raycasting is disabled ---
+// --- FOV cone: two lines at FOV boundaries, shortened by wall hits ---
+
+let fovLineLeft: HTMLElement | null = null;
+let fovLineRight: HTMLElement | null = null;
+
+function ensureFOVLineElements() {
+    if (fovLineLeft) return;
+    fovLineLeft = document.createElement('div');
+    fovLineLeft.classList.add('fov-line');
+    app.appendChild(fovLineLeft);
+
+    fovLineRight = document.createElement('div');
+    fovLineRight.classList.add('fov-line');
+    app.appendChild(fovLineRight);
+}
 
 export function generateFOVCone(playerInfo: player_info) {
-    const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
-    const centerY = playerInfo.current_position.y + HALF_HIT_BOX;
+    ensureFOVLineElements();
+
+    const cx = playerInfo.current_position.x + HALF_HIT_BOX;
+    const cy = playerInfo.current_position.y + HALF_HIT_BOX;
     const facingAngle = playerInfo.current_position.rotation - 90;
-    const coneDist = 800;
 
-    const lowerRad = angleToRadians(facingAngle - FOV);
-    const upperRad = angleToRadians(facingAngle + FOV);
+    const lowerAngle = facingAngle - FOV;
+    const upperAngle = facingAngle + FOV;
+    const lowerRad = angleToRadians(lowerAngle);
+    const upperRad = angleToRadians(upperAngle);
+    const lDx = Math.cos(lowerRad);
+    const lDy = Math.sin(lowerRad);
+    const uDx = Math.cos(upperRad);
+    const uDy = Math.sin(upperRad);
 
-    const lx = Math.round(centerX + Math.cos(lowerRad) * coneDist);
-    const ly = Math.round(centerY + Math.sin(lowerRad) * coneDist);
-    const ux = Math.round(centerX + Math.cos(upperRad) * coneDist);
-    const uy = Math.round(centerY + Math.sin(upperRad) * coneDist);
-    const cx = Math.round(centerX);
-    const cy = Math.round(centerY);
-
-    const fogOfWar = document.getElementById('fog-of-war');
-    if (fogOfWar) {
-        fogOfWar.style.clipPath = `polygon(${cx}px ${cy}px,${lx}px ${ly}px,${ux}px ${uy}px)`;
+    const segments = environment.segments;
+    let leftLen = 5000;
+    let rightLen = 5000;
+    for (let i = 0, len = segments.length; i < len; i++) {
+        const seg = segments[i];
+        const tl = raySegmentIntersect(cx, cy, lDx, lDy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (tl !== null && tl > 0 && tl < leftLen) leftLen = tl;
+        const tr = raySegmentIntersect(cx, cy, uDx, uDy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (tr !== null && tr > 0 && tr < rightLen) rightLen = tr;
     }
+
+    fovLineLeft!.style.display = 'block';
+    fovLineLeft!.style.left = `${cx}px`;
+    fovLineLeft!.style.top = `${cy}px`;
+    fovLineLeft!.style.width = `${leftLen}px`;
+    fovLineLeft!.style.transform = `rotate(${lowerAngle}deg)`;
+
+    fovLineRight!.style.display = 'block';
+    fovLineRight!.style.left = `${cx}px`;
+    fovLineRight!.style.top = `${cy}px`;
+    fovLineRight!.style.width = `${rightLen}px`;
+    fovLineRight!.style.transform = `rotate(${upperAngle}deg)`;
+}
+
+export function hideFOVCone() {
+    if (fovLineLeft) fovLineLeft.style.display = 'none';
+    if (fovLineRight) fovLineRight.style.display = 'none';
 }
 
 // --- Adaptive quality: FPS monitor ---
