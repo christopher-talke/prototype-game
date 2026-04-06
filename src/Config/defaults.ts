@@ -16,7 +16,9 @@ export const BASE_DEFAULTS: GameModeConfig = {
     economy: {
         startingMoney: 500,
         armorCost: 200,
+        disableArmor: false,
         healthCost: 100,
+        disableHealth: false,
         killRewardMultiplier: 1.0,
     },
 
@@ -62,4 +64,8 @@ export const BASE_DEFAULTS: GameModeConfig = {
     shooting: {
         recoilResetDelay: 300,
     },
+
+    gameplay: {
+        disableLowHealthEffects: false,
+    }
 };

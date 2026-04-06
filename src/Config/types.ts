@@ -3,6 +3,7 @@ export type DeepPartial<T> = {
 };
 
 export interface GameModeConfig {
+    gameplay: any;
     id: string;
     name: string;
 
@@ -16,8 +17,10 @@ export interface GameModeConfig {
     };
 
     economy: {
-        healthCost: any;
-        armorCost: any;
+        healthCost: number;
+        disableHealth: boolean;
+        armorCost: number;
+        disableArmor: boolean;
         startingMoney: number; // currently 99999
         killRewardMultiplier: number; // 1.0
     };

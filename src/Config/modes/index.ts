@@ -54,7 +54,7 @@ export const GAME_MODES: ModeEntry[] = [
         id: 'one-shot-kill',
         name: 'One-Shot Kill',
         description: 'All players have 1 HP. Every hit is lethal. No margin for error.',
-        tags: ['1 HP', 'LETHAL', 'FAST ROUNDS'],
+        tags: ['1 HP', '5 ROUNDS', 'LETHAL'],
         partial: {
             player: {
                 maxHealth: 1,
@@ -64,6 +64,10 @@ export const GAME_MODES: ModeEntry[] = [
                 armorAbsorption: 0,
                 healthBarVisibleDuration: 3000,
             },
+            economy: {
+                disableArmor: true,
+                disableHealth: true,
+            },
             weapons: {
                 allowedWeapons: 'ALL',
                 startingWeapons: ['PISTOL'],
@@ -71,6 +75,9 @@ export const GAME_MODES: ModeEntry[] = [
                 globalDamageMultiplier: 100,
                 recoilMultiplier: 0.3,
             },
+            gameplay: {
+                disableLowHealthEffects: true,
+            }
         },
     },
 ];

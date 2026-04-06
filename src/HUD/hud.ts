@@ -257,8 +257,11 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     }
 
     // Low-health desaturation + blur on the game world
-    const t = healthPct / 100;
-    app.style.filter = `saturate(${t.toFixed(3)}) blur(${((1 - t) * 1.5).toFixed(2)}px)`;
+    const disableEffects = getConfig().gameplay.disableLowHealthEffects;
+    if (!disableEffects) {    
+        const t = healthPct / 100;
+        app.style.filter = `saturate(${t.toFixed(3)}) blur(${((1 - t) * 1.5).toFixed(2)}px)`;
+    }
 
     // Armor bar
     armorBar.style.width = `${Math.max(0, playerInfo.armour)}%`;
@@ -359,10 +362,16 @@ function renderBuyMenu(playerInfo: player_info) {
     buyMenuGrid.innerHTML = '';
 
     // Health and Armour
+    const disableHealth = getConfig().economy.disableHealth;
+    const disableArmor = getConfig().economy.disableArmor;
+
     const healthAndArmourHeader = document.createElement('div');
     healthAndArmourHeader.classList.add('buymenu-section-header');
     healthAndArmourHeader.textContent = 'HEALTH & ARMOUR';
-    buyMenuGrid.appendChild(healthAndArmourHeader);
+
+    if (!disableHealth || !disableArmor) {
+        buyMenuGrid.appendChild(healthAndArmourHeader);
+    }
 
     const healthAndArmour =  [
         ['Health', getConfig().economy.healthCost, () => buyHealth(playerInfo.id, playerInfo)],
@@ -370,12 +379,16 @@ function renderBuyMenu(playerInfo: player_info) {
     ] as [string, number, () => void][];
     for (const [label, cost, buy] of healthAndArmour) {
         const item = document.createElement('div');
+
+        if ((label === 'Health' && disableHealth) || (label === 'Armor' && disableArmor)) continue;
+
         item.classList.add('buymenu-item');
         if (state.money < cost) item.classList.add('too-expensive');
         item.innerHTML = `<div class="buymenu-item-name">${label}</div><div class="buymenu-item-price">$${cost}</div>`;
         item.addEventListener('click', () => {
             if (state.money >= cost) { buy(); renderBuyMenu(playerInfo); }
         });
+
         buyMenuGrid.appendChild(item);
     }
 
@@ -532,7 +545,7 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
     const sub = document.getElementById('round-banner-sub')!;
     const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
     const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
-    sub.innerHTML = `Team ${winningTeam} wins!  |  ${scoreText}`;
+    sub.innerHTML = `Team ${winningTeam} wins!<br /><br />${scoreText}`;
 
     roundBanner.classList.remove('active');
     void roundBanner.offsetWidth;
@@ -571,10 +584,10 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>)
     scoreEl.innerHTML = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
 
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
-        winnerEl.classList.add('won');
+        matchEndOverlay.classList.add('won');
         playSound('match_win');
     } else {
-        winnerEl.classList.add('lost');
+        matchEndOverlay.classList.add('lost');
         playSound('match_lose');
     }
 
