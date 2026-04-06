@@ -44,6 +44,17 @@ const GRENADE_SOUNDS: Record<string, string> = {
     c4_explode: '/sounds/grenades/c4_explode.mp3',
 };
 
+const MUSIC: Record<string, string> = {
+    'menu-music': '/sounds/music/menu.mp3',
+};
+
+const HUD_SOUNDS: Record<string, string> = {
+    round_win: '/sounds/hud/round_win.mp3',
+    round_lose: '/sounds/hud/round_lose.mp3',
+    match_win: '/sounds/hud/match_win.mp3',
+    match_lose: '/sounds/hud/match_lose.mp3',
+}
+
 export function getWeaponSoundId(weaponType: string): string {
     return `shoot_${weaponType}`;
 }
@@ -52,14 +63,14 @@ export function getWeaponReloadSoundId(weaponType: string): string {
     return `reload_${weaponType}`;
 }
 
-const MUSIC: Record<string, string> = {
-    'menu-music': '/sounds/music/menu.mp3',
-};
-
 export async function loadAllSounds(): Promise<void> {
     const promises: Promise<void>[] = [];
 
     for (const [id, url] of Object.entries(MUSIC)) {
+        promises.push(loadSound(id, url));
+    }
+
+    for (const [id, url] of Object.entries(HUD_SOUNDS)) {
         promises.push(loadSound(id, url));
     }
 

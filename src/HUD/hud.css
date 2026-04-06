@@ -151,6 +151,14 @@
     opacity: 1;
 }
 
+#hud-round-banner.active.won {
+    background: rgba(32, 128, 32, 0.85);
+}
+
+#hud-round-banner.active.lost {
+    background: rgba(128, 32, 32, 0.85);
+}
+
 #round-banner-text {
     font-family: 'Courier New', monospace;
     font-size: 48px;
@@ -251,6 +259,14 @@
 #hud-match-end.active {
     opacity: 1;
     pointer-events: auto;
+}
+
+#hud-match-end.active.won {
+    background: rgba(32, 128, 32, 0.85);
+}
+
+#hud-match-end.active.lost {
+    background: rgba(128, 32, 32, 0.85);
 }
 
 #match-end-title {

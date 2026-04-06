@@ -3,6 +3,7 @@
     width: 4px;
     height: 4px;
     background: #ffcc00;
+    box-shadow: 0 0 4px 1px #ffcc00, 0 0 8px 2px rgba(255, 204, 0, 0.25);
     border-radius: 50%;
     pointer-events: none;
     z-index: 50;

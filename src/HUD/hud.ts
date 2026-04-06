@@ -3,7 +3,7 @@ import { getWeaponDef, WEAPON_DEFS, isWeaponAllowed } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
 import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
-import { getAllPlayers, ACTIVE_PLAYER } from '../Globals/Players';
+import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
 import { getSelectedGrenadeType, getGrenadeChargePercent } from '../Player/interactivity';
 import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
@@ -499,6 +499,16 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
     void roundBanner.offsetWidth;
     roundBanner.classList.add('active');
 
+    if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
+        roundBanner.classList.add('won');
+        playSound('round_win');
+    } 
+    
+    else {
+        roundBanner.classList.add('lost');
+        playSound('round_lose');
+    }
+
     setTimeout(() => roundBanner.classList.remove('active'), getConfig().match.roundIntermission - 500);
 }
 
@@ -512,6 +522,17 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>)
     winnerEl.textContent = `Team ${winningTeam} wins the match!`;
     const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
     scoreEl.textContent = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('  -  ');
+
+    if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
+        winnerEl.classList.add('won');
+        playSound('match_win');
+    } 
+    
+    else {
+        winnerEl.classList.add('lost');
+        playSound('match_lose');
+    }
+
     matchEndOverlay.classList.add('active');
 }
 
