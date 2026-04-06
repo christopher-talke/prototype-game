@@ -40,5 +40,11 @@ export function getPlayerInfo(playerId: number) {
 }
 
 export function setActivePlayer(playerId: number) {
+    if (ACTIVE_PLAYER != null) {
+        const oldEl = PLAYER_ELEMENTS.get(ACTIVE_PLAYER);
+        if (oldEl) oldEl.classList.remove('visible');
+    }
     ACTIVE_PLAYER = playerId;
+    const newEl = PLAYER_ELEMENTS.get(playerId);
+    if (newEl) newEl.classList.add('visible');
 }

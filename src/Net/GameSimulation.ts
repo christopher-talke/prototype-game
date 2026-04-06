@@ -2,7 +2,7 @@
 // All methods return GameEvent arrays. Callers (or the renderer) handle visuals/audio.
 
 import type { GameEvent } from './GameEvent';
-import { raySegmentIntersect, isLineBlocked } from '../Player/Raycast/raycast';
+import { raySegmentIntersect, isLineBlocked } from '../Player/Raycast/rayGeometry';
 import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
 import { getGrenadeDef } from '../Combat/grenades';
 import { getActiveMap } from '../Maps/helpers';
@@ -146,6 +146,9 @@ export class GameSimulation {
                 ownerId,
                 x,
                 y,
+                dx,
+                dy,
+                speed,
                 weaponType,
             },
         ];
@@ -263,6 +266,9 @@ export class GameSimulation {
                 ownerId,
                 x,
                 y,
+                dx,
+                dy,
+                speed,
                 isC4: type === 'C4',
             },
         ];

@@ -6,7 +6,7 @@ import '../Combat/grenade.css';
 import { gameEventBus, type GameEvent } from './GameEvent';
 import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent } from './GameEvent';
 import { acquireProjectile, releaseProjectile } from '../Combat/ProjectilePool';
-import { ACTIVE_PLAYER, getPlayerElement, getPlayerInfo, getHealthBarElement } from '../Globals/Players';
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerElement, getPlayerInfo, getHealthBarElement } from '../Globals/Players';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { removeLastKnownForPlayer } from '../Player/lineOfSight';
 import { playSoundAtPlayer, playSound } from '../Audio/audio';
@@ -17,7 +17,7 @@ import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry
 import { spawnSmoke } from '../Combat/smoke';
 import { app } from '../main';
 import { getConfig } from '../Config/activeConfig';
-import { offlineAdapter } from './OfflineAdapter';
+import { getAdapter } from './activeAdapter';
 
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
@@ -88,17 +88,29 @@ class ClientRendererImpl {
 
     // Called each frame after simulation tick to sync DOM positions
     updateVisuals() {
-        const sim = offlineAdapter.authSim.simulation;
-        for (const p of sim.getProjectiles()) {
+        const adapter = getAdapter();
+        for (const p of adapter.getProjectiles()) {
             const entry = this.bulletElements.get(p.id);
             if (entry) {
                 entry.element.style.transform = `translate3d(${Math.round(p.x)}px, ${Math.round(p.y)}px, 0)`;
             }
         }
-        for (const g of sim.getGrenades()) {
+        for (const g of adapter.getGrenades()) {
             const el = this.grenadeElements.get(g.id);
             if (el && !g.detonated) {
                 el.style.transform = `translate3d(${Math.round(g.x)}px, ${Math.round(g.y)}px, 0)`;
+            }
+        }
+        // Update remote player DOM elements (online mode: tick() interpolates
+        // current_position but nothing else syncs that to the DOM)
+        for (const player of getAllPlayers()) {
+            if (player.id === ACTIVE_PLAYER) continue;
+            const el = getPlayerElement(player.id);
+            if (el) {
+                const pos = player.current_position;
+                el.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${pos.rotation}deg)`;
+                const hbEl = getHealthBarElement(player.id);
+                if (hbEl) positionHealthBar(hbEl, player);
             }
         }
     }
@@ -190,13 +202,6 @@ class ClientRendererImpl {
         this.corpseMarkers.push({ el: corpse, timer: corpseTimer });
 
         removeLastKnownForPlayer(event.targetId);
-
-        // Record kill and emit kill feed through AuthoritativeSimulation
-        const killEvents = offlineAdapter.authSim.recordKill(event.killerId, event.targetId);
-        gameEventBus.emitAll(killEvents);
-
-        // Notify death for respawn tracking (AuthoritativeSimulation.tick handles respawn)
-        offlineAdapter.authSim.notifyPlayerDeath(event.targetId, performance.now());
     }
 
     private onPlayerRespawn(event: PlayerRespawnEvent) {

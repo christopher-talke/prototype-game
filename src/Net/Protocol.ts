@@ -27,6 +27,9 @@ export type PlayerSnapshot = {
     health: number;
     armour: number;
     dead: boolean;
+    money: number;
+    weapons: PlayerWeapon[];
+    grenades: Record<GrenadeType, number>;
 };
 
 export type SimProjectileSnapshot = {
@@ -92,6 +95,7 @@ export type ServerMessage =
           players: PlayerSnapshot[];
           projectiles: SimProjectileSnapshot[];
           grenades: SimGrenadeSnapshot[];
+          timeRemaining: number;
       }
     | { v: 1; t: 'input_ack'; seq: number; x: number; y: number }
     | {

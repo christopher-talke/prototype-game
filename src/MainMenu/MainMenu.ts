@@ -2,8 +2,7 @@ import './menu.css';
 import { GAME_MODES } from '../Config/modes/index';
 import { toggleSettings } from '../Settings/settings';
 import { webSocketAdapter } from '../Net/WebSocketAdapter';
-import { showLobbyScreen } from '../Net/LobbyScreen';
-import { getConfig } from '../Config/activeConfig';
+import { showLobbyScreen, hideLobbyScreen } from '../Net/LobbyScreen';
 
 type Screen = 'main' | 'mode-select' | 'how-to-play';
 
@@ -46,25 +45,25 @@ function wireEvents() {
 
     // Main screen
     menuEl.querySelector('#btn-offline')?.addEventListener('click', () => showScreen('mode-select'));
-    menuEl.querySelector('#btn-online')?.addEventListener('click', async () => {
-        const roomCode = window.prompt('Enter room code', 'default')?.trim();
-        if (!roomCode) return;
-        const name = window.prompt('Enter player name', 'Player')?.trim() || 'Player';
-
-        try {
-            await webSocketAdapter.connect(`ws://localhost:8080/room/${encodeURIComponent(roomCode)}`, name);
-            const localPlayerId = webSocketAdapter.getLocalPlayerId() ?? 0;
-            hideMainMenu();
-            showLobbyScreen(localPlayerId, {
-                host: localPlayerId,
-                players: [],
-                config: getConfig(),
-                mapName: 'Arena',
-                started: false,
-            });
-        } catch {
-            window.alert('Could not connect to multiplayer server.');
-        }
+    menuEl.querySelector('#btn-online')?.addEventListener('click', () => {
+        hideMainMenu();
+        showLobbyScreen({
+            onConnect: async (url, name) => {
+                await webSocketAdapter.connect(url, name);
+            },
+            onDisconnect: () => {
+                webSocketAdapter.disconnect();
+                hideLobbyScreen();
+                showMainMenu(onPlayCallback!);
+            },
+            onBack: () => {
+                showMainMenu(onPlayCallback!);
+            },
+            onReadyChange: (ready) => webSocketAdapter.sendReady(ready),
+            onMovePlayer: (playerId, team) => webSocketAdapter.sendMovePlayer(playerId, team),
+            onSetConfig: (config) => webSocketAdapter.sendSetConfig(config),
+            onStartGame: () => webSocketAdapter.sendStartGame(),
+        });
     });
     menuEl.querySelector('#btn-editor')?.addEventListener('click', () => {
         window.location.href = '/editor.html';

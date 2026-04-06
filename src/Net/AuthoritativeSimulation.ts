@@ -163,27 +163,50 @@ export class AuthoritativeSimulation {
         const player = this.players.find((p) => p.id === input.playerId);
         if (!player) return [];
 
+        let events: GameEvent[];
         switch (input.type) {
             case 'MOVE':
-                return this.processMove(player, input.dx, input.dy);
+                events = this.processMove(player, input.dx, input.dy);
+                break;
             case 'ROTATE':
                 player.current_position.rotation = input.rotation;
-                return [];
+                events = [];
+                break;
             case 'FIRE':
-                return this.processFire(player, timestamp);
+                events = this.processFire(player, timestamp);
+                break;
+            case 'STOP_FIRE':
+                this.notifyStopFiring(player.id, timestamp);
+                events = [];
+                break;
             case 'RELOAD':
-                return this.processReload(player, timestamp);
+                events = this.processReload(player, timestamp);
+                break;
             case 'SWITCH_WEAPON':
-                return this.processSwitchWeapon(player, input.slotIndex);
+                events = this.processSwitchWeapon(player, input.slotIndex);
+                break;
             case 'THROW_GRENADE':
-                return this.processThrowGrenade(player, input.grenadeType, input.chargePercent, input.aimDx, input.aimDy, timestamp);
+                events = this.processThrowGrenade(player, input.grenadeType, input.chargePercent, input.aimDx, input.aimDy, timestamp);
+                break;
             case 'DETONATE_C4':
-                return this.simulation.detonateC4(input.playerId, this.segments);
+                events = this.simulation.detonateC4(input.playerId, this.segments);
+                break;
             case 'BUY_WEAPON':
-                return this.processBuyWeapon(player, input.weaponType);
+                events = this.processBuyWeapon(player, input.weaponType);
+                break;
             case 'BUY_GRENADE':
-                return this.processBuyGrenade(player, input.grenadeType);
+                events = this.processBuyGrenade(player, input.grenadeType);
+                break;
+            case 'BUY_HEALTH':
+                this.buyHealth(input.playerId);
+                events = [];
+                break;
+            case 'BUY_ARMOR':
+                this.buyArmor(input.playerId);
+                events = [];
+                break;
         }
+        return this.postProcessEvents(events, timestamp);
     }
 
     private processMove(player: player_info, dx: number, dy: number): GameEvent[] {
@@ -481,6 +504,18 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    private postProcessEvents(events: GameEvent[], timestamp: number): GameEvent[] {
+        const extra: GameEvent[] = [];
+        for (const event of events) {
+            if (event.type === 'PLAYER_KILLED') {
+                extra.push(...this.recordKill(event.killerId, event.targetId));
+                this.notifyPlayerDeath(event.targetId, timestamp);
+            }
+        }
+        if (extra.length > 0) events.push(...extra);
+        return events;
+    }
+
     endMatch() {
         this.match.roundActive = false;
         this.match.active = false;
@@ -545,7 +580,7 @@ export class AuthoritativeSimulation {
         // Check intermission
         events.push(...this.tickIntermission());
 
-        return events;
+        return this.postProcessEvents(events, timestamp);
     }
 
     private tickReloads(timestamp: number): GameEvent[] {

@@ -17,6 +17,17 @@ export interface NetAdapter {
     // In online mode, this could handle interpolation/prediction.
     tick(segments: WallSegment[], players: player_info[], timestamp: number): void;
 
+    // Match state queries
+    isRoundActive(): boolean;
+    isMatchActive(): boolean;
+    getMatchTimeRemaining(): number;
+    getPlayerState(playerId: number): PlayerGameState | undefined;
+    getAllPlayerStates(): PlayerGameState[];
+    getTeamRoundWins(): Record<number, number>;
+    getCurrentRound(): number;
+    getProjectiles(): readonly { id: number; x: number; y: number }[];
+    getGrenades(): readonly { id: number; x: number; y: number; detonated: boolean }[];
+
     // Connect to server (online only)
     connect?(): Promise<void>;
 

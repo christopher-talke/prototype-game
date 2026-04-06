@@ -19,6 +19,8 @@ import { showMainMenu, hideMainMenu } from './MainMenu/MainMenu';
 import { GAME_MODES_MAP } from './Config/modes/index';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from './Loading/LoadingScreen';
 import { offlineAdapter } from './Net/OfflineAdapter';
+import { setAdapter } from './Net/activeAdapter';
+import { webSocketAdapter } from './Net/WebSocketAdapter';
 import { getWallAABBs } from './Player/collision';
 import { getAllPlayers } from './Globals/Players';
 import { gameEventBus } from './Net/GameEvent';
@@ -131,6 +133,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     setOnReturnToMenuCallback(returnToMenu);
+
+    // When the server signals game start, switch to online adapter
+    webSocketAdapter.onGameStart = () => {
+        const localId = webSocketAdapter.getLocalPlayerId();
+        if (localId) setActivePlayer(localId);
+        setAdapter(webSocketAdapter);
+        stopMenuMusic();
+        document.body.style.cursor = 'none';
+    };
 
     await hideLoadingScreen();
     showMainMenu(launchMatch);

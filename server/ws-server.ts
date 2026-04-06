@@ -52,6 +52,6 @@ setInterval(() => {
     for (const room of rooms.values()) {
         room.tick();
     }
-}, 50);
+}, 16);
 
 console.log('WebSocket server listening on ws://localhost:8080');

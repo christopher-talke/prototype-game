@@ -1,4 +1,5 @@
-import { offlineAdapter } from '../Net/OfflineAdapter';
+import { getAdapter } from '../Net/activeAdapter';
+import { ACTIVE_PLAYER } from '../Globals/Players';
 
 let isFiring = false;
 
@@ -24,7 +25,10 @@ export function initShooting(_playerInfo: player_info) {
     window.addEventListener('mouseup', (e) => {
         if (e.button === 0) {
             isFiring = false;
-            offlineAdapter.authSim.notifyStopFiring(_playerInfo.id, performance.now());
+            const playerId = ACTIVE_PLAYER;
+            if (playerId != null) {
+                getAdapter().sendInput({ type: 'STOP_FIRE', playerId, timestamp: performance.now() });
+            }
         }
     });
 

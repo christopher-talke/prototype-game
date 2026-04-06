@@ -13,7 +13,7 @@ import { SETTINGS } from '../main';
 import { getActiveMap } from '../Maps/helpers';
 import { offlineAdapter } from '../Net/OfflineAdapter';
 
-const STUCK_THRESHOLD = 2;
+const STUCK_THRESHOLD = 0.5;
 const STUCK_FRAMES_BEFORE_REROUTE = 15;
 const UNSTICK_DURATION = 600;
 const WALL_CHECK_SHOTS = 5;
@@ -49,32 +49,38 @@ function generatePatrolPoints(): coordinates[] {
 
     const currentMap = getActiveMap();
     if (currentMap.patrolPoints.length > 0) {
-        return currentMap.patrolPoints;
+        points.push(...currentMap.patrolPoints);
     }
     
     const margin = 300;
     const mapMin = 200;
     const mapMax = 2700;
-    for (let i = 0; i < 6; i++) {
+    if (points.length === 0) {
 
-        const newPoint = {
-            x: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
-            y: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
+        for (let i = 0; i < 6; i++) {
+            const newPoint = {
+                x: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
+                y: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
+            }
+
+            points.push(newPoint);
         }
+    }
 
-        if (SETTINGS.debug) { // Show patrol points for debugging
+    if (SETTINGS.debug) {
+
+        for (const point of points) {
             const el = document.createElement('div');
             el.style.position = 'absolute';
             el.style.width = '10px';
             el.style.height = '10px';
-            el.style.backgroundColor = 'purple';
-            el.style.left = `${newPoint.x - 5}px`;
-            el.style.top = `${newPoint.y - 5}px`;
+            el.style.backgroundColor = 'red';
+            el.style.left = `${point.x - 5}px`;
+            el.style.top = `${point.y - 5}px`;
             document.body.appendChild(el);
         }
-
-        points.push(newPoint);
     }
+
     return points;
 }
 
@@ -222,7 +228,10 @@ function updateElement(ai: AIController) {
 }
 
 function doPatrol(ai: AIController, timestamp: number) {
-    if (timestamp < ai.patrolPauseUntil) return;
+    if (timestamp < ai.patrolPauseUntil) {
+        ai.stuckFrames = 0;
+        return;
+    }
 
     const wp = ai.waypoints[ai.waypointIndex];
     const me = ai.player;
@@ -234,6 +243,7 @@ function doPatrol(ai: AIController, timestamp: number) {
     if (dist < 30) {
         ai.waypointIndex = (ai.waypointIndex + 1) % ai.waypoints.length;
         ai.patrolPauseUntil = timestamp + getConfig().ai.patrolPause;
+        ai.stuckFrames = 0;
         return;
     }
 
@@ -300,20 +310,20 @@ function doSearch(ai: AIController, _timestamp: number) {
     turnToward(ai, ai.targetLastPos.x, ai.targetLastPos.y);
 }
 
-function moveToward(ai: AIController, tx: number, ty: number, _speed: number) {
+function moveToward(ai: AIController, tx: number, ty: number, speed: number) {
     const me = ai.player;
     const myCx = me.current_position.x + HALF_HIT_BOX;
     const myCy = me.current_position.y + HALF_HIT_BOX;
 
     const angle = Math.atan2(ty - myCy, tx - myCx);
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
+    const direction = speed >= 0 ? 1 : -1;
+    const dx = Math.cos(angle) * direction;
+    const dy = Math.sin(angle) * direction;
 
-    // AI speed is applied by AuthoritativeSimulation via config.player.speed
-    // but AI has its own speed config - scale the input accordingly
-    const aiSpeed = getConfig().ai.speed;
+    // Convert desired absolute speed into normalized player MOVE input.
     const playerSpeed = getConfig().player.speed;
-    const scale = playerSpeed > 0 ? aiSpeed / playerSpeed : 1;
+    const desiredSpeed = Math.abs(speed);
+    const scale = playerSpeed > 0 ? desiredSpeed / playerSpeed : 1;
 
     offlineAdapter.sendInput({ type: 'MOVE', playerId: me.id, dx: dx * scale, dy: dy * scale });
 }

@@ -4,6 +4,7 @@ import { getAngle } from '../../Utilities/getAngle';
 import { getDistance } from '../../Utilities/getDistance';
 import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from '../../constants';
 import { isSmoked } from '../../Combat/smoke';
+import { raySegmentIntersect } from './rayGeometry';
 
 export enum RaycastTypes {
     SPRAY = 'SPRAY',
@@ -28,26 +29,7 @@ function angleToRadians(deg: number): number {
     return (Math.PI / 180) * deg;
 }
 
-/**
- * Returns the t value where a ray hits a line segment, or null if no hit.
- * Ray: origin + t * dir, t >= 0
- * Segment: p1 + u * (p2 - p1), 0 <= u <= 1
- */
-export function raySegmentIntersect(ox: number, oy: number, dx: number, dy: number, x1: number, y1: number, x2: number, y2: number): number | null {
-    const sx = x2 - x1;
-    const sy = y2 - y1;
-
-    const denom = dx * sy - dy * sx;
-    if (Math.abs(denom) < 1e-10) return null; // Parallel
-
-    const t = ((x1 - ox) * sy - (y1 - oy) * sx) / denom;
-    const u = ((x1 - ox) * dy - (y1 - oy) * dx) / denom;
-
-    if (t >= 0 && u >= 0 && u <= 1) {
-        return t;
-    }
-    return null;
-}
+export { raySegmentIntersect } from './rayGeometry';
 
 /**
  * Cast a single ray from origin at given angle, test against all wall segments.
@@ -77,9 +59,6 @@ function castRay(originX: number, originY: number, angleDeg: number, segments: W
     };
 }
 
-/**
- * Check if a single ray from (sx,sy) toward (tx,ty) is blocked.
- */
 function isSingleRayBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     const dx = tx - sx;
     const dy = ty - sy;
@@ -94,21 +73,9 @@ function isSingleRayBlocked(sx: number, sy: number, tx: number, ty: number, segm
     return false;
 }
 
-/**
- * Checks if a line between two points is blocked by any wall segment.
- * Tests center + 3 offset points on the target so players near walls remain visible.
- * @param sx The starting X coordinate.
- * @param sy The starting Y coordinate.
- * @param tx The target X coordinate.
- * @param ty The target Y coordinate.
- * @param segments The array of wall segments to check against.
- * @returns True if the line is blocked, false otherwise.
- */
 export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
-    // Smoke blocks line of sight
     if (isSmoked(sx, sy, tx, ty)) return true;
 
-    // Perpendicular offset to check points slightly to each side of target center
     const dx = tx - sx;
     const dy = ty - sy;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -117,7 +84,6 @@ export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, se
     const px = (-dy / dist) * OFFSET;
     const py = (dx / dist) * OFFSET;
 
-    // Visible if ANY of the sample points is unblocked
     if (!isSingleRayBlocked(sx, sy, tx, ty, segments)) return false;
     if (!isSingleRayBlocked(sx, sy, tx + px, ty + py, segments)) return false;
     if (!isSingleRayBlocked(sx, sy, tx - px, ty - py, segments)) return false;

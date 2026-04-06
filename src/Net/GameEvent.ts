@@ -36,6 +36,9 @@ export type BulletSpawnEvent = {
     ownerId: number;
     x: number;
     y: number;
+    dx: number;
+    dy: number;
+    speed: number;
     weaponType?: string;
 };
 
@@ -91,6 +94,9 @@ export type GrenadeSpawnEvent = {
     ownerId: number;
     x: number;
     y: number;
+    dx: number;
+    dy: number;
+    speed: number;
     isC4: boolean;
 };
 
@@ -181,12 +187,15 @@ export type PlayerInput =
     | { type: 'MOVE'; playerId: number; dx: number; dy: number }
     | { type: 'ROTATE'; playerId: number; rotation: number }
     | { type: 'FIRE'; playerId: number; timestamp: number }
+    | { type: 'STOP_FIRE'; playerId: number; timestamp: number }
     | { type: 'RELOAD'; playerId: number }
     | { type: 'SWITCH_WEAPON'; playerId: number; slotIndex: number }
     | { type: 'THROW_GRENADE'; playerId: number; grenadeType: GrenadeType; chargePercent: number; aimDx: number; aimDy: number }
     | { type: 'DETONATE_C4'; playerId: number }
     | { type: 'BUY_WEAPON'; playerId: number; weaponType: string }
-    | { type: 'BUY_GRENADE'; playerId: number; grenadeType: GrenadeType };
+    | { type: 'BUY_GRENADE'; playerId: number; grenadeType: GrenadeType }
+    | { type: 'BUY_HEALTH'; playerId: number }
+    | { type: 'BUY_ARMOR'; playerId: number };
 
 // -- Event bus --
 

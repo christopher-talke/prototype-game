@@ -39,6 +39,34 @@ pnpm run dev
 
 ---
 
+## Multiplayer (Local / LAN)
+
+The game includes a WebSocket server for online multiplayer. Two terminals are required.
+
+**Terminal 1 - start the server:**
+```bash
+npx tsx server/ws-server.ts
+# WebSocket server listening on ws://localhost:8080
+```
+
+**Terminal 2 - start the client:**
+```bash
+pnpm run dev
+```
+
+**Getting into a lobby:**
+1. Open the game in a browser (`http://localhost:5173` by default)
+2. Click **Online** from the main menu
+3. Enter a player name, room code, and server address (defaults to `ws://localhost:8080`)
+4. Click **Join** -- you'll enter the room lobby
+5. The first player to join a room becomes the host
+6. The host can swap players between teams, adjust match config (rounds to win, round duration), and click **Start Game**
+7. All players see a 3-second countdown, then the match begins
+
+Players on the same network can connect by changing the server address to the host machine's LAN IP (e.g. `ws://192.168.1.x:8080`).
+
+---
+
 ## Architecture
 
 The game is architected with a clear separation of concerns between the simulation and rendering layers.

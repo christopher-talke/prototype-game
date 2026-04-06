@@ -1,7 +1,7 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS, isWeaponAllowed } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { offlineAdapter } from '../Net/OfflineAdapter';
+import { getAdapter } from '../Net/activeAdapter';
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
@@ -242,7 +242,8 @@ export function initHUD() {
 }
 
 export function updateHUD(playerInfo: player_info, timeRemaining: number) {
-    const state = offlineAdapter.authSim.getPlayerState(playerInfo.id);
+    const adapter = getAdapter();
+    const state = adapter.getPlayerState(playerInfo.id);
     if (!state) return;
 
     // Health bar
@@ -287,8 +288,8 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     timerDisplay.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
 
     // Round score
-    const wins = offlineAdapter.authSim.getTeamRoundWins();
-    const round = offlineAdapter.authSim.getCurrentRound();
+    const wins = adapter.getTeamRoundWins();
+    const round = adapter.getCurrentRound();
     const winsArr = Object.entries(wins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
     const winsText = winsArr.map(([t, w]) => `T${t}: ${w}`).join('  ');
     roundScoreDisplay.textContent = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
@@ -356,12 +357,11 @@ export function closeBuyMenu() {
 }
 
 function renderBuyMenu(playerInfo: player_info) {
-    const state = offlineAdapter.authSim.getPlayerState(playerInfo.id);
+    const state = getAdapter().getPlayerState(playerInfo.id);
     if (!state) return;
 
     buyMenuGrid.innerHTML = '';
 
-    // Health and Armour
     const disableHealth = getConfig().economy.disableHealth;
     const disableArmor = getConfig().economy.disableArmor;
 
@@ -374,8 +374,8 @@ function renderBuyMenu(playerInfo: player_info) {
     }
 
     const healthAndArmour =  [
-        ['Health', getConfig().economy.healthCost, () => offlineAdapter.authSim.buyHealth(playerInfo.id)],
-        ['Armor', getConfig().economy.armorCost, () => offlineAdapter.authSim.buyArmor(playerInfo.id)],
+        ['Health', getConfig().economy.healthCost, () => getAdapter().sendInput({ type: 'BUY_HEALTH', playerId: playerInfo.id })],
+        ['Armor', getConfig().economy.armorCost, () => getAdapter().sendInput({ type: 'BUY_ARMOR', playerId: playerInfo.id })],
     ] as [string, number, () => void][];
     for (const [label, cost, buy] of healthAndArmour) {
         const item = document.createElement('div');
@@ -416,7 +416,7 @@ function renderBuyMenu(playerInfo: player_info) {
 
         item.addEventListener('click', () => {
             if (state.money >= wDef.price) {
-                offlineAdapter.sendInput({ type: 'BUY_WEAPON', playerId: playerInfo.id, weaponType: wDef.id });
+                getAdapter().sendInput({ type: 'BUY_WEAPON', playerId: playerInfo.id, weaponType: wDef.id });
                 renderBuyMenu(playerInfo); // Re-render to update money
             }
         });
@@ -445,7 +445,7 @@ function renderBuyMenu(playerInfo: player_info) {
 
         item.addEventListener('click', () => {
             if (!owned && state.money >= gDef.price) {
-                offlineAdapter.sendInput({ type: 'BUY_GRENADE', playerId: playerInfo.id, grenadeType: gDef.id });
+                getAdapter().sendInput({ type: 'BUY_GRENADE', playerId: playerInfo.id, grenadeType: gDef.id });
                 renderBuyMenu(playerInfo);
             }
         });
@@ -601,7 +601,7 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Record<number, numbe
  * @returns void
  */
 function renderLeaderboard() {
-    const states = offlineAdapter.authSim.getAllPlayerStates();
+    const states = getAdapter().getAllPlayerStates();
     const players = getAllPlayers();
 
     // Group by team, sort teams by total points, players within each team by points

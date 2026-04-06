@@ -37,6 +37,42 @@ export class OfflineAdapter implements NetAdapter {
         const events = this.authSim.tick(timestamp);
         gameEventBus.emitAll(events);
     }
+
+    isRoundActive(): boolean {
+        return this.authSim.isRoundActive();
+    }
+
+    isMatchActive(): boolean {
+        return this.authSim.isMatchActive();
+    }
+
+    getMatchTimeRemaining(): number {
+        return this.authSim.getMatchTimeRemaining();
+    }
+
+    getPlayerState(playerId: number): PlayerGameState | undefined {
+        return this.authSim.getPlayerState(playerId);
+    }
+
+    getAllPlayerStates(): PlayerGameState[] {
+        return this.authSim.getAllPlayerStates();
+    }
+
+    getTeamRoundWins(): Record<number, number> {
+        return this.authSim.getTeamRoundWins();
+    }
+
+    getCurrentRound(): number {
+        return this.authSim.getCurrentRound();
+    }
+
+    getProjectiles() {
+        return this.authSim.simulation.getProjectiles();
+    }
+
+    getGrenades() {
+        return this.authSim.simulation.getGrenades();
+    }
 }
 
 export const offlineAdapter = new OfflineAdapter();

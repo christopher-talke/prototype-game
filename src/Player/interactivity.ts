@@ -1,4 +1,4 @@
-import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '../Globals/Players';
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo, getPlayerElement } from '../Globals/Players';
 import { getAngle } from '../Utilities/getAngle';
 import { angleToRadians } from '../Utilities/angleToRadians';
 import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET } from '../constants';
@@ -10,7 +10,7 @@ import { generateRayCast, RaycastTypes } from './Raycast/raycast';
 import { toggleSettings, isSettingsOpen, closeSettings } from '../Settings/settings';
 import { getActionForKey } from '../Settings/keybinds';
 import { initShooting, getActiveWeapon, getIsFiring } from '../Combat/shooting';
-import { offlineAdapter } from '../Net/OfflineAdapter';
+import { getAdapter } from '../Net/activeAdapter';
 import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '../HUD/hud';
 import { isPlayerDead } from '../Combat/damage';
 import { getWeaponDef } from '../Combat/weapons';
@@ -62,7 +62,17 @@ export function getGrenadeChargePercent(): number {
  * @param renderedPlayerElement The HTML element representing the player.
  * @param targetPlayerId The ID of the player for whom to add interactivity.
  */
-export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targetPlayerId: number) {
+function getActivePlayerInfo(): player_info | null {
+    if (ACTIVE_PLAYER == null) return null;
+    return (getPlayerInfo(ACTIVE_PLAYER) as player_info) ?? null;
+}
+
+function getActivePlayerElement(): HTMLElement | null {
+    if (ACTIVE_PLAYER == null) return null;
+    return getPlayerElement(ACTIVE_PLAYER) ?? null;
+}
+
+export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, targetPlayerId: number) {
     const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
 
     initShooting(playerInfo);
@@ -91,10 +101,11 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
 
         const action = getActionForKey(e.key);
         const menuOpen = isSettingsOpen() || isBuyMenuOpen() || isPauseOpen();
+        const activePlayer = getActivePlayerInfo();
 
         // These always work
         if (action === 'settings') toggleSettings();
-        if (action === 'buyMenu') toggleBuyMenu(playerInfo);
+        if (activePlayer && action === 'buyMenu') toggleBuyMenu(activePlayer);
 
         // Everything else blocked while a menu is open
         if (menuOpen) return;
@@ -105,10 +116,10 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (action === 'moveLeft' && HELD_DIRECTIONS.indexOf(directions.left) === -1) HELD_DIRECTIONS.unshift(directions.left);
         if (action === 'moveRight' && HELD_DIRECTIONS.indexOf(directions.right) === -1) HELD_DIRECTIONS.unshift(directions.right);
 
-        if (action === 'reload') offlineAdapter.sendInput({ type: 'RELOAD', playerId: playerInfo.id });
-        if (action === 'weapon1') offlineAdapter.sendInput({ type: 'SWITCH_WEAPON', playerId: playerInfo.id, slotIndex: 0 });
-        if (action === 'weapon2') offlineAdapter.sendInput({ type: 'SWITCH_WEAPON', playerId: playerInfo.id, slotIndex: 1 });
-        if (action === 'weapon3') offlineAdapter.sendInput({ type: 'SWITCH_WEAPON', playerId: playerInfo.id, slotIndex: 2 });
+        if (activePlayer && action === 'reload') getAdapter().sendInput({ type: 'RELOAD', playerId: activePlayer.id });
+        if (activePlayer && action === 'weapon1') getAdapter().sendInput({ type: 'SWITCH_WEAPON', playerId: activePlayer.id, slotIndex: 0 });
+        if (activePlayer && action === 'weapon2') getAdapter().sendInput({ type: 'SWITCH_WEAPON', playerId: activePlayer.id, slotIndex: 1 });
+        if (activePlayer && action === 'weapon3') getAdapter().sendInput({ type: 'SWITCH_WEAPON', playerId: activePlayer.id, slotIndex: 2 });
 
         if (action === 'leaderboard') {
             e.preventDefault();
@@ -116,22 +127,26 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         }
 
         // Grenades - start charging on keydown
-        if (action === 'grenade' && !isPlayerDead(playerInfo) && !grenadeCharging) {
+        if (activePlayer && action === 'grenade' && !isPlayerDead(activePlayer) && !grenadeCharging) {
             const type = getSelectedGrenadeType();
-            if (type === 'C4' && offlineAdapter.authSim.simulation.hasPlacedC4(playerInfo.id)) {
-                offlineAdapter.sendInput({ type: 'DETONATE_C4', playerId: playerInfo.id });
-            } else if (playerInfo.grenades[type] > 0) {
+            if (type === 'C4') {
+                // Try detonating first; the sim ignores this if no C4 is placed
+                getAdapter().sendInput({ type: 'DETONATE_C4', playerId: activePlayer.id });
+            }
+            if (activePlayer.grenades[type] > 0) {
                 grenadeCharging = true;
                 grenadeChargeStart = performance.now();
             }
         }
 
-        renderedPlayerElement.setAttribute('moving', 'true');
+        const activeEl = getActivePlayerElement();
+        if (activeEl) activeEl.setAttribute('moving', 'true');
     });
 
     window.addEventListener('mousemove', (e) => {
         updateCrosshairPosition(e.clientX, e.clientY);
-        if (playerInfo) {
+        const activePlayer = getActivePlayerInfo();
+        if (activePlayer) {
             const currentMouseX = e.pageX;
             const currentMouseY = e.pageY;
 
@@ -139,10 +154,12 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
             // pageX/pageY already include scroll, so only subtract MAP_OFFSET
             setMouseWorldPosition(currentMouseX - MAP_OFFSET, currentMouseY - MAP_OFFSET);
 
-            const centerX = playerInfo.current_position.x + HALF_HIT_BOX + MAP_OFFSET;
-            const centerY = playerInfo.current_position.y + HALF_HIT_BOX + MAP_OFFSET;
+            const centerX = activePlayer.current_position.x + HALF_HIT_BOX + MAP_OFFSET;
+            const centerY = activePlayer.current_position.y + HALF_HIT_BOX + MAP_OFFSET;
 
-            playerInfo.current_position.rotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + ROTATION_OFFSET;
+            const newRotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + ROTATION_OFFSET;
+            activePlayer.current_position.rotation = newRotation;
+            getAdapter().sendInput({ type: 'ROTATE', playerId: activePlayer.id, rotation: newRotation });
         }
     });
 
@@ -171,25 +188,27 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         }
 
         // Grenades - release to throw with charge
-        if (action === 'grenade' && grenadeCharging) {
+        const activePlayer = getActivePlayerInfo();
+        if (activePlayer && action === 'grenade' && grenadeCharging) {
             const type = getSelectedGrenadeType();
             const chargePercent = getGrenadeChargePercent();
             grenadeCharging = false;
 
             // Calculate aim direction from player center to mouse world position
             const mouseWorld = getMouseWorldPosition();
-            const cx = playerInfo.current_position.x + HALF_HIT_BOX;
-            const cy = playerInfo.current_position.y + HALF_HIT_BOX;
+            const cx = activePlayer.current_position.x + HALF_HIT_BOX;
+            const cy = activePlayer.current_position.y + HALF_HIT_BOX;
             const tdx = mouseWorld.x - cx;
             const tdy = mouseWorld.y - cy;
             const dist = Math.sqrt(tdx * tdx + tdy * tdy);
             const aimDx = dist > 0 ? tdx / dist : 0;
             const aimDy = dist > 0 ? tdy / dist : 0;
 
-            offlineAdapter.sendInput({ type: 'THROW_GRENADE', playerId: playerInfo.id, grenadeType: type, chargePercent, aimDx, aimDy });
+            getAdapter().sendInput({ type: 'THROW_GRENADE', playerId: activePlayer.id, grenadeType: type, chargePercent, aimDx, aimDy });
         }
 
-        renderedPlayerElement.setAttribute('moving', 'false');
+        const activeEl = getActivePlayerElement();
+        if (activeEl) activeEl.setAttribute('moving', 'false');
     });
 
     // Scroll wheel to cycle grenade selection
@@ -207,35 +226,42 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (deltaTime >= targetFrameTime) {
             lastTime = timestamp - (deltaTime % targetFrameTime);
 
-            if (playerInfo && ACTIVE_PLAYER === playerInfo.id && window.visualViewport) {
-                const roundRunning = offlineAdapter.authSim.isRoundActive();
+            const loopPlayer = getActivePlayerInfo();
+            const loopPlayerEl = getActivePlayerElement();
+            if (loopPlayer && loopPlayerEl && window.visualViewport) {
+                const adapter = getAdapter();
+                const roundRunning = adapter.isRoundActive();
 
-                if (roundRunning && !isPlayerDead(playerInfo)) {
+                if (roundRunning && !isPlayerDead(loopPlayer)) {
                     const menuOpen = isSettingsOpen() || isBuyMenuOpen() || isPauseOpen();
                     if (!menuOpen) {
                         const { dx, dy } = getMovementInput();
                         if (dx !== 0 || dy !== 0) {
-                            offlineAdapter.sendInput({ type: 'MOVE', playerId: playerInfo.id, dx, dy });
+                            adapter.sendInput({ type: 'MOVE', playerId: loopPlayer.id, dx, dy });
                         }
                         if (getIsFiring()) {
-                            offlineAdapter.sendInput({ type: 'FIRE', playerId: playerInfo.id, timestamp });
+                            adapter.sendInput({ type: 'FIRE', playerId: loopPlayer.id, timestamp });
                         }
                     }
                 }
 
-                if (roundRunning && !isPauseOpen()) {
-                    offlineAdapter.tick(environment.segments, getAllPlayers(), timestamp);
+                // Keep ticking while match is active so intermission timers can advance to next round.
+                if (adapter.isMatchActive() && !isPauseOpen()) {
+                    adapter.tick(environment.segments, getAllPlayers(), timestamp);
                     clientRenderer.updateVisuals();
                     updateSmokeClouds(timestamp);
+                }
+
+                if (roundRunning && !isPauseOpen() && adapter.mode === 'offline') {
                     updateAllAI(getAllPlayers(), timestamp);
                 }
 
-                const newX = playerInfo.current_position.x;
-                const newY = playerInfo.current_position.y;
-                const newRotation = playerInfo.current_position.rotation;
+                const newX = loopPlayer.current_position.x;
+                const newY = loopPlayer.current_position.y;
+                const newRotation = loopPlayer.current_position.rotation;
 
                 // Camera aim offset
-                const weapon = getActiveWeapon(playerInfo);
+                const weapon = getActiveWeapon(loopPlayer);
                 const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
                 const cameraOffsetDist = weaponDef ? weaponDef.cameraOffset : 0;
                 const facingRad = angleToRadians(newRotation - ROTATION_OFFSET);
@@ -248,17 +274,17 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 const cameraY = newY + currentOffsetY + MAP_OFFSET - window.visualViewport.height / 2;
                 window.scrollTo(cameraX, cameraY);
 
-                detectOtherPlayers(playerInfo.id);
+                detectOtherPlayers(loopPlayer.id);
 
                 if (SETTINGS.raycast.type !== 'DISABLED') {
-                    generateRayCast(playerInfo, { type: RaycastTypes.CORNERS });
+                    generateRayCast(loopPlayer, { type: RaycastTypes.CORNERS });
                 }
 
-                renderedPlayerElement.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
+                loopPlayerEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
 
-                updateAimLine(playerInfo);
+                updateAimLine(loopPlayer);
 
-                updateHUD(playerInfo, offlineAdapter.authSim.getMatchTimeRemaining());
+                updateHUD(loopPlayer, adapter.getMatchTimeRemaining());
             }
         }
 
