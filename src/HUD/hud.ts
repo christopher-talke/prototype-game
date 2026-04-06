@@ -484,6 +484,13 @@ export function hideLeaderboard() {
     leaderboard.classList.remove('open');
 }
 
+/**
+ * Shows the round end banner with the winning team and team scores.
+ * @param winningTeam The team that won the round.
+ * @param teamWins A map of team IDs to their respective win counts.
+ * @param isFinal Whether this round is the final round of the match.
+ * @returns void
+ */
 export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) {
     if (isFinal) {
         showMatchEndOverlay(winningTeam, teamWins);
@@ -492,7 +499,7 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
 
     const sub = document.getElementById('round-banner-sub')!;
     const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
-    const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('  -  ');
+    const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('\r\n');
     sub.textContent = `Team ${winningTeam} wins!  |  ${scoreText}`;
 
     roundBanner.classList.remove('active');
@@ -512,16 +519,26 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
     setTimeout(() => roundBanner.classList.remove('active'), getConfig().match.roundIntermission - 500);
 }
 
+/**
+ * Match end overlay is similar to round end banner but with more info and a return to menu button. 
+ * It stays until the player clicks the button, so no auto-hide timeout.
+ */
 export function hideMatchEndOverlay() {
     matchEndOverlay.classList.remove('active');
 }
 
+/**
+ * Shows the match end overlay with the winning team and team scores.
+ * @param winningTeam The team that won the match.
+ * @param teamWins A map of team IDs to their respective win counts.
+ */
 function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>) {
     const winnerEl = document.getElementById('match-end-winner')!;
     const scoreEl = document.getElementById('match-end-score')!;
     winnerEl.textContent = `Team ${winningTeam} wins the match!`;
+
     const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
-    scoreEl.textContent = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('  -  ');
+    scoreEl.textContent = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('\r\n');
 
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         winnerEl.classList.add('won');
@@ -536,6 +553,12 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>)
     matchEndOverlay.classList.add('active');
 }
 
+/**
+ * Renders the leaderboard by fetching all player states and info.
+ * Grouping them by team, sorting teams and players by points, and then creating table rows for each player with their rank, name, points, kills, and deaths. 
+ * The local player is highlighted in the leaderboard.
+ * @returns void
+ */
 function renderLeaderboard() {
     const states = getAllPlayerStates();
     const players = getAllPlayers();
@@ -586,13 +609,21 @@ function renderLeaderboard() {
     }
 }
 
+/**
+ * Spawns a floating damage number at the specified world coordinates.
+ * @param worldX The X coordinate in the game world.
+ * @param worldY The Y coordinate in the game world.
+ * @param damage The amount of damage dealt.
+ * @param isKill Whether the damage resulted in a kill.
+ */
 export function spawnDamageNumber(worldX: number, worldY: number, damage: number, isKill: boolean) {
     const el = document.createElement('div');
     el.classList.add('damage-number');
+    
     if (isKill) el.classList.add('kill');
     el.textContent = isKill ? `${damage} 💀` : `${damage}`;
     el.style.transform = `translate3d(${worldX}px, ${worldY}px, 0)`;
-    // Import app lazily to avoid circular dep
+
     const app = document.getElementById('app');
     if (app) {
         app.appendChild(el);

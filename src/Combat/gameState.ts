@@ -70,13 +70,11 @@ function startRound() {
     roundActive = true;
     matchActive = true;
 
-    // Reset per-round kill tracking
     roundKills.clear();
     for (const [team] of teamRoundWins) {
         roundKills.set(team, 0);
     }
 
-    // Reset all players for the new round
     resetAllPlayers();
 
     gameEventBus.emit({ type: 'ROUND_START', round: currentRound });
@@ -95,12 +93,10 @@ export function recordKill(killerId: number, victimId: number) {
         const weaponDef = getWeaponDef(weaponType);
         killerState.money += Math.round(weaponDef.killReward * getConfig().economy.killRewardMultiplier);
 
-        // Track team round kills
         if (killerInfo) {
             roundKills.set(killerInfo.team, (roundKills.get(killerInfo.team) ?? 0) + 1);
         }
 
-        // Trigger kill feed
         const victimInfo = getPlayerInfo(victimId);
         if (onKillCallback && killerInfo && victimInfo) {
             onKillCallback(killerInfo.name, victimInfo.name, weaponType);

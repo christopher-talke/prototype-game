@@ -113,8 +113,14 @@ function isSingleRayBlocked(
 }
 
 /**
- * Check if a line segment between two points is blocked by any wall segment.
+ * Checks if a line between two points is blocked by any wall segment.
  * Tests center + 3 offset points on the target so players near walls remain visible.
+ * @param sx The starting X coordinate.
+ * @param sy The starting Y coordinate.
+ * @param tx The target X coordinate.
+ * @param ty The target Y coordinate.
+ * @param segments The array of wall segments to check against.
+ * @returns 
  */
 export function isLineBlocked(
     sx: number, sy: number,
@@ -140,8 +146,13 @@ export function isLineBlocked(
     return true;
 }
 
-// --- Main raycasting ---
 
+/**
+ * Generates a raycast from the player's position based on the provided configuration.
+ * @param playerInfo The player's information including position and rotation.
+ * @param config The raycast configuration specifying the type of raycast.
+ * @returns void
+ */
 export function generateRayCast(playerInfo: player_info, config: raycast_config) {
 
     const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
@@ -210,8 +221,16 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     return;
 }
 
-// --- Debug drawing ---
-
+/**
+ * Draws a debug ray from the start coordinates to the target coordinates.
+ * @param sx The starting X coordinate.
+ * @param sy The starting Y coordinate.
+ * @param tx The target X coordinate.
+ * @param ty The target Y coordinate.
+ * @param identifier A unique identifier for the ray.
+ * @param visible Whether the ray is currently visible.
+ * @param type The type of the ray (optional).
+ */
 function drawRay(sx: number, sy: number, tx: number, ty: number, identifier: string, visible: boolean, type?: string) {
     const existingRay = document.getElementById(`ray-${identifier}`);
 

@@ -152,11 +152,19 @@
 }
 
 #hud-round-banner.active.won {
-    background: rgba(32, 128, 32, 0.85);
+    background: rgba(32, 128, 32, 0.25);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 #hud-round-banner.active.lost {
-    background: rgba(128, 32, 32, 0.85);
+    background: rgba(128, 32, 32, 0.25);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 #round-banner-text {
@@ -262,11 +270,19 @@
 }
 
 #hud-match-end.active.won {
-    background: rgba(32, 128, 32, 0.85);
+    background: rgba(32, 128, 32, 0.25);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 #hud-match-end.active.lost {
-    background: rgba(128, 32, 32, 0.85);
+    background: rgba(128, 32, 32, 0.25);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
 }
 
 #match-end-title {
