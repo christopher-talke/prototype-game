@@ -163,6 +163,64 @@
     margin-top: 12px;
 }
 
+/* Pause overlay */
+#hud-pause {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(8, 8, 16, 0.92);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+}
+
+#hud-pause.active {
+    display: flex;
+}
+
+#pause-title {
+    font-size: 36px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 10px;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+}
+
+#pause-resume,
+#pause-return {
+    width: 260px;
+    padding: 14px 24px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+#pause-resume:hover {
+    background: rgba(0, 229, 255, 0.06);
+    border-color: rgba(0, 229, 255, 0.5);
+    color: #00e5ff;
+}
+
+#pause-return:hover {
+    background: rgba(0, 229, 255, 0.06);
+    border-color: rgba(0, 229, 255, 0.5);
+    color: #00e5ff;
+}
+
 /* Match end overlay */
 #hud-match-end {
     position: fixed;
@@ -205,6 +263,26 @@
     font-size: 18px;
     color: rgba(255, 255, 255, 0.6);
     margin-top: 10px;
+}
+
+#match-end-return {
+    margin-top: 40px;
+    padding: 14px 36px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+#match-end-return:hover {
+    background: rgba(0, 229, 255, 0.06);
+    border-color: rgba(0, 229, 255, 0.5);
+    color: #00e5ff;
 }
 
 /* Kill banner */
@@ -321,11 +399,13 @@
 /* Buy menu section header */
 .buymenu-section-header {
     grid-column: 1 / -1;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-    text-align: center;
-    padding: 8px 0 4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    text-align: left;
+    padding: 10px 0 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     margin-top: 8px;
 }
 
@@ -481,13 +561,17 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(20, 20, 30, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
+    background: rgba(8, 8, 16, 0.97);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     padding: 20px;
     pointer-events: auto;
     z-index: 1002;
     min-width: 400px;
+    font-family: 'Courier New', monospace;
 }
 
 #hud-buymenu.open {
@@ -495,9 +579,12 @@
 }
 
 #hud-buymenu h3 {
-    margin: 0 0 12px 0;
-    color: #fff;
-    font-size: 16px;
+    margin: 0 0 16px 0;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
 }
 
 .buymenu-grid {
@@ -507,38 +594,43 @@
 }
 
 .buymenu-item {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
     padding: 10px;
     cursor: pointer;
-    transition: background 0.15s;
-    color: #fff;
+    transition: background 0.12s, border-color 0.12s;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
+    text-align: left;
 }
 
 .buymenu-item:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 229, 255, 0.06);
+    border-color: rgba(0, 229, 255, 0.5);
 }
 
 .buymenu-item.too-expensive {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
+    pointer-events: none;
 }
 
 .buymenu-item-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
+    letter-spacing: 1px;
     margin-bottom: 4px;
+    color: #fff;
 }
 
 .buymenu-item-price {
-    font-size: 12px;
+    font-size: 11px;
     color: #4ade80;
 }
 
 .buymenu-item-stats {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
     margin-top: 4px;
 }
 

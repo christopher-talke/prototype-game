@@ -1,5 +1,6 @@
 import './settings.css';
 import { SETTINGS } from "../main";
+import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from "../Audio/audio";
 import { removeElements } from "../Utilities/removeElements";
 import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from "./keybinds";
 
@@ -132,6 +133,11 @@ function buildAudioTab() {
             <span id="opt-sfx-vol-val">${Math.round(SETTINGS.audio.sfxVolume * 100)}%</span>
         </div>
         <div class="settings-row">
+            <label>Music Volume</label>
+            <input type="range" id="opt-music-vol" min="0" max="100" value="${Math.round(SETTINGS.audio.musicVolume * 100)}">
+            <span id="opt-music-vol-val">${Math.round(SETTINGS.audio.musicVolume * 100)}%</span>
+        </div>
+        <div class="settings-row">
             <label>Mute</label>
             <input type="checkbox" id="opt-mute" ${SETTINGS.audio.muted ? 'checked' : ''}>
         </div>
@@ -140,20 +146,27 @@ function buildAudioTab() {
     const masterSlider = panel.querySelector('#opt-master-vol') as HTMLInputElement;
     const masterLabel = panel.querySelector('#opt-master-vol-val')!;
     masterSlider.addEventListener('input', () => {
-        SETTINGS.audio.masterVolume = parseInt(masterSlider.value) / 100;
+        setMasterVolume(parseInt(masterSlider.value) / 100);
         masterLabel.textContent = `${masterSlider.value}%`;
     });
 
     const sfxSlider = panel.querySelector('#opt-sfx-vol') as HTMLInputElement;
     const sfxLabel = panel.querySelector('#opt-sfx-vol-val')!;
     sfxSlider.addEventListener('input', () => {
-        SETTINGS.audio.sfxVolume = parseInt(sfxSlider.value) / 100;
+        setSfxVolume(parseInt(sfxSlider.value) / 100);
         sfxLabel.textContent = `${sfxSlider.value}%`;
+    });
+
+    const musicSlider = panel.querySelector('#opt-music-vol') as HTMLInputElement;
+    const musicLabel = panel.querySelector('#opt-music-vol-val')!;
+    musicSlider.addEventListener('input', () => {
+        setMusicVolume(parseInt(musicSlider.value) / 100);
+        musicLabel.textContent = `${musicSlider.value}%`;
     });
 
     const muteCheck = panel.querySelector('#opt-mute') as HTMLInputElement;
     muteCheck.addEventListener('change', () => {
-        SETTINGS.audio.muted = muteCheck.checked;
+        setMuted(muteCheck.checked);
     });
 }
 

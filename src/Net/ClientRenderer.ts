@@ -26,6 +26,7 @@ class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
     private grenadeElements = new Map<number, HTMLElement>();
     private healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
+    private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
 
     init() {
         gameEventBus.subscribe(event => this.handleEvent(event));
@@ -46,6 +47,7 @@ class ClientRendererImpl {
             case 'EXPLOSION_HIT': this.onExplosionHit(event); break;
             case 'FLASH_EFFECT': this.onFlashEffect(event); break;
             case 'SMOKE_DEPLOY': this.onSmokeDeploy(event); break;
+            case 'ROUND_START': this.onRoundStart(); break;
         }
     }
 
@@ -120,6 +122,17 @@ class ClientRendererImpl {
 
         const el = getPlayerElement(event.targetId);
         if (el) el.classList.add('dead');
+
+        // Spawn a corpse marker at the death position
+        const corpse = document.createElement('div');
+        corpse.classList.add('corpse-marker', `team-${target.team}`);
+        corpse.style.transform = `translate3d(${target.current_position.x}px, ${target.current_position.y}px, 0) rotate(${target.current_position.rotation}deg)`;
+        app.appendChild(corpse);
+        const corpseTimer = setTimeout(() => {
+            corpse.remove();
+            this.corpseMarkers = this.corpseMarkers.filter(c => c.el !== corpse);
+        }, 5000);
+        this.corpseMarkers.push({ el: corpse, timer: corpseTimer });
 
         removeLastKnownForPlayer(event.targetId);
         recordKill(event.killerId, event.targetId);
@@ -206,6 +219,13 @@ class ClientRendererImpl {
     private onSmokeDeploy(event: SmokeDeployEvent) {
         playSound('smoke_deploy', { x: event.x, y: event.y });
         spawnSmoke(event.x, event.y, event.radius, event.duration);
+    }
+
+    // -- Round events --
+
+    private onRoundStart() {
+        for (const { el, timer } of this.corpseMarkers) { clearTimeout(timer); el.remove(); }
+        this.corpseMarkers.length = 0;
     }
 
     // -- Helpers --

@@ -8,6 +8,7 @@ import { getGrenadeDef } from '../Combat/grenades';
 import { getActiveMap } from '../Maps/helpers';
 import { createDefaultWeapon } from '../Combat/weapons';
 import { getConfig } from '../Config/activeConfig';
+import { getPlayerInfo } from '../Globals/Players';
 
 // -- Simulation-only projectile state (no DOM) --
 export type SimProjectile = {
@@ -49,6 +50,10 @@ export class GameSimulation {
 
     applyDamage(target: player_info, rawDamage: number, attackerId: number): GameEvent[] {
         if (target.dead) return [];
+        
+        const isFriendly = target.team === getPlayerInfo(attackerId)?.team;
+        const friendlyFireEnabled = getConfig().match.friendlyFire;
+        if (!friendlyFireEnabled && isFriendly) return [];
 
         const events: GameEvent[] = [];
         let remaining = rawDamage;

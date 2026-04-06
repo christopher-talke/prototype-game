@@ -1,5 +1,5 @@
 import './hud.css';
-import { getWeaponDef, WEAPON_DEFS } from '../Combat/weapons';
+import { getWeaponDef, WEAPON_DEFS, isWeaponAllowed } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
 import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
@@ -33,6 +33,30 @@ let matchEndOverlay: HTMLElement;
 let grenadeChargeBar: HTMLElement;
 let grenadeChargeFill: HTMLElement;
 const grenadeSlotCache = new Map<GrenadeType, { slot: HTMLElement; count: HTMLElement }>();
+let onReturnToMenuCallback: (() => void) | null = null;
+let pauseOverlay: HTMLElement | null = null;
+let paused = false;
+
+export function setOnReturnToMenuCallback(cb: () => void) {
+    onReturnToMenuCallback = cb;
+}
+
+export function isPauseOpen(): boolean {
+    return paused;
+}
+
+export function openPause() {
+    paused = true;
+    pauseOverlay = document.getElementById('hud-pause');
+    pauseOverlay?.classList.add('active');
+    document.body.style.cursor = 'auto';
+}
+
+export function closePause() {
+    paused = false;
+    pauseOverlay?.classList.remove('active');
+    document.body.style.cursor = 'none';
+}
 
 export function initHUD() {
     const container = document.createElement('div');
@@ -160,8 +184,18 @@ export function initHUD() {
     // Match end overlay
     const meo = document.createElement('div');
     meo.id = 'hud-match-end';
-    meo.innerHTML = `<div id="match-end-title">MATCH OVER</div><div id="match-end-winner"></div><div id="match-end-score"></div>`;
+    meo.innerHTML = `<div id="match-end-title">MATCH OVER</div><div id="match-end-winner"></div><div id="match-end-score"></div><button id="match-end-return">Return to Menu</button>`;
     document.body.appendChild(meo);
+
+    // Pause overlay
+    const pause = document.createElement('div');
+    pause.id = 'hud-pause';
+    pause.innerHTML = `
+        <div id="pause-title">PAUSED</div>
+        <button id="pause-resume">Resume</button>
+        <button id="pause-return">Return to Menu</button>
+    `;
+    document.body.appendChild(pause);
 
     // Cache elements
     healthBar = document.getElementById('hud-health-bar')!;
@@ -186,6 +220,16 @@ export function initHUD() {
     matchEndOverlay = meo;
     grenadeChargeBar = gcb;
     grenadeChargeFill = document.getElementById('grenade-charge-fill')!;
+
+    document.getElementById('match-end-return')!.addEventListener('click', () => {
+        onReturnToMenuCallback?.();
+    });
+
+    document.getElementById('pause-resume')!.addEventListener('click', closePause);
+    document.getElementById('pause-return')!.addEventListener('click', () => {
+        closePause();
+        onReturnToMenuCallback?.();
+    });
 
     // Cache grenade slot elements
     grenadeHud.querySelectorAll('.grenade-slot').forEach(slot => {
@@ -311,6 +355,7 @@ function renderBuyMenu(playerInfo: player_info) {
 
     Object.values(WEAPON_DEFS).forEach(wDef => {
         if (wDef.price === 0) return; // Don't show pistol (free)
+        if (!isWeaponAllowed(wDef.id)) return;
 
         const item = document.createElement('div');
         item.classList.add('buymenu-item');
@@ -455,6 +500,10 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
     roundBanner.classList.add('active');
 
     setTimeout(() => roundBanner.classList.remove('active'), getConfig().match.roundIntermission - 500);
+}
+
+export function hideMatchEndOverlay() {
+    matchEndOverlay.classList.remove('active');
 }
 
 function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>) {

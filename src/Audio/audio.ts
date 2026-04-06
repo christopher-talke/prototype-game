@@ -6,31 +6,66 @@ const MAX_HEARING_DISTANCE = 800;
 const ROLLOFF_FACTOR = 2.5;
 const REFERENCE_DISTANCE = 40;
 const bufferCache = new Map<string, AudioBuffer>();
-const footstepTimers = new Map<number, number>(); // playerId -> last footstep timestamp
+const footstepTimers = new Map<number, number>();
 const FOOTSTEP_INTERVAL = 300;
 
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
+let sfxGain: GainNode | null = null;
+let musicGain: GainNode | null = null;
+let musicSource: AudioBufferSourceNode | null = null;
+
+// Gain hierarchy:
+//   sfx source -> spatialGain -> sfxGain -\
+//                                          masterGain -> destination
+//   music source -----------> musicGain -/
 
 function getContext(): AudioContext {
     if (!ctx) {
         ctx = new AudioContext();
+
         masterGain = ctx.createGain();
+        masterGain.gain.value = SETTINGS.audio.muted ? 0 : SETTINGS.audio.masterVolume;
         masterGain.connect(ctx.destination);
+
+        sfxGain = ctx.createGain();
+        sfxGain.gain.value = SETTINGS.audio.sfxVolume;
+        sfxGain.connect(masterGain);
+
+        musicGain = ctx.createGain();
+        musicGain.gain.value = SETTINGS.audio.musicVolume;
+        musicGain.connect(masterGain);
     }
     return ctx;
 }
 
 export function resumeAudioContext() {
     const c = getContext();
-    if (c.state === 'suspended') {
-        c.resume();
-    }
+    if (c.state === 'suspended') c.resume();
+}
+
+export function setMasterVolume(v: number) {
+    SETTINGS.audio.masterVolume = v;
+    if (masterGain && !SETTINGS.audio.muted) masterGain.gain.value = v;
+}
+
+export function setSfxVolume(v: number) {
+    SETTINGS.audio.sfxVolume = v;
+    if (sfxGain) sfxGain.gain.value = v;
+}
+
+export function setMusicVolume(v: number) {
+    SETTINGS.audio.musicVolume = v;
+    if (musicGain) musicGain.gain.value = v;
+}
+
+export function setMuted(muted: boolean) {
+    SETTINGS.audio.muted = muted;
+    if (masterGain) masterGain.gain.value = muted ? 0 : SETTINGS.audio.masterVolume;
 }
 
 export async function loadSound(id: string, url: string): Promise<void> {
     if (bufferCache.has(id)) return;
-
     try {
         const res = await fetch(url);
         if (!res.ok) {
@@ -45,25 +80,15 @@ export async function loadSound(id: string, url: string): Promise<void> {
     }
 }
 
-export function playSound(
-    id: string,
-    position?: { x: number; y: number },
-) {
-    if (SETTINGS.audio.muted) return;
-
+export function playSound(id: string, position?: { x: number; y: number }) {
     const buffer = bufferCache.get(id);
     if (!buffer) return;
 
     const c = getContext();
     if (c.state === 'suspended') return;
 
-    const source = c.createBufferSource();
-    source.buffer = buffer;
-
-    const gain = c.createGain();
-    let volume = SETTINGS.audio.masterVolume * SETTINGS.audio.sfxVolume;
-
-    // Spatial attenuation - inverse distance with rolloff
+    // Spatial attenuation only - overall sfx/master levels handled by gain nodes
+    let spatialFactor = 1;
     if (position) {
         const listener = ACTIVE_PLAYER ? getPlayerInfo(ACTIVE_PLAYER) : null;
         if (listener) {
@@ -73,16 +98,41 @@ export function playSound(
             const dy = position.y - ly;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist > MAX_HEARING_DISTANCE) return;
-            // Inverse distance with rolloff: ref / (ref + rolloff * (dist - ref))
             const clamped = Math.max(dist, REFERENCE_DISTANCE);
-            volume *= REFERENCE_DISTANCE / (REFERENCE_DISTANCE + ROLLOFF_FACTOR * (clamped - REFERENCE_DISTANCE));
+            spatialFactor = REFERENCE_DISTANCE / (REFERENCE_DISTANCE + ROLLOFF_FACTOR * (clamped - REFERENCE_DISTANCE));
         }
     }
 
-    gain.gain.value = Math.max(0, Math.min(1, volume));
+    const source = c.createBufferSource();
+    source.buffer = buffer;
+
+    const gain = c.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, spatialFactor));
     source.connect(gain);
-    gain.connect(masterGain!);
+    gain.connect(sfxGain!);
     source.start();
+}
+
+export function playMenuMusic() {
+    const buffer = bufferCache.get('menu-music');
+    if (!buffer) return;
+
+    stopMenuMusic();
+
+    const c = getContext();
+    musicSource = c.createBufferSource();
+    musicSource.buffer = buffer;
+    musicSource.loop = true;
+    musicSource.connect(musicGain!);
+    musicSource.start();
+}
+
+export function stopMenuMusic() {
+    if (musicSource) {
+        try { musicSource.stop(); } catch (_) { /* already stopped */ }
+        musicSource.disconnect();
+        musicSource = null;
+    }
 }
 
 export function playSoundAtPlayer(id: string, player: player_info) {
@@ -92,7 +142,6 @@ export function playSoundAtPlayer(id: string, player: player_info) {
     });
 }
 
-// Throttled footstep - returns true if a footstep was played
 export function playFootstep(player: player_info, timestamp: number) {
     const last = footstepTimers.get(player.id) ?? 0;
     if (timestamp - last < FOOTSTEP_INTERVAL) return;

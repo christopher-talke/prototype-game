@@ -4,11 +4,13 @@ import { getGrenadeDef } from './grenades';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { getActiveMap } from '../Maps/helpers';
 import { getConfig } from '../Config/activeConfig';
+import { gameEventBus } from '../Net/GameEvent';
 
 let roundStartTime = 0;
 let matchActive = false;
 let roundActive = false;
 let currentRound = 0;
+let intermissionTimer: ReturnType<typeof setTimeout> | null = null;
 const teamRoundWins = new Map<number, number>();
 const roundKills = new Map<number, number>(); // team -> kills this round
 const playerStates = new Map<number, PlayerGameState>();
@@ -24,6 +26,15 @@ export function setOnKillCallback(cb: (killerName: string, victimName: string, w
 
 export function setOnRoundEndCallback(cb: (winningTeam: number, teamWins: Map<number, number>, isFinal: boolean) => void) {
     onRoundEndCallback = cb;
+}
+
+export function endMatch() {
+    if (intermissionTimer !== null) {
+        clearTimeout(intermissionTimer);
+        intermissionTimer = null;
+    }
+    roundActive = false;
+    matchActive = false;
 }
 
 export function initMatch(playerIds: number[]) {
@@ -67,6 +78,8 @@ function startRound() {
 
     // Reset all players for the new round
     resetAllPlayers();
+
+    gameEventBus.emit({ type: 'ROUND_START', round: currentRound });
 }
 
 export function recordKill(killerId: number, victimId: number) {
@@ -170,7 +183,7 @@ function endRound() {
 
     // Start next round after intermission (unless match is over)
     if (!isFinal) {
-        setTimeout(() => startRound(), getConfig().match.roundIntermission);
+        intermissionTimer = setTimeout(() => startRound(), getConfig().match.roundIntermission);
     }
 }
 

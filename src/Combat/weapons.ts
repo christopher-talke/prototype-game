@@ -169,13 +169,15 @@ export function isWeaponAllowed(weaponId: string): boolean {
 }
 
 export function createDefaultWeapon(): PlayerWeapon {
+    const startingType = getConfig().weapons.startingWeapons[0] ?? 'PISTOL';
+    const def = WEAPON_DEFS[startingType] ?? WEAPON_DEFS.PISTOL;
     return {
         id: 1,
         active: true,
-        type: 'PISTOL',
-        ammo: 12,
-        maxAmmo: 12,
-        firing_rate: 500,
+        type: def.id,
+        ammo: def.magSize,
+        maxAmmo: def.magSize,
+        firing_rate: def.fireRate,
         reloading: false,
     };
 }

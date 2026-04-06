@@ -52,8 +52,16 @@ export function getWeaponReloadSoundId(weaponType: string): string {
     return `reload_${weaponType}`;
 }
 
+const MUSIC: Record<string, string> = {
+    'menu-music': '/sounds/music/menu.mp3',
+};
+
 export async function loadAllSounds(): Promise<void> {
     const promises: Promise<void>[] = [];
+
+    for (const [id, url] of Object.entries(MUSIC)) {
+        promises.push(loadSound(id, url));
+    }
 
     for (const [weaponType, url] of Object.entries(WEAPON_SOUNDS)) {
         promises.push(loadSound(getWeaponSoundId(weaponType), url));

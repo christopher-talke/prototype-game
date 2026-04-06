@@ -1,0 +1,252 @@
+#main-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    background: rgba(8, 8, 16, 0.97);
+    /* Subtle grid texture */
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    transition: opacity 0.4s ease;
+}
+
+#main-menu.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---- Panel ---- */
+.menu-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 520px;
+    padding: 0 24px;
+    box-sizing: border-box;
+}
+
+.menu-panel.active {
+    display: flex;
+}
+
+/* ---- Title ---- */
+.menu-title {
+    font-size: 52px;
+    font-weight: bold;
+    color: #fff;
+    letter-spacing: 10px;
+    text-transform: uppercase;
+    margin: 0 0 6px;
+    text-shadow: 0 0 40px rgba(0, 229, 255, 0.3);
+}
+
+.menu-subtitle {
+    font-size: 12px;
+    color: rgb(255 255 255);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin: 0 0 52px;
+}
+
+/* ---- Buttons ---- */
+.menu-btn {
+    width: 100%;
+    padding: 14px 24px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.menu-btn:hover {
+    background: rgba(0, 229, 255, 0.06);
+    border-color: rgba(0, 229, 255, 0.5);
+    color: #00e5ff;
+}
+
+.menu-btn:active {
+    background: rgba(0, 229, 255, 0.12);
+}
+
+.menu-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.menu-btn-tag {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+.menu-btn.disabled .menu-btn-tag {
+    color: rgba(255, 80, 80, 0.5);
+    border-color: rgba(255, 80, 80, 0.25);
+}
+
+/* ---- Section header ---- */
+.menu-section-title {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    align-self: flex-start;
+    margin-bottom: 16px;
+}
+
+/* ---- Mode cards ---- */
+.mode-grid {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.mode-card {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    box-sizing: border-box;
+    text-align: left;
+    font-family: 'Courier New', monospace;
+    color: #fff;
+}
+
+.mode-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.mode-card.selected {
+    background: rgba(0, 229, 255, 0.06);
+    border-color: rgba(0, 229, 255, 0.6);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.1);
+}
+
+.mode-card-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+}
+
+.mode-card.selected .mode-card-name {
+    color: #00e5ff;
+}
+
+.mode-card-desc {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.mode-card-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.mode-tag {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: rgba(255, 200, 50, 0.7);
+    border: 1px solid rgba(255, 200, 50, 0.25);
+    padding: 2px 6px;
+    border-radius: 2px;
+}
+
+/* ---- Row of action buttons ---- */
+.menu-btn-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+}
+
+.menu-btn-row .menu-btn {
+    flex: 1;
+    text-align: center;
+}
+
+.menu-btn.primary {
+    background: rgba(0, 229, 255, 0.08);
+    border-color: rgba(0, 229, 255, 0.4);
+    color: #00e5ff;
+}
+
+.menu-btn.primary:hover {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: #00e5ff;
+}
+
+/* ---- How To Play table ---- */
+.how-to-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    font-size: 12px;
+}
+
+.how-to-table tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.how-to-table td {
+    padding: 10px 4px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.how-to-table td:first-child {
+    width: 160px;
+    color: #fbbf24;
+    letter-spacing: 1px;
+    font-weight: bold;
+}
+
+.how-to-section-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(255, 255, 255, 0.25);
+    text-transform: uppercase;
+    padding: 14px 4px 6px;
+}
+
+/* ---- Version watermark ---- */
+.menu-version {
+    position: fixed;
+    bottom: 16px;
+    right: 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.15);
+    letter-spacing: 2px;
+    pointer-events: none;
+}

@@ -19,9 +19,12 @@ export function getActiveWeapon(playerInfo: player_info): PlayerWeapon | undefin
     return playerInfo.weapons.find(w => w.active);
 }
 
+const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #hud-pause, #hud-match-end';
+
 export function initShooting(_playerInfo: player_info) {
     window.addEventListener('mousedown', (e) => {
         if (e.button === 0) {
+            if ((e.target as HTMLElement).closest(UI_SELECTORS)) return;
             e.preventDefault();
             isFiring = true;
         }
@@ -30,7 +33,6 @@ export function initShooting(_playerInfo: player_info) {
     window.addEventListener('mouseup', (e) => {
         if (e.button === 0) {
             isFiring = false;
-            // Start recoil reset timer
             if (recoilResetTimeout) clearTimeout(recoilResetTimeout);
             recoilResetTimeout = setTimeout(() => {
                 consecutiveShots = 0;

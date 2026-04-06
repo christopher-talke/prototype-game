@@ -9,6 +9,7 @@ interface GameSettings {
   audio: {
     masterVolume: number;
     sfxVolume: number;
+    musicVolume: number;
     muted: boolean;
   };
 }

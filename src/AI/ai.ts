@@ -6,7 +6,7 @@ import { moveWithCollision } from '../Player/collision';
 import { spawnBullet } from '../Combat/projectiles';
 import { isPlayerDead } from '../Combat/damage';
 import { getActiveWeapon } from '../Combat/shooting';
-import { getWeaponDef } from '../Combat/weapons';
+import { getWeaponDef, isWeaponAllowed } from '../Combat/weapons';
 import { getPlayerElement, getHealthBarElement } from '../Globals/Players';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { positionHealthBar } from '../Player/player';
@@ -416,6 +416,7 @@ function tryBuyWeapon(ai: AIController) {
     if (!state) return;
 
     for (const weaponType of BUY_PRIORITY) {
+        if (!isWeaponAllowed(weaponType)) continue;
         const def = getWeaponDef(weaponType);
         if (state.money >= def.price) {
             if (buyWeapon(ai.player.id, weaponType, ai.player)) {

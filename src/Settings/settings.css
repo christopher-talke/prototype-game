@@ -3,16 +3,19 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 9000;
-    background: #1e1e2e;
-    border: 1px solid #444;
-    border-radius: 8px;
+    z-index: 10000;
+    background: rgba(8, 8, 16, 0.97);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     width: 420px;
     max-height: 80vh;
-    color: #ddd;
-    font-family: inherit;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
     font-size: 13px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
 .settings-header {
@@ -20,29 +23,32 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .settings-header h2 {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .settings-header button {
     background: none;
     border: none;
-    color: #888;
+    color: rgba(255, 255, 255, 0.4);
     font-size: 22px;
     cursor: pointer;
     padding: 0 4px;
     line-height: 1;
 }
-.settings-header button:hover { color: #fff; }
+.settings-header button:hover { color: #00e5ff; }
 
 .settings-tabs {
     display: flex;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .settings-tab {
@@ -51,14 +57,17 @@
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
-    color: #888;
-    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
 }
-.settings-tab:hover { color: #ccc; }
+.settings-tab:hover { color: rgba(255, 255, 255, 0.8); }
 .settings-tab.active {
-    color: #fff;
+    color: #fbbf24;
     border-bottom-color: #fbbf24;
 }
 
@@ -87,16 +96,16 @@
 .keybind-btn {
     min-width: 64px;
     padding: 4px 12px;
-    background: #2a2a3e;
-    border: 1px solid #555;
-    border-radius: 4px;
-    color: #ddd;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.85);
     font-size: 13px;
-    font-family: monospace;
+    font-family: 'Courier New', monospace;
     cursor: pointer;
     text-align: center;
+    transition: border-color 0.12s, color 0.12s;
 }
-.keybind-btn:hover { border-color: #888; }
+.keybind-btn:hover { border-color: rgba(0, 229, 255, 0.5); color: #00e5ff; }
 .keybind-btn.listening {
     border-color: #fbbf24;
     color: #fbbf24;
@@ -136,10 +145,10 @@
 
 .settings-row select {
     padding: 4px 8px;
-    background: #2a2a3e;
-    border: 1px solid #555;
-    border-radius: 4px;
-    color: #ddd;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Courier New', monospace;
     font-size: 13px;
 }
 

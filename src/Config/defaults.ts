@@ -14,7 +14,7 @@ export const BASE_DEFAULTS: GameModeConfig = {
     },
 
     economy: {
-        startingMoney: 99999,
+        startingMoney: 500,
         killRewardMultiplier: 1.0,
     },
 

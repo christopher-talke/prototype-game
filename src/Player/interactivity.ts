@@ -11,7 +11,7 @@ import { toggleSettings, isSettingsOpen, closeSettings } from "../Settings/setti
 import { getActionForKey } from "../Settings/keybinds";
 import { initShooting, getActiveWeapon } from "../Combat/shooting";
 import { checkMatchTimer, getMatchTimeRemaining, isRoundActive } from "../Combat/gameState";
-import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard } from "../HUD/hud";
+import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from "../HUD/hud";
 import { isPlayerDead } from "../Combat/damage";
 import { getWeaponDef } from "../Combat/weapons";
 import { updateAllAI } from "../AI/ai";
@@ -59,10 +59,13 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
         if (e.key === 'Escape') {
             if (isSettingsOpen()) { closeSettings(); return; }
             if (isBuyMenuOpen()) { closeBuyMenu(); return; }
+            if (isPauseOpen()) { closePause(); return; }
+            openPause();
+            return;
         }
 
         const action = getActionForKey(e.key);
-        const menuOpen = isSettingsOpen() || isBuyMenuOpen();
+        const menuOpen = isSettingsOpen() || isBuyMenuOpen() || isPauseOpen();
 
         // These always work
         if (action === 'settings') toggleSettings();
@@ -163,7 +166,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                 const roundRunning = isRoundActive();
 
                 if (roundRunning && !isPlayerDead(playerInfo)) {
-                    const menuOpen = isSettingsOpen() || isBuyMenuOpen();
+                    const menuOpen = isSettingsOpen() || isBuyMenuOpen() || isPauseOpen();
                     if (!menuOpen) {
                         const { dx, dy } = getMovementInput();
                         if (dx !== 0 || dy !== 0) {
@@ -173,7 +176,7 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
                     }
                 }
 
-                if (roundRunning) {
+                if (roundRunning && !isPauseOpen()) {
                     offlineAdapter.tick(environment.segments, getAllPlayers(), timestamp);
                     clientRenderer.updateVisuals();
                     updateSmokeClouds(timestamp);
