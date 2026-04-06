@@ -1,7 +1,7 @@
 import './hud.css';
 import { getWeaponDef, WEAPON_DEFS, isWeaponAllowed } from '../Combat/weapons';
 import { getActiveWeapon } from '../Combat/shooting';
-import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound } from '../Combat/gameState';
+import { buyWeapon, getPlayerState, getAllPlayerStates, buyGrenade, getTeamRoundWins, getCurrentRound, buyHealth, buyArmor } from '../Combat/gameState';
 import { isPlayerDead } from '../Combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { GRENADE_DEFS } from '../Combat/grenades';
@@ -9,6 +9,7 @@ import { getSelectedGrenadeType, getGrenadeChargePercent } from '../Player/inter
 import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
 import { playSound } from '../Audio/audio';
 import { getConfig } from '../Config/activeConfig';
+import { app } from '../main';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -255,6 +256,10 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
         healthBar.style.background = '#ef4444';
     }
 
+    // Low-health desaturation + blur on the game world
+    const t = healthPct / 100;
+    app.style.filter = `saturate(${t.toFixed(3)}) blur(${((1 - t) * 1.5).toFixed(2)}px)`;
+
     // Armor bar
     armorBar.style.width = `${Math.max(0, playerInfo.armour)}%`;
 
@@ -352,6 +357,33 @@ function renderBuyMenu(playerInfo: player_info) {
     if (!state) return;
 
     buyMenuGrid.innerHTML = '';
+
+    // Health and Armour
+    const healthAndArmourHeader = document.createElement('div');
+    healthAndArmourHeader.classList.add('buymenu-section-header');
+    healthAndArmourHeader.textContent = 'HEALTH & ARMOUR';
+    buyMenuGrid.appendChild(healthAndArmourHeader);
+
+    const healthAndArmour =  [
+        ['Health', getConfig().economy.healthCost, () => buyHealth(playerInfo.id, playerInfo)],
+        ['Armor', getConfig().economy.armorCost, () => buyArmor(playerInfo.id, playerInfo)],
+    ] as [string, number, () => void][];
+    for (const [label, cost, buy] of healthAndArmour) {
+        const item = document.createElement('div');
+        item.classList.add('buymenu-item');
+        if (state.money < cost) item.classList.add('too-expensive');
+        item.innerHTML = `<div class="buymenu-item-name">${label}</div><div class="buymenu-item-price">$${cost}</div>`;
+        item.addEventListener('click', () => {
+            if (state.money >= cost) { buy(); renderBuyMenu(playerInfo); }
+        });
+        buyMenuGrid.appendChild(item);
+    }
+
+    // Weapon section
+    const weaponHeader = document.createElement('div');
+    weaponHeader.classList.add('buymenu-section-header');
+    weaponHeader.textContent = 'WEAPONS';
+    buyMenuGrid.appendChild(weaponHeader);
 
     Object.values(WEAPON_DEFS).forEach((wDef) => {
         if (wDef.price === 0) return; // Don't show pistol (free)
@@ -499,8 +531,8 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Map<number, nu
 
     const sub = document.getElementById('round-banner-sub')!;
     const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
-    const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('\r\n');
-    sub.textContent = `Team ${winningTeam} wins!  |  ${scoreText}`;
+    const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
+    sub.innerHTML = `Team ${winningTeam} wins!  |  ${scoreText}`;
 
     roundBanner.classList.remove('active');
     void roundBanner.offsetWidth;
@@ -533,10 +565,10 @@ export function hideMatchEndOverlay() {
 function showMatchEndOverlay(winningTeam: number, teamWins: Map<number, number>) {
     const winnerEl = document.getElementById('match-end-winner')!;
     const scoreEl = document.getElementById('match-end-score')!;
-    winnerEl.textContent = `Team ${winningTeam} wins the match!`;
+    winnerEl.innerHTML = `Team ${winningTeam} wins the match!`;
 
     const winsArr = Array.from(teamWins.entries()).sort((a, b) => a[0] - b[0]);
-    scoreEl.textContent = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('\r\n');
+    scoreEl.innerHTML = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
 
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         winnerEl.classList.add('won');

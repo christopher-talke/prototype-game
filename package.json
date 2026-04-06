@@ -3,6 +3,7 @@
     "private": true,
     "version": "0.0.0",
     "type": "module",
+    "license": "MIT - Custom License (see LICENSE file)",
     "scripts": {
         "dev": "vite",
         "format": "prettier --write .",

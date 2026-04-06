@@ -15,12 +15,15 @@ export const BASE_DEFAULTS: GameModeConfig = {
 
     economy: {
         startingMoney: 500,
+        armorCost: 200,
+        healthCost: 100,
         killRewardMultiplier: 1.0,
     },
 
     player: {
         maxHealth: 100,
         startingArmor: 0,
+        maxArmor: 100,
         speed: 6,
         respawnTime: 3000,
         armorAbsorption: 0.5,

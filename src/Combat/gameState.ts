@@ -264,3 +264,19 @@ export function buyGrenade(playerId: number, type: GrenadeType, playerInfo: play
     playerInfo.grenades[type]++;
     return true;
 }
+
+export function buyArmor(playerId: number, playerInfo: player_info): boolean {
+    const armorCost = getConfig().economy.armorCost;
+    if (playerInfo.armour >= getConfig().player.maxArmor) return false;
+    if (!spendMoney(playerId, armorCost)) return false;
+    playerInfo.armour = getConfig().player.maxArmor;
+    return true;
+}
+
+export function buyHealth(playerId: number, playerInfo: player_info): boolean {
+    const healthCost = getConfig().economy.healthCost;
+    if (playerInfo.health >= getConfig().player.maxHealth) return false;
+    if (!spendMoney(playerId, healthCost)) return false;
+    playerInfo.health = getConfig().player.maxHealth;
+    return true;
+}

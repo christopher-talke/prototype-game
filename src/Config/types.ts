@@ -16,11 +16,14 @@ export interface GameModeConfig {
     };
 
     economy: {
+        healthCost: any;
+        armorCost: any;
         startingMoney: number; // currently 99999
         killRewardMultiplier: number; // 1.0
     };
 
     player: {
+        maxArmor: number;
         maxHealth: number; // 100
         startingArmor: number; // 0
         speed: number; // 6

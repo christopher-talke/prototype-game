@@ -2,8 +2,8 @@ import { SETTINGS } from '../main';
 import { ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { HALF_HIT_BOX } from '../constants';
 
-const MAX_HEARING_DISTANCE = 800;
-const ROLLOFF_FACTOR = 2.5;
+const MAX_HEARING_DISTANCE = 1500;
+const ROLLOFF_FACTOR = 1.5;
 const REFERENCE_DISTANCE = 40;
 const bufferCache = new Map<string, AudioBuffer>();
 const footstepTimers = new Map<number, number>();
@@ -87,7 +87,6 @@ export function playSound(id: string, position?: { x: number; y: number }) {
     const c = getContext();
     if (c.state === 'suspended') return;
 
-    // Spatial attenuation only - overall sfx/master levels handled by gain nodes
     let spatialFactor = 1;
     if (position) {
         const listener = ACTIVE_PLAYER ? getPlayerInfo(ACTIVE_PLAYER) : null;
