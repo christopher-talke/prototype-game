@@ -1,4 +1,4 @@
-import { SETTINGS } from '../main';
+import { SETTINGS } from '../Globals/App';
 import { ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
 import { HALF_HIT_BOX } from '../constants';
 

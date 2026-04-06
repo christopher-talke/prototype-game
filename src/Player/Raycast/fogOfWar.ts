@@ -1,7 +1,7 @@
 import './fogOfWar.css';
 
 import { environment } from '../../Environment/environment';
-import { app } from '../../main';
+import { app } from '../../Globals/App';
 
 /**
  * Draws the fog of war overlay on the game map. 

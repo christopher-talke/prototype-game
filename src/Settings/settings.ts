@@ -1,5 +1,5 @@
 import './settings.css';
-import { SETTINGS } from '../main';
+import { SETTINGS } from '../Globals/App';
 import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '../Audio/audio';
 import { removeElements } from '../Utilities/removeElements';
 import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from './keybinds';

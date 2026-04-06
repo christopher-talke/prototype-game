@@ -15,7 +15,7 @@ import { getActiveWeapon } from '../Combat/shooting';
 import { getWeaponDef } from '../Combat/weapons';
 import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '../HUD/hud';
 import { spawnSmoke } from '../Combat/smoke';
-import { app } from '../main';
+import { app } from '../Globals/App';
 import { getConfig } from '../Config/activeConfig';
 import { getAdapter } from './activeAdapter';
 

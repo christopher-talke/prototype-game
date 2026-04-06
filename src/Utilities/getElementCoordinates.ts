@@ -1,4 +1,4 @@
-import { MAP_OFFSET } from '../main';
+import { MAP_OFFSET } from '../Globals/App';
 
 export function getElementCoordinates(targetElement: HTMLElement): elementCoordinates {
     let box = targetElement.getBoundingClientRect();

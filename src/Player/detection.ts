@@ -1,6 +1,6 @@
 import { environment } from '../Environment/environment';
 import { getOtherPlayers, getPlayerElement, getPlayerInfo } from '../Globals/Players';
-import { SETTINGS } from '../main';
+import { SETTINGS } from '../Globals/App';
 import { isLineBlocked } from './Raycast/raycast';
 import { debugLineOfSight, lineOfSight } from './lineOfSight';
 

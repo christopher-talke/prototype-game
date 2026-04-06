@@ -69,20 +69,7 @@ Players on the same network can connect by changing the server address to the ho
 
 ## Architecture
 
-The game is architected with a clear separation of concerns between the simulation and rendering layers.
-
-The simulation layer (`GameSimulation`) is pure state - no DOM access. 
-
-It returns `GameEvent[]` arrays for every mutation. `ClientRenderer` subscribes to the event bus and handles all DOM and audio side effects. This allows for a offline and online adapter to be swapped in and out without touching the core game logic.
-
-This means that the game can be run in a headless mode for server-side simulation, or with a local offline adapter for single player without any changes to the core simulation or rendering logic.
-
-```
-OfflineAdapter
-  -> GameSimulation  (authoritative state, emits GameEvent[])
-  -> gameEventBus
-  -> ClientRenderer  (DOM + audio reactions only)
-```
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full developer guide -- runtime flow, module responsibilities, and how-to recipes for adding weapons, grenades, game modes, and maps.
 
 --- 
 

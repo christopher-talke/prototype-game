@@ -1,6 +1,6 @@
 import { getAngle } from '../Utilities/getAngle';
 import { getDistance } from '../Utilities/getDistance';
-import { app } from '../main';
+import { app } from '../Globals/App';
 import { FOV, HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { ACTIVE_PLAYER } from '../Globals/Players';
 

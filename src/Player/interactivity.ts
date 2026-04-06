@@ -2,7 +2,7 @@ import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo, getPlayerElement } from '.
 import { getAngle } from '../Utilities/getAngle';
 import { angleToRadians } from '../Utilities/angleToRadians';
 import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET } from '../constants';
-import { SETTINGS } from '../main';
+import { SETTINGS } from '../Globals/App';
 import { detectOtherPlayers } from './detection';
 import { environment } from '../Environment/environment';
 import { HELD_DIRECTIONS, directions } from './player';

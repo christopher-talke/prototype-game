@@ -1,6 +1,6 @@
 import './collisionmap.css';
 
-import { app } from '../main';
+import { app } from '../Globals/App';
 
 export function generateCollisionMap(environment: Environment): CollisionMap {
     const collisionMap = {} as CollisionMap;

@@ -9,7 +9,7 @@ import { getPlayerElement, getHealthBarElement } from '../Globals/Players';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { positionHealthBar } from '../Player/player';
 import { getConfig } from '../Config/activeConfig';
-import { SETTINGS } from '../main';
+import { SETTINGS } from '../Globals/App';
 import { getActiveMap } from '../Maps/helpers';
 import { offlineAdapter } from '../Net/OfflineAdapter';
 

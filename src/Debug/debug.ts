@@ -1,5 +1,5 @@
 import { ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
-import { app } from '../main';
+import { app } from '../Globals/App';
 import { getRandomNumber } from '../Utilities/getRandomNumber';
 
 export function createDebug() {

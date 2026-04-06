@@ -1,6 +1,6 @@
 import './player.css';
 import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarElement, getHealthBarElement } from '../Globals/Players';
-import { app } from '../main';
+import { app } from '../Globals/App';
 import { HALF_HIT_BOX } from '../constants';
 import { addPlayerInteractivity } from './interactivity';
 import { createDefaultWeapon } from '../Combat/weapons';

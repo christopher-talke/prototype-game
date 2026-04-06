@@ -1,5 +1,5 @@
 import { environment } from '../../Environment/environment';
-import { app, SETTINGS } from '../../main';
+import { app, SETTINGS } from '../../Globals/App';
 import { getAngle } from '../../Utilities/getAngle';
 import { getDistance } from '../../Utilities/getDistance';
 import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from '../../constants';

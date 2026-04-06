@@ -9,7 +9,7 @@ import { getSelectedGrenadeType, getGrenadeChargePercent } from '../Player/inter
 import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
 import { playSound } from '../Audio/audio';
 import { getConfig } from '../Config/activeConfig';
-import { app } from '../main';
+import { app } from '../Globals/App';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;

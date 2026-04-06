@@ -1,4 +1,4 @@
-import { app } from '../main';
+import { app } from '../Globals/App';
 
 const MAX_PROJECTILES = 512;
 const poolElements: HTMLElement[] = [];

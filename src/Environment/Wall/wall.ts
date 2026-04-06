@@ -1,6 +1,6 @@
 import './wall.css';
 
-import { app } from '../../main';
+import { app } from '../../Globals/App';
 import { getElementCoordinates } from '../../Utilities/getElementCoordinates';
 import { getRandomNumber } from '../../Utilities/getRandomNumber';
 import { environment } from '../environment';

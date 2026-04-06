@@ -1,5 +1,5 @@
 import './aimline.css';
-import { app } from '../main';
+import { app } from '../Globals/App';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { angleToRadians } from '../Utilities/angleToRadians';
 import { getActiveWeapon } from '../Combat/shooting';

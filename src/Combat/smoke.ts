@@ -1,4 +1,4 @@
-import { app } from '../main';
+import { app } from '../Globals/App';
 
 type SmokeCloud = {
     x: number;
