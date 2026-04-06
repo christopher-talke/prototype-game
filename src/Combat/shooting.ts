@@ -13,7 +13,7 @@ export function getActiveWeapon(playerInfo: player_info): PlayerWeapon | undefin
 
 const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #hud-pause, #hud-match-end';
 
-export function initShooting(_playerInfo: player_info) {
+export function initShooting() {
     window.addEventListener('mousedown', (e) => {
         if (e.button === 0) {
             if ((e.target as HTMLElement).closest(UI_SELECTORS)) return;

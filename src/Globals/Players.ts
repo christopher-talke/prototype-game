@@ -48,3 +48,13 @@ export function setActivePlayer(playerId: number) {
     const newEl = PLAYER_ELEMENTS.get(playerId);
     if (newEl) newEl.classList.add('visible');
 }
+
+export function clearAllPlayers() {
+    for (const el of PLAYER_ELEMENTS.values()) el.remove();
+    for (const el of HEALTH_BAR_ELEMENTS.values()) el.remove();
+    PLAYERS.length = 0;
+    PLAYERS_MAP.clear();
+    PLAYER_ELEMENTS.clear();
+    HEALTH_BAR_ELEMENTS.clear();
+    ACTIVE_PLAYER = null;
+}

@@ -72,11 +72,23 @@ function getActivePlayerElement(): HTMLElement | null {
     return getPlayerElement(ACTIVE_PLAYER) ?? null;
 }
 
-export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, targetPlayerId: number) {
-    const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
+let interactivityInitialized = false;
 
-    initShooting(playerInfo);
+export function initInteractivity() {
+    if (interactivityInitialized) return;
+    interactivityInitialized = true;
+
+    initShooting();
     initADS();
+    setupInputListeners();
+    startGameLoop();
+}
+
+export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, _targetPlayerId: number) {
+    // No-op: interactivity is now initialized once via initInteractivity()
+}
+
+function setupInputListeners() {
 
     window.addEventListener('keydown', (e) => {
         // Settings rebind listener eats keys when listening
@@ -216,8 +228,9 @@ export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, targ
         if (isBuyMenuOpen()) return;
         cycleGrenade(e.deltaY > 0 ? 1 : -1);
     });
+}
 
-    // Game loop using requestAnimationFrame for proper frame timing
+function startGameLoop() {
     let lastTime = 0;
     const targetFrameTime = 1000 / 60; // 60fps target
     function gameLoop(timestamp: number) {
@@ -281,6 +294,7 @@ export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, targ
                 }
 
                 loopPlayerEl.classList.add('visible');
+                loopPlayerEl.classList.remove('same-team-not-visible');
                 loopPlayerEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
 
                 updateAimLine(loopPlayer);

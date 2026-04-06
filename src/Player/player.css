@@ -149,6 +149,10 @@
     background-color: #ff4757;
 }
 
+.player.team-2.same-team-not-visible {
+    background: #ff4757;
+}
+
 .last-known-position.team-2 {
     background: #ff4757;
 }

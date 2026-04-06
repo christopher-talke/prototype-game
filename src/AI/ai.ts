@@ -84,6 +84,10 @@ function generatePatrolPoints(): coordinates[] {
     return points;
 }
 
+export function clearAllAI() {
+    controllers.length = 0;
+}
+
 export function registerAI(player: player_info) {
     controllers.push({
         player,

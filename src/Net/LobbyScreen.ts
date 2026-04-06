@@ -30,6 +30,10 @@ let phase: 'connect' | 'room' = 'connect';
 let connecting = false;
 let connectError = '';
 
+export function getLobbyState(): LobbyStateView | null {
+    return currentState;
+}
+
 // ---- Public API ----
 
 export function showLobbyScreen(cb: LobbyCallbacks) {
