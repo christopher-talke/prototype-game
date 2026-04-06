@@ -137,14 +137,32 @@ export class AuthoritativeSimulation {
         return false;
     }
 
-    private moveWithCollision(currentX: number, currentY: number, dx: number, dy: number): { x: number; y: number } {
-        const alreadyStuck = this.collidesWithWall(currentX, currentY);
+    private collidesWithPlayer(px: number, py: number, excludeId: number): boolean {
+        const cx = px + COLLISION_MARGIN;
+        const cy = py + COLLISION_MARGIN;
+        for (const other of this.players) {
+            if (other.id === excludeId || other.dead) continue;
+            const ox = other.current_position.x + COLLISION_MARGIN;
+            const oy = other.current_position.y + COLLISION_MARGIN;
+            if (cx < ox + CBOX && cx + CBOX > ox && cy < oy + CBOX && cy + CBOX > oy) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private moveWithCollision(currentX: number, currentY: number, dx: number, dy: number, playerId?: number): { x: number; y: number } {
+        const collides = playerId !== undefined
+            ? (px: number, py: number) => this.collidesWithWall(px, py) || this.collidesWithPlayer(px, py, playerId)
+            : (px: number, py: number) => this.collidesWithWall(px, py);
+
+        const alreadyStuck = collides(currentX, currentY);
         const newX = currentX + dx;
         const newY = currentY + dy;
 
-        if (!this.collidesWithWall(newX, newY)) return this.clampToBounds(newX, newY);
-        if (dx !== 0 && !this.collidesWithWall(currentX + dx, currentY)) return this.clampToBounds(currentX + dx, currentY);
-        if (dy !== 0 && !this.collidesWithWall(currentX, currentY + dy)) return this.clampToBounds(currentX, currentY + dy);
+        if (!collides(newX, newY)) return this.clampToBounds(newX, newY);
+        if (dx !== 0 && !collides(currentX + dx, currentY)) return this.clampToBounds(currentX + dx, currentY);
+        if (dy !== 0 && !collides(currentX, currentY + dy)) return this.clampToBounds(currentX, currentY + dy);
         if (alreadyStuck) return this.clampToBounds(newX, newY);
         return { x: currentX, y: currentY };
     }
@@ -216,6 +234,7 @@ export class AuthoritativeSimulation {
             player.current_position.y,
             dx * config.player.speed,
             dy * config.player.speed,
+            player.id,
         );
         player.current_position.x = result.x;
         player.current_position.y = result.y;

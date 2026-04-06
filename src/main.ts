@@ -19,10 +19,10 @@ import { showMainMenu, hideMainMenu } from './MainMenu/MainMenu';
 import { GAME_MODES_MAP } from './Config/modes/index';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from './Loading/LoadingScreen';
 import { offlineAdapter } from './Net/OfflineAdapter';
-import { setAdapter } from './Net/activeAdapter';
+import { getAdapter, setAdapter } from './Net/activeAdapter';
 import { webSocketAdapter } from './Net/WebSocketAdapter';
 import { getWallAABBs } from './Player/collision';
-import { getAllPlayers } from './Globals/Players';
+import { getAllPlayers, getPlayerElement } from './Globals/Players';
 import { gameEventBus } from './Net/GameEvent';
 
 export const app = document.getElementById('app') as HTMLElement;
@@ -125,7 +125,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function returnToMenu() {
+        if (getAdapter().mode === 'online') {
+            webSocketAdapter.disconnect();
+            setAdapter(offlineAdapter);
+        }
+
         authSim.endMatch();
+
+        for (const player of getAllPlayers()) {
+            player.dead = false;
+            player.health = getConfig().player.maxHealth;
+            player.armour = 0;
+            const el = getPlayerElement(player.id);
+            if (el) {
+                el.classList.remove('dead');
+                el.classList.remove('visible');
+            }
+        }
+
+        setActivePlayer(1);
+
+        webSocketAdapter.onGameStart = () => {
+            const localId = webSocketAdapter.getLocalPlayerId();
+            if (localId) setActivePlayer(localId);
+            setAdapter(webSocketAdapter);
+            stopMenuMusic();
+            document.body.style.cursor = 'none';
+        };
+
         hideMatchEndOverlay();
         document.body.style.cursor = 'auto';
         playMenuMusic();

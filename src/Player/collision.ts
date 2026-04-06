@@ -39,41 +39,33 @@ export function collidesWithWall(px: number, py: number): boolean {
     return false;
 }
 
-/**
- * Moves a point with collision detection against registered walls.
- * @param currentX The current x-coordinate of the point.
- * @param currentY The current y-coordinate of the point.
- * @param dx The change in x-coordinate.
- * @param dy The change in y-coordinate.
- * @returns The new coordinates of the point after applying movement and collision detection.
- */
-export function moveWithCollision(currentX: number, currentY: number, dx: number, dy: number): { x: number; y: number } {
-    // If already inside a wall (e.g. just spawned), allow movement out
-    const alreadyStuck = collidesWithWall(currentX, currentY);
+function collidesWithPlayer(px: number, py: number, excludeId: number, players: player_info[]): boolean {
+    const cx = px + COLLISION_MARGIN;
+    const cy = py + COLLISION_MARGIN;
+    for (const other of players) {
+        if (other.id === excludeId || other.dead) continue;
+        const ox = other.current_position.x + COLLISION_MARGIN;
+        const oy = other.current_position.y + COLLISION_MARGIN;
+        if (cx < ox + CBOX && cx + CBOX > ox && cy < oy + CBOX && cy + CBOX > oy) {
+            return true;
+        }
+    }
+    return false;
+}
 
+export function moveWithCollision(currentX: number, currentY: number, dx: number, dy: number, excludeId?: number, players?: player_info[]): { x: number; y: number } {
+    const collides = excludeId !== undefined && players
+        ? (px: number, py: number) => collidesWithWall(px, py) || collidesWithPlayer(px, py, excludeId, players)
+        : collidesWithWall;
+
+    const alreadyStuck = collides(currentX, currentY);
     const newX = currentX + dx;
     const newY = currentY + dy;
 
-    // Try full move
-    if (!collidesWithWall(newX, newY)) {
-        return clampToBounds(newX, newY);
-    }
-
-    // Try X only
-    if (dx !== 0 && !collidesWithWall(currentX + dx, currentY)) {
-        return clampToBounds(currentX + dx, currentY);
-    }
-
-    // Try Y only
-    if (dy !== 0 && !collidesWithWall(currentX, currentY + dy)) {
-        return clampToBounds(currentX, currentY + dy);
-    }
-
-    // If already stuck let them move freely to escape
-    if (alreadyStuck) {
-        return clampToBounds(newX, newY);
-    }
-
+    if (!collides(newX, newY)) return clampToBounds(newX, newY);
+    if (dx !== 0 && !collides(currentX + dx, currentY)) return clampToBounds(currentX + dx, currentY);
+    if (dy !== 0 && !collides(currentX, currentY + dy)) return clampToBounds(currentX, currentY + dy);
+    if (alreadyStuck) return clampToBounds(newX, newY);
     return { x: currentX, y: currentY };
 }
 

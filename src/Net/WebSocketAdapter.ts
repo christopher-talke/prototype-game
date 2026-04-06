@@ -2,7 +2,7 @@ import type { NetAdapter } from './NetAdapter';
 import type { EventHandler, PlayerInput } from './GameEvent';
 import type { ClientMessage, ServerMessage, PlayerSnapshot } from './Protocol';
 import { gameEventBus } from './GameEvent';
-import { getPlayerInfo, getPlayerElement } from '../Globals/Players';
+import { getPlayerInfo, getPlayerElement, getAllPlayers } from '../Globals/Players';
 import { getConfig } from '../Config/activeConfig';
 import { setLocalPlayerId, updateLobbyState, showCountdown, hideLobbyScreen } from './LobbyScreen';
 import type { DeepPartial, GameModeConfig } from '../Config/types';
@@ -16,7 +16,7 @@ type LocalGrenade = { id: number; x: number; y: number; dx: number; dy: number; 
 // Interpolation target for remote players
 type InterpTarget = { x: number; y: number; rotation: number };
 
-const MOVE_SEND_INTERVAL = 1000 / 30; // 30 inputs/sec
+const MOVE_SEND_INTERVAL = 1000 / 60; // 60 inputs/sec - match frame rate so prediction speed equals server speed
 
 export class WebSocketAdapter implements NetAdapter {
     readonly mode = 'online' as const;
@@ -473,6 +473,8 @@ export class WebSocketAdapter implements NetAdapter {
             player.current_position.y,
             input.dx * speed,
             input.dy * speed,
+            id,
+            getAllPlayers(),
         );
         player.current_position.x = result.x;
         player.current_position.y = result.y;
@@ -492,7 +494,7 @@ export class WebSocketAdapter implements NetAdapter {
         const speed = getConfig().player.speed;
         for (const pending of this.pendingInputs) {
             if (pending.input.type !== 'MOVE') continue;
-            const result = moveWithCollision(reconX, reconY, pending.input.dx * speed, pending.input.dy * speed);
+            const result = moveWithCollision(reconX, reconY, pending.input.dx * speed, pending.input.dy * speed, this.localPlayerId ?? 0, getAllPlayers());
             reconX = result.x;
             reconY = result.y;
         }

@@ -280,6 +280,7 @@ export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, targ
                     generateRayCast(loopPlayer, { type: RaycastTypes.CORNERS });
                 }
 
+                loopPlayerEl.classList.add('visible');
                 loopPlayerEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
 
                 updateAimLine(loopPlayer);
