@@ -28,10 +28,8 @@ function angleToRadians(deg: number): number {
     return (Math.PI / 180) * deg;
 }
 
-// --- Analytical ray-segment intersection ---
-
 /**
- * Returns the parametric t value where a ray hits a line segment, or null if no hit.
+ * Returns the t value where a ray hits a line segment, or null if no hit.
  * Ray: origin + t * dir, t >= 0
  * Segment: p1 + u * (p2 - p1), 0 <= u <= 1
  */
@@ -104,7 +102,7 @@ function isSingleRayBlocked(sx: number, sy: number, tx: number, ty: number, segm
  * @param tx The target X coordinate.
  * @param ty The target Y coordinate.
  * @param segments The array of wall segments to check against.
- * @returns
+ * @returns True if the line is blocked, false otherwise.
  */
 export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     // Smoke blocks line of sight
@@ -133,6 +131,10 @@ export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, se
  * @returns void
  */
 export function generateRayCast(playerInfo: player_info, config: raycast_config) {
+    if (SETTINGS.debug) {
+        for (const el of Array.from(document.querySelectorAll('.ray'))) el.remove();
+    }
+
     const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
     const centerY = playerInfo.current_position.y + HALF_HIT_BOX;
 
@@ -200,30 +202,15 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
  * @param type The type of the ray (optional).
  */
 function drawRay(sx: number, sy: number, tx: number, ty: number, identifier: string, visible: boolean, type?: string) {
-    const existingRay = document.getElementById(`ray-${identifier}`);
-
     const angleToTarget = getAngle(sx, sy, tx, ty);
     const distance = getDistance(sx, sy, tx, ty);
 
-    if (!existingRay) {
-        const newRayEntity = window.document.createElement('div');
-
-        newRayEntity.id = `ray-${identifier}`;
-        newRayEntity.setAttribute('data-visible', `${visible}`);
-        newRayEntity.classList.add(`ray`);
-        newRayEntity.setAttribute('data-ray-id', `${identifier}`);
-
-        newRayEntity.style.width = `${distance}px`;
-        newRayEntity.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
-
-        if (type !== undefined) {
-            newRayEntity.classList.add(type);
-        }
-
-        app.appendChild(newRayEntity);
-    } else {
-        existingRay.setAttribute('data-visible', `${visible}`);
-        existingRay.style.width = `${distance}px`;
-        existingRay.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
-    }
+    const el = document.createElement('div');
+    el.id = `ray-${identifier}`;
+    el.setAttribute('data-visible', `${visible}`);
+    el.classList.add('ray');
+    if (type !== undefined) el.classList.add(type);
+    el.style.width = `${distance}px`;
+    el.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
+    app.appendChild(el);
 }

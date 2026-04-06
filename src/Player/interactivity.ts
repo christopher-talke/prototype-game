@@ -21,6 +21,7 @@ import { clientRenderer } from '../Net/ClientRenderer';
 import { offlineAdapter } from '../Net/OfflineAdapter';
 import { initADS, updateAimLine } from './aimline';
 import { getConfig } from '../Config/activeConfig';
+
 // Camera aim offset (lerped)
 let currentOffsetX = 0;
 let currentOffsetY = 0;
@@ -29,23 +30,39 @@ let currentOffsetY = 0;
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
 
+/**
+ * Gets the currently selected grenade type.
+ * @returns The type of the currently selected grenade.
+ */
 export function getSelectedGrenadeType(): GrenadeType {
     return GRENADE_ORDER[selectedGrenadeIndex];
 }
 
+/**
+ * Cycles through the available grenades.
+ * @param delta The amount to change the selected grenade index by.
+ */
 function cycleGrenade(delta: number) {
     selectedGrenadeIndex = (((selectedGrenadeIndex + delta) % GRENADE_ORDER.length) + GRENADE_ORDER.length) % GRENADE_ORDER.length;
 }
 
-// Grenade charge state
 let grenadeChargeStart = 0;
 let grenadeCharging = false;
 
+/**
+ * Gets the current grenade charge percentage.
+ * @returns The current grenade charge percentage, ranging from 0 to 1.
+ */
 export function getGrenadeChargePercent(): number {
     if (!grenadeCharging) return 0;
     return Math.min(1, (performance.now() - grenadeChargeStart) / getConfig().grenades.chargeTime);
 }
 
+/**
+ * Adds interactivity to a player's rendered element, including movement, shooting, and grenade handling.
+ * @param renderedPlayerElement The HTML element representing the player.
+ * @param targetPlayerId The ID of the player for whom to add interactivity.
+ */
 export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targetPlayerId: number) {
     const playerInfo = getPlayerInfo(targetPlayerId) as player_info;
 
@@ -174,7 +191,6 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     // Game loop using requestAnimationFrame for proper frame timing
     let lastTime = 0;
     const targetFrameTime = 1000 / 60; // 60fps target
-
     function gameLoop(timestamp: number) {
         const deltaTime = timestamp - lastTime;
 
@@ -241,6 +257,10 @@ export function addPlayerInteractivity(renderedPlayerElement: HTMLElement, targe
     requestAnimationFrame(gameLoop);
 }
 
+/**
+ * Gets the current movement input based on held directions.
+ * @returns An object containing the horizontal (dx) and vertical (dy) movement values.
+ */
 function getMovementInput(): { dx: number; dy: number } {
     let dx = 0;
     let dy = 0;

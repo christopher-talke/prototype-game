@@ -26,6 +26,12 @@ export const keys: Record<string, string | undefined> = {
     S: directions.down,
 };
 
+/**
+ * Creates a new player entity and adds it to the game.
+ * @param playerInfo The information of the player to create.
+ * @param controllable Whether the player is controllable by the local user.
+ * @returns The created player entity.
+ */
 export function createPlayer(playerInfo: player_info, controllable: boolean = false) {
     const newPlayerEntity = window.document.createElement('div');
     const newPlayerIdentifier = playerInfo.id;
@@ -65,34 +71,56 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
         addPlayerInteractivity(renderedPlayerElement, newPlayerIdentifier);
     }
 
-    return;
+    return newPlayerEntity;
 }
 
+/**
+ * Positions the health bar of a player based on their current position.
+ * @param wrap The HTML element wrapping the health bar.
+ * @param playerInfo The information of the player whose health bar is being positioned.
+ */
 export function positionHealthBar(wrap: HTMLElement, playerInfo: player_info) {
     const x = playerInfo.current_position.x + HALF_HIT_BOX;
     const y = playerInfo.current_position.y;
     wrap.style.transform = `translate3d(${x}px, ${y}px, 0)`;
 }
 
+/**
+ * Updates the health bar of a player based on their current health and armor.
+ * @param playerInfo The information of the player whose health bar is being updated.
+ * @returns void
+ */
 export function updateHealthBar(playerInfo: player_info) {
     const wrap = getHealthBarElement(playerInfo.id);
     if (!wrap) return;
+
     const bar = wrap.querySelector('.player-health-bar') as HTMLElement;
     const armor = wrap.querySelector('.player-armor-bar') as HTMLElement;
     if (bar) bar.style.width = `${Math.max(0, playerInfo.health)}%`;
     if (armor) armor.style.width = `${Math.max(0, playerInfo.armour)}%`;
+
     positionHealthBar(wrap, playerInfo);
 }
 
+/**
+ * Generates a list of player information objects for a game.
+ * @param num The number of players to generate.
+ * @param teams The number of teams in the game.
+ * @param teamSpawns A record mapping team numbers to their spawn coordinates.
+ * @returns An array of generated player information objects.
+ */
 export function generatePlayers(num: number, teams: number, teamSpawns: Record<number, coordinates[]>): player_info[] {
     const players: player_info[] = [];
     const teamCounters: Record<number, number> = {};
+
     for (let i = 0; i < num; i++) {
         const team = Math.floor(i / Math.ceil(num / teams)) + 1;
         teamCounters[team] = teamCounters[team] ?? 0;
+
         const spawns = teamSpawns[team] ?? Object.values(teamSpawns).flat();
         const spawn = spawns[teamCounters[team] % spawns.length];
         teamCounters[team]++;
+
         const player = {
             id: i + 1,
             name: `Player${i + 1}`,
@@ -108,7 +136,9 @@ export function generatePlayers(num: number, teams: number, teamSpawns: Record<n
             weapons: [createDefaultWeapon()],
             grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
         };
+
         players.push(player);
     }
+
     return players;
 }

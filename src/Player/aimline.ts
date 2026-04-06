@@ -19,10 +19,19 @@ const INDICATOR_TIP_OFFSET = 27;
 const SPREAD_GROWTH_PER_SHOT = 0.4;
 const MAX_SPREAD_MULTIPLIER = 3;
 
+/**
+ * Checks if the player is currently aiming down sights (ADS).
+ * @returns True if ADS is active, false otherwise.
+ */
 export function isADS(): boolean {
     return adsActive;
 }
 
+/**
+ * Initializes event listeners for aiming down sights (ADS) and tracking mouse movement for the aim line.
+ * Right mouse button is used to toggle ADS, and mouse movement updates the position of the aim line.
+ * This function should be called during game initialization to set up the necessary interactivity for aiming.
+ */
 export function initADS() {
     window.addEventListener('mousedown', (e) => {
         if (e.button === 2) adsActive = true;
@@ -36,6 +45,10 @@ export function initADS() {
     });
 }
 
+/**
+ * Updates the aim line and cone for the player based on their current weapon and ADS status.
+ * @param playerInfo The player's information.
+ */
 export function updateAimLine(playerInfo: player_info) {
     if (!adsActive) {
         hideAimLine();
@@ -119,6 +132,11 @@ export function updateAimLine(playerInfo: player_info) {
     aimConeRight!.style.transform = `rotate(${rightAngle}deg)`;
 }
 
+/**
+ * Creates the DOM elements for the aim line and cone if they do not already exist, and appends them to the game container.
+ * The aim line consists of a center line and two cone edges that represent the weapon's spread. 
+ * These elements are styled and positioned based on the player's current aiming direction and the environment.
+ */
 function createAimLineElements() {
     aimLineEl = document.createElement('div');
     aimLineEl.classList.add('aim-line', 'aim-center');
@@ -133,6 +151,10 @@ function createAimLineElements() {
     app.appendChild(aimConeRight);
 }
 
+/**
+ * Hides the aim line and cone elements by setting their display style to 'none'. 
+ * This is called when the player is not aiming down sights (ADS) or when there is no active weapon.
+ */
 function hideAimLine() {
     if (aimLineEl) aimLineEl.style.display = 'none';
     if (aimConeLeft) aimConeLeft.style.display = 'none';
