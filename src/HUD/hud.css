@@ -137,7 +137,11 @@
     text-align: center;
     pointer-events: none;
     opacity: 0;
-    background: #0000009e;
+    background: rgba(8, 8, 16, 0.92);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
     width: 100%;
     height: 100vh;
     transition: opacity 1s ease;
@@ -228,7 +232,11 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(8, 8, 16, 0.92);
+    background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
     z-index: 1200;
     display: flex;
     flex-direction: column;

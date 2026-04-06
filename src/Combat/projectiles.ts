@@ -9,7 +9,7 @@ export function spawnBullet(
     angleDeg: number,
     speed: number,
     damage: number,
-    weaponType?: string
+    weaponType: string
 ) {
     const rad = angleToRadians(angleDeg);
     const dx = Math.cos(rad);

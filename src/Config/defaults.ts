@@ -50,9 +50,9 @@ export const BASE_DEFAULTS: GameModeConfig = {
     ai: {
         speed: 3,
         turnSpeed: 4,
-        detectRange: 800,
+        detectRange: 1100,
         fireCone: 8,
-        chaseTimeout: 3000,
+        chaseTimeout: 5000,
         patrolPause: 1500,
     },
 

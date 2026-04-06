@@ -20,8 +20,7 @@ const STUCK_FRAMES_BEFORE_REROUTE = 15;
 const UNSTICK_DURATION = 600;
 const WALL_CHECK_SHOTS = 5;
 
-// Preferred buy order: rifle > smg > shotgun
-const BUY_PRIORITY = ['RIFLE', 'SMG', 'SHOTGUN'];
+const BUY_PRIORITY = ['SMG', 'RIFLE', 'SHOTGUN', 'SNIPER'];
 
 type AIState = 'patrol' | 'chase' | 'search';
 
@@ -366,7 +365,7 @@ function tryAIFire(ai: AIController, timestamp: number) {
 
     for (let p = 0; p < weaponDef.pellets; p++) {
         const bulletAngle = aimAngle + (Math.random() - 0.5) * aiSpread;
-        spawnBullet(me.id, centerX, centerY, bulletAngle, weaponDef.bulletSpeed, weaponDef.damage);
+        spawnBullet(me.id, centerX, centerY, bulletAngle, weaponDef.bulletSpeed, weaponDef.damage, weaponDef.id);
     }
 
     if (weapon.ammo <= 0) {
