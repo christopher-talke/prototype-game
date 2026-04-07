@@ -137,14 +137,13 @@
 /* Audio / Game settings rows */
 .settings-row {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    align-items: start;
     padding: 8px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .settings-row label {
-    flex: 0 0 120px;
     font-size: 13px;
 }
 
@@ -162,9 +161,7 @@
 
 .settings-row select {
     padding: 4px 8px;
-    background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.85);
     font-family: 'Courier New', monospace;
     font-size: 13px;
 }

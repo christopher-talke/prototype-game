@@ -191,7 +191,6 @@ function buildGameTab() {
                 <option value="SPRAY" ${SETTINGS.raycast.type === 'SPRAY' ? 'selected' : ''}>Fast Raycasting</option>
                 <option value="MAIN_THREAD" ${SETTINGS.raycast.type === 'MAIN_THREAD' ? 'selected' : ''}>Full Raycasting</option>
             </select>
-            <span class="settings-hint">Fast uses fewer rays for better FPS</span>
         </div>
     `;
 
@@ -208,7 +207,7 @@ function buildGameTab() {
 
     panel.querySelector('#opt-raycast')!.addEventListener('change', (e) => {
         const val = (e.target as HTMLSelectElement).value;
-        SETTINGS.raycast.type = val;
+        SETTINGS.raycast.type = val as GameSettings['raycast']['type'];
         if (val === 'DISABLED') {
             removeElements(document.querySelectorAll('.ray'));
             document.getElementById('fog-of-war')?.classList.add('d-none');
