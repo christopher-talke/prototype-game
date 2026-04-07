@@ -2,7 +2,6 @@ import './player.css';
 import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarElement, getHealthBarElement } from '../Globals/Players';
 import { app } from '../Globals/App';
 import { HALF_HIT_BOX } from '../constants';
-import { addPlayerInteractivity } from './interactivity';
 import { createDefaultWeapon } from '../Combat/weapons';
 export { PLAYER_HIT_BOX, FOV } from '../constants';
 
@@ -67,12 +66,6 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
         positionHealthBar(wrap, playerInfo);
         registerHealthBarElement(playerInfo.id, wrap);
         healthBarChildren.set(playerInfo.id, { bar, armor });
-    }
-
-    const renderedPlayerElement = newPlayerEntity;
-
-    if (controllable) {
-        addPlayerInteractivity(renderedPlayerElement, newPlayerIdentifier);
     }
 
     return newPlayerEntity;
