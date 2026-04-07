@@ -213,10 +213,11 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     
     // Spray pattern: fixed-count rays swept across FOV using incremental rotation.
     // Rays are emitted in angular order so the sort below is skipped entirely.
-    else if (config.type === 'SPRAY') {
-        const SPRAY_STEP = 5; // degrees per ray
+    // This is a much cheaper alternative to corner rays when there are many corners or performance is poor, but less accurate polygon shape.
+    else if (config.type === RaycastTypes.SPRAY) {
+        const SPRAY_STEP = 1;
         const stepRad = angleToRadians(SPRAY_STEP);
-        // Incremental sin/cos rotation (avoids per-ray Math.cos/sin)
+
         const cosStep = Math.cos(stepRad);
         const sinStep = Math.sin(stepRad);
         let dirX = Math.cos(angleToRadians(lowerLimit));
@@ -225,9 +226,11 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
             if (rayCount >= rayPathBuffer.length) {
                 rayPathBuffer.push({ x: 0, y: 0, d: 0 });
             }
+
             castRay(centerX, centerY, dirX, dirY, filteredSegments, rayPathBuffer[rayCount]);
             rayPathBuffer[rayCount].d = normalizeAngle(angle - facingAngle);
             rayCount++;
+
             // Rotate direction vector by stepRad (2D rotation matrix)
             const nx = dirX * cosStep - dirY * sinStep;
             const ny = dirX * sinStep + dirY * cosStep;
@@ -237,7 +240,7 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     }
 
     // Sort only needed for CORNERS (spray rays are already in angular order)
-    if (config.type === 'CORNERS') {
+    if (config.type === RaycastTypes.CORNERS) {
         for (let i = 1; i < rayCount; i++) {
             const key = rayPathBuffer[i];
             const keyD = key.d;
@@ -264,7 +267,6 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     polyStringParts[rayCount + 3] = `${Math.round(centerX)}px ${Math.round(centerY)}px`;
 
     const polygonPath = 'polygon(' + polyStringParts.slice(0, totalPoints).join(',') + ')';
-
     if (!_fogOfWarEl) _fogOfWarEl = document.getElementById('fog-of-war');
     if (_fogOfWarEl) {
         _fogOfWarEl.style.clipPath = polygonPath;
@@ -380,12 +382,12 @@ function showAdaptiveQualityModal() {
     document.body.appendChild(adaptiveModalEl);
 
     document.getElementById('aq-accept')!.addEventListener('click', () => {
-        SETTINGS.raycast.type = 'SPRAY';
+        SETTINGS.raycast.type = 'DISABLED';
         const fogOfWar = document.getElementById('fog-of-war');
         if (fogOfWar) fogOfWar.classList.remove('d-none');
         removeAdaptiveModal();
         const dropdown = document.getElementById('opt-raycast') as HTMLSelectElement | null;
-        if (dropdown) dropdown.value = 'SPRAY';
+        if (dropdown) dropdown.value = 'DISABLED';
     });
 
     document.getElementById('aq-dismiss')!.addEventListener('click', () => {

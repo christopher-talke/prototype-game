@@ -4,7 +4,7 @@ interface GameSettings {
     debug: boolean;
     gameMode: GameMode;
     raycast: {
-        type: string;
+        type: 'MAIN_THREAD' | 'DISABLED' | 'SPRAY';
     };
     audio: {
         masterVolume: number;
