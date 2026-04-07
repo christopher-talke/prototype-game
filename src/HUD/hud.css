@@ -368,7 +368,6 @@
     font-size: 36px;
     color: #ff4040;
     text-shadow: 0 0 16px rgba(255, 64, 64, 0.6);
-    filter: drop-shadow(0 0 8px rgba(255, 64, 64, 0.4));
 }
 
 .kill-banner-text {
@@ -528,14 +527,12 @@
     height: 3px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to right, #00e5ff 8px, transparent 8px, transparent 16px, #00e5ff 16px);
-    box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
 }
 #hud-crosshair[data-weapon='SMG'] .ch-v {
     width: 3px;
     height: 24px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to bottom, #00e5ff 8px, transparent 8px, transparent 16px, #00e5ff 16px);
-    box-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
 }
 #hud-crosshair[data-weapon='SMG'] .ch-dot {
     display: none;
@@ -547,14 +544,12 @@
     height: 2px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to right, #50ffa0 10px, transparent 10px, transparent 18px, #50ffa0 18px);
-    box-shadow: 0 0 8px rgba(80, 255, 160, 0.7);
 }
 #hud-crosshair[data-weapon='RIFLE'] .ch-v {
     width: 2px;
     height: 28px;
     transform: translate(-50%, -50%);
     background: linear-gradient(to bottom, #50ffa0 10px, transparent 10px, transparent 18px, #50ffa0 18px);
-    box-shadow: 0 0 8px rgba(80, 255, 160, 0.7);
 }
 #hud-crosshair[data-weapon='RIFLE'] .ch-dot {
     width: 4px;
@@ -572,7 +567,6 @@
     background: transparent;
     border-radius: 50%;
     border: 3px solid #ffa520;
-    box-shadow: 0 0 8px rgba(255, 165, 32, 0.6);
 }
 #hud-crosshair[data-weapon='SHOTGUN'] .ch-v {
     display: none;
@@ -583,7 +577,6 @@
     background: #ffa520;
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 4px rgba(255, 165, 32, 0.9);
 }
 
 /* ── SNIPER: long red cross ── */
@@ -592,14 +585,12 @@
     height: 2px;
     background: #ff4040;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 8px rgba(255, 64, 64, 0.8);
 }
 #hud-crosshair[data-weapon='SNIPER'] .ch-v {
     width: 2px;
     height: 40px;
     background: #ff4040;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 8px rgba(255, 64, 64, 0.8);
 }
 #hud-crosshair[data-weapon='SNIPER'] .ch-dot {
     width: 4px;

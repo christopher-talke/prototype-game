@@ -6,6 +6,9 @@ import { addPlayerInteractivity } from './interactivity';
 import { createDefaultWeapon } from '../Combat/weapons';
 export { PLAYER_HIT_BOX, FOV } from '../constants';
 
+// Cached child references to avoid querySelector per updateHealthBar call
+const healthBarChildren = new Map<number, { bar: HTMLElement; armor: HTMLElement }>();
+
 export const HELD_DIRECTIONS = [] as string[];
 
 export const directions: Record<string, string> = {
@@ -63,6 +66,7 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
         app.appendChild(wrap);
         positionHealthBar(wrap, playerInfo);
         registerHealthBarElement(playerInfo.id, wrap);
+        healthBarChildren.set(playerInfo.id, { bar, armor });
     }
 
     const renderedPlayerElement = newPlayerEntity;
@@ -94,10 +98,11 @@ export function updateHealthBar(playerInfo: player_info) {
     const wrap = getHealthBarElement(playerInfo.id);
     if (!wrap) return;
 
-    const bar = wrap.querySelector('.player-health-bar') as HTMLElement;
-    const armor = wrap.querySelector('.player-armor-bar') as HTMLElement;
-    if (bar) bar.style.width = `${Math.max(0, playerInfo.health)}%`;
-    if (armor) armor.style.width = `${Math.max(0, playerInfo.armour)}%`;
+    const cached = healthBarChildren.get(playerInfo.id);
+    if (cached) {
+        cached.bar.style.width = `${Math.max(0, playerInfo.health)}%`;
+        cached.armor.style.width = `${Math.max(0, playerInfo.armour)}%`;
+    }
 
     positionHealthBar(wrap, playerInfo);
 }

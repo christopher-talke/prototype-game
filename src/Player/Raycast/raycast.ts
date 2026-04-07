@@ -246,13 +246,13 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
 
     const polygonPath = 'polygon(' + polyStringParts.slice(0, totalPoints).join(',') + ')';
 
-    const fogOfWar = document.getElementById('fog-of-war');
-    if (fogOfWar) {
-        fogOfWar.style.clipPath = polygonPath;
+    if (!_fogOfWarEl) _fogOfWarEl = document.getElementById('fog-of-war');
+    if (_fogOfWarEl) {
+        _fogOfWarEl.style.clipPath = polygonPath;
     }
 }
 
-// --- FOV cone: two lines at FOV boundaries, shortened by wall hits ---
+let _fogOfWarEl: HTMLElement | null = null;
 
 let fovLineLeft: HTMLElement | null = null;
 let fovLineRight: HTMLElement | null = null;

@@ -48,21 +48,24 @@ export function lineOfSight(blocked: boolean, targetPlayerInfo: player_info, sou
     const sameTeam = sourcePlayerInfo.team === targetPlayerInfo.team;
     const isLocalView = sourcePlayerInfo.id === ACTIVE_PLAYER;
 
-    if (canSee) {
-        targetPlayerEl?.classList.add('visible');
-        targetPlayerEl?.classList.remove('same-team-not-visible');
-
-        if (isLocalView) removeLastKnown(key);
-    } else {
-        targetPlayerEl?.classList.remove('visible');
-        if (sameTeam) {
+    // Only touch classList when visibility state actually changes
+    if (canSee !== prevVisible || !wasVisible.has(key)) {
+        if (canSee) {
             targetPlayerEl?.classList.add('visible');
-            targetPlayerEl?.classList.add('same-team-not-visible');
-        } 
-        
-        else if (isLocalView && prevVisible && !targetPlayerInfo.dead) {
-            showLastKnown(key, targetPlayerInfo);
+            targetPlayerEl?.classList.remove('same-team-not-visible');
+        } else {
+            targetPlayerEl?.classList.remove('visible');
+            if (sameTeam) {
+                targetPlayerEl?.classList.add('visible');
+                targetPlayerEl?.classList.add('same-team-not-visible');
+            }
         }
+    }
+
+    if (canSee) {
+        if (isLocalView) removeLastKnown(key);
+    } else if (!canSee && isLocalView && prevVisible && !targetPlayerInfo.dead) {
+        showLastKnown(key, targetPlayerInfo);
     }
 
     wasVisible.set(key, canSee);

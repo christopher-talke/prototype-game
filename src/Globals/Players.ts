@@ -27,8 +27,16 @@ export function getHealthBarElement(playerId: number): HTMLElement | undefined {
     return HEALTH_BAR_ELEMENTS.get(playerId);
 }
 
-export function getOtherPlayers(excludeId: number): player_info[] {
-    return PLAYERS.filter((p) => p.id !== excludeId);
+/**
+ * Yields other players without allocating a filtered array
+ * This has better performance than filtering the global player list, especially as player count grows, at the cost of being slightly less ergonomic to use. For most use cases (e.g. LOS checks) this is a good tradeoff since they often run every frame.
+ * @param excludeId The player ID to exclude from the iteration (usually the local player).
+ * @returns A generator yielding player_info objects for all players except the excluded one.
+ */
+export function* iterOtherPlayers(excludeId: number): Generator<player_info> {
+    for (let i = 0; i < PLAYERS.length; i++) {
+        if (PLAYERS[i].id !== excludeId) yield PLAYERS[i];
+    }
 }
 
 export function getAllPlayers(): player_info[] {

@@ -7,6 +7,7 @@ type SmokeCloud = {
     expiresAt: number;
     fadeStart: number;
     element: HTMLElement;
+    fading: boolean;
 };
 
 const FADE_DURATION = 2000;
@@ -30,6 +31,7 @@ export function spawnSmoke(x: number, y: number, radius: number, duration: numbe
         expiresAt: now + duration,
         fadeStart: now + duration - FADE_DURATION,
         element: el,
+        fading: false,
     });
 }
 
@@ -37,7 +39,8 @@ export function updateSmokeClouds(timestamp: number) {
     for (let i = activeClouds.length - 1; i >= 0; i--) {
         const cloud = activeClouds[i];
 
-        if (timestamp >= cloud.fadeStart && !cloud.element.classList.contains('fading')) {
+        if (timestamp >= cloud.fadeStart && !cloud.fading) {
+            cloud.fading = true;
             cloud.element.classList.add('fading');
         }
 

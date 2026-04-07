@@ -1,5 +1,5 @@
 import { environment } from '../Environment/environment';
-import { getOtherPlayers, getPlayerElement, getPlayerInfo } from '../Globals/Players';
+import { iterOtherPlayers, getPlayerElement, getPlayerInfo } from '../Globals/Players';
 import { SETTINGS } from '../Globals/App';
 import { isLineBlocked } from './Raycast/raycast';
 import { debugLineOfSight, lineOfSight } from './lineOfSight';
@@ -11,11 +11,10 @@ export function detectOtherPlayers(targetPlayerId: number) {
     const playerInfo = getPlayerInfo(targetPlayerId);
 
     if (playerInfo) {
-        const otherPlayers = getOtherPlayers(targetPlayerId);
         const px = playerInfo.current_position.x;
         const py = playerInfo.current_position.y;
 
-        for (const targetPlayerInfo of otherPlayers) {
+        for (const targetPlayerInfo of iterOtherPlayers(targetPlayerId)) {
             const targetPlayerElement = getPlayerElement(targetPlayerInfo.id);
             if (!targetPlayerElement) continue;
 

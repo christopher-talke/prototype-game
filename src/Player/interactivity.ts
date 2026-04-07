@@ -29,6 +29,11 @@ let currentOffsetY = 0;
 let lastScrollX = NaN;
 let lastScrollY = NaN;
 
+// Cached fog-of-war element (avoid getElementById every frame)
+let _cachedFogEl: HTMLElement | null = null;
+// Track whether local player classes were set
+let _localPlayerClassesSet = false;
+
 // Grenade selection
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
@@ -305,11 +310,16 @@ function startGameLoop() {
                     tickAdaptiveQuality(timestamp);
                 } else {
                     generateFOVCone(loopPlayer);
-                    document.getElementById('fog-of-war')?.classList.add('d-none');
+                    if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');
+                    _cachedFogEl?.classList.add('d-none');
                 }
 
-                loopPlayerEl.classList.add('visible');
-                loopPlayerEl.classList.remove('same-team-not-visible');
+                // Set once rather than every frame
+                if (!_localPlayerClassesSet) {
+                    loopPlayerEl.classList.add('visible');
+                    loopPlayerEl.classList.remove('same-team-not-visible');
+                    _localPlayerClassesSet = true;
+                }
                 loopPlayerEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
 
                 updateAimLine(loopPlayer);

@@ -26,6 +26,9 @@ class ClientRendererImpl {
     private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
     private lastFireSoundTime = new Map<number, number>(); // ownerId -> timestamp (dedup for shotgun)
     private detonatedGrenades = new Set<number>(); // prevent duplicate detonation effects
+    
+    // Last written transform per remote player to skip redundant DOM writes
+    private lastPlayerTransform = new Map<number, string>();
     private initialized = false;
 
     init() {
@@ -105,16 +108,19 @@ class ClientRendererImpl {
                 el.style.transform = `translate3d(${Math.round(g.x)}px, ${Math.round(g.y)}px, 0)`;
             }
         }
-        // Update remote player DOM elements (online mode: tick() interpolates
-        // current_position but nothing else syncs that to the DOM)
+        // Update remote player DOM elements -- only write transform when it changed
         for (const player of getAllPlayers()) {
             if (player.id === ACTIVE_PLAYER) continue;
             const el = getPlayerElement(player.id);
             if (el) {
                 const pos = player.current_position;
-                el.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${pos.rotation}deg)`;
-                const hbEl = getHealthBarElement(player.id);
-                if (hbEl) positionHealthBar(hbEl, player);
+                const transform = `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${pos.rotation}deg)`;
+                if (this.lastPlayerTransform.get(player.id) !== transform) {
+                    this.lastPlayerTransform.set(player.id, transform);
+                    el.style.transform = transform;
+                    const hbEl = getHealthBarElement(player.id);
+                    if (hbEl) positionHealthBar(hbEl, player);
+                }
             }
         }
     }

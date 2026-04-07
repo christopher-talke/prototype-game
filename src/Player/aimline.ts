@@ -81,20 +81,31 @@ export function updateAimLine(playerInfo: player_info) {
     const mouseWorldY = mouseClientY + window.scrollY - MAP_OFFSET;
     const toCrosshairDist = Math.sqrt((mouseWorldX - startX) ** 2 + (mouseWorldY - startY) ** 2);
 
-    // Find wall hit distance, capped at crosshair distance
-    let lineLen = toCrosshairDist;
-    for (const seg of environment.segments) {
-        const t = raySegmentIntersect(startX, startY, dx, dy, seg.x1, seg.y1, seg.x2, seg.y2);
-        if (t !== null && t > 0 && t < lineLen) {
-            lineLen = t;
-        }
-    }
-
     // Spread calculation
     const shots = offlineAdapter.authSim.getConsecutiveShots(playerInfo.id);
     const spreadMult = Math.min(1 + shots * SPREAD_GROWTH_PER_SHOT, MAX_SPREAD_MULTIPLIER);
     const baseSpread = weaponDef.spread;
     const currentSpread = baseSpread * spreadMult;
+    const halfSpread = currentSpread / 2;
+    const leftAngle = aimAngle - halfSpread;
+    const rightAngle = aimAngle + halfSpread;
+    const leftRad = angleToRadians(leftAngle);
+    const rightRad = angleToRadians(rightAngle);
+    const ldx = Math.cos(leftRad), ldy = Math.sin(leftRad);
+    const rdx = Math.cos(rightRad), rdy = Math.sin(rightRad);
+
+    // Single pass over all segments for center + cone rays
+    let lineLen = toCrosshairDist;
+    let leftLen = toCrosshairDist;
+    let rightLen = toCrosshairDist;
+    for (const seg of environment.segments) {
+        const tc = raySegmentIntersect(startX, startY, dx, dy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (tc !== null && tc > 0 && tc < lineLen) lineLen = tc;
+        const tl = raySegmentIntersect(startX, startY, ldx, ldy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (tl !== null && tl > 0 && tl < leftLen) leftLen = tl;
+        const tr = raySegmentIntersect(startX, startY, rdx, rdy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (tr !== null && tr > 0 && tr < rightLen) rightLen = tr;
+    }
 
     // Center line
     aimLineEl!.style.display = 'block';
@@ -102,23 +113,6 @@ export function updateAimLine(playerInfo: player_info) {
     aimLineEl!.style.top = `${startY}px`;
     aimLineEl!.style.width = `${lineLen}px`;
     aimLineEl!.style.transform = `rotate(${aimAngle}deg)`;
-
-    // Cone edges
-    const halfSpread = currentSpread / 2;
-    const leftAngle = aimAngle - halfSpread;
-    const rightAngle = aimAngle + halfSpread;
-
-    // Find wall distance for cone edges
-    const leftRad = angleToRadians(leftAngle);
-    const rightRad = angleToRadians(rightAngle);
-    let leftLen = toCrosshairDist;
-    let rightLen = toCrosshairDist;
-    for (const seg of environment.segments) {
-        const tl = raySegmentIntersect(startX, startY, Math.cos(leftRad), Math.sin(leftRad), seg.x1, seg.y1, seg.x2, seg.y2);
-        if (tl !== null && tl > 0 && tl < leftLen) leftLen = tl;
-        const tr = raySegmentIntersect(startX, startY, Math.cos(rightRad), Math.sin(rightRad), seg.x1, seg.y1, seg.x2, seg.y2);
-        if (tr !== null && tr > 0 && tr < rightLen) rightLen = tr;
-    }
 
     aimConeLeft!.style.display = 'block';
     aimConeLeft!.style.left = `${startX}px`;

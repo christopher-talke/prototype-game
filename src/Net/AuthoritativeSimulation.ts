@@ -51,6 +51,7 @@ export class AuthoritativeSimulation {
     private limits: Limits = { left: 0, right: 3000, top: 0, bottom: 3000 };
     private segments: WallSegment[] = [];
     private players: player_info[] = [];
+    private playerMap = new Map<number, player_info>(); // O(1) lookup for processInput
     private teamSpawns: Record<number, coordinates[]> = {};
     patrolPoints: coordinates[] = [];
 
@@ -84,7 +85,9 @@ export class AuthoritativeSimulation {
 
     setPlayers(players: player_info[]) {
         this.players = players;
+        this.playerMap.clear();
         for (const p of players) {
+            this.playerMap.set(p.id, p);
             if (!this.weaponStates.has(p.id)) {
                 this.weaponStates.set(p.id, {
                     lastFireTime: 0,
@@ -102,6 +105,7 @@ export class AuthoritativeSimulation {
 
     addPlayer(player: player_info) {
         this.players.push(player);
+        this.playerMap.set(player.id, player);
         this.weaponStates.set(player.id, {
             lastFireTime: 0,
             consecutiveShots: 0,
@@ -202,7 +206,7 @@ export class AuthoritativeSimulation {
     // -- Input processing --
 
     processInput(input: PlayerInput, timestamp: number): GameEvent[] {
-        const player = this.players.find((p) => p.id === input.playerId);
+        const player = this.playerMap.get(input.playerId);
         if (!player) return [];
 
         let events: GameEvent[];
@@ -602,26 +606,16 @@ export class AuthoritativeSimulation {
     tick(timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
 
-        // Tick projectiles
-        events.push(...this.simulation.tickProjectiles(this.segments, this.players));
+        // Helper: push sub-tick results only when non-empty to avoid spread of empty arrays
+        const pushAll = (sub: GameEvent[]) => { if (sub.length > 0) events.push(...sub); };
 
-        // Tick grenades
-        events.push(...this.simulation.tickGrenades(this.segments, this.players, timestamp));
-
-        // Tick reloads
-        events.push(...this.tickReloads(timestamp));
-
-        // Tick recoil reset
+        pushAll(this.simulation.tickProjectiles(this.segments, this.players));
+        pushAll(this.simulation.tickGrenades(this.segments, this.players, timestamp));
+        pushAll(this.tickReloads(timestamp));
         this.tickRecoilResets(timestamp);
-
-        // Tick respawns
-        events.push(...this.tickRespawns(timestamp));
-
-        // Check match timer
-        events.push(...this.tickMatchTimer());
-
-        // Check intermission
-        events.push(...this.tickIntermission());
+        pushAll(this.tickRespawns(timestamp));
+        pushAll(this.tickMatchTimer());
+        pushAll(this.tickIntermission());
 
         return this.postProcessEvents(events, timestamp);
     }
@@ -631,7 +625,11 @@ export class AuthoritativeSimulation {
         for (const player of this.players) {
             const ws = this.weaponStates.get(player.id);
             if (!ws) continue;
-            const weapon = player.weapons.find((w) => w.active);
+            // Inline active weapon lookup to avoid .find() per player per frame
+            let weapon: typeof player.weapons[0] | undefined;
+            for (let i = 0; i < player.weapons.length; i++) {
+                if (player.weapons[i].active) { weapon = player.weapons[i]; break; }
+            }
             if (!weapon || !weapon.reloading) continue;
 
             const weaponDef = getWeaponDef(weapon.type);
