@@ -3,13 +3,13 @@ import { BASE_DEFAULTS } from './defaults';
 
 let activeConfig: GameModeConfig = { ...BASE_DEFAULTS };
 
-function deepMerge<T extends Record<string, any>>(base: T, partial: DeepPartial<T>): T {
-    const result = { ...base };
+function deepMerge<T extends Record<string, any>>(base: T, activeConfig: T, partial: DeepPartial<T>): T {
+    const result = { ...base, ...activeConfig };
     for (const key of Object.keys(partial) as (keyof T)[]) {
         const val = partial[key];
         if (val === undefined) continue;
-        if (typeof val === 'object' && val !== null && !Array.isArray(val) && typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])) {
-            result[key] = deepMerge(base[key] as any, val as any);
+        if (typeof val === 'object' && val !== null && !Array.isArray(val) && typeof result[key] === 'object' && result[key] !== null && !Array.isArray(result[key])) {
+            result[key] = deepMerge(base[key] as any, activeConfig[key] as any, val as any);
         } else {
             result[key] = val as any;
         }
@@ -18,7 +18,7 @@ function deepMerge<T extends Record<string, any>>(base: T, partial: DeepPartial<
 }
 
 export function resolveConfig(partial: DeepPartial<GameModeConfig>): GameModeConfig {
-    return deepMerge(BASE_DEFAULTS, partial);
+    return deepMerge(BASE_DEFAULTS, activeConfig, partial);
 }
 
 export function setGameMode(partial: DeepPartial<GameModeConfig>): void {

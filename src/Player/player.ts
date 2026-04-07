@@ -43,8 +43,8 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
     if (playerInfo.id === ACTIVE_PLAYER) {
         newPlayerEntity.classList.add(`visible`);
     }
-    newPlayerEntity.classList.add(`team-${playerInfo.team}`);
-    newPlayerEntity.setAttribute('data-player-team', `${playerInfo.team}`);
+    // Remove old team class and data-player-team, use data-team for CSS
+    newPlayerEntity.setAttribute('data-team', `${playerInfo.team}`);
     newPlayerEntity.setAttribute('data-player-id', `${newPlayerIdentifier}`);
     newPlayerEntity.style.transform = `translate3d(${playerInfo.current_position.x}px, ${playerInfo.current_position.y}px, 0) rotate(${playerInfo.current_position.rotation}deg)`;
 

@@ -64,7 +64,8 @@ export function lineOfSight(blocked: boolean, targetPlayerInfo: player_info, sou
 
     if (canSee) {
         if (isLocalView) removeLastKnown(key);
-    } else if (!canSee && isLocalView && prevVisible && !targetPlayerInfo.dead) {
+    } else if (!canSee && isLocalView && prevVisible && !targetPlayerInfo.dead && sourcePlayerInfo.team !== targetPlayerInfo.team) {
+        // Only show last known marker for enemy teams
         showLastKnown(key, targetPlayerInfo);
     }
 
@@ -84,10 +85,12 @@ function showLastKnown(key: string, targetPlayerInfo: player_info) {
     let el = lastKnownElements.get(key);
     if (!el) {
         el = document.createElement('div');
-        el.classList.add('last-known-position', `team-${targetPlayerInfo.team}`);
+        el.classList.add('last-known-position');
+        el.setAttribute('data-team', `${targetPlayerInfo.team}`);
         app.appendChild(el);
         lastKnownElements.set(key, el);
     }
+    el.setAttribute('data-team', `${targetPlayerInfo.team}`);
     el.style.opacity = '0.6';
     const x = targetPlayerInfo.current_position.x + HALF_HIT_BOX - 10;
     const y = targetPlayerInfo.current_position.y + HALF_HIT_BOX - 10;
@@ -97,7 +100,6 @@ function showLastKnown(key: string, targetPlayerInfo: player_info) {
         key,
         setTimeout(() => {
             if (el) el.style.opacity = '0';
-            // Remove from DOM after CSS transition completes
             setTimeout(() => removeLastKnown(key), 500);
         }, LAST_KNOWN_FADE_DURATION),
     );

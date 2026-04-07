@@ -57,6 +57,8 @@ export function initMatchSystem() {
 
 function spawnOfflinePlayers() {
     const config = getConfig();
+
+    console.log(`fnc: spawnOfflinePlayers", config:`, config);
     const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, ACTIVE_MAP.teamSpawns);
     for (const player of players) {
         createPlayer(player, player.id === 1);

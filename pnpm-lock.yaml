@@ -19,6 +19,9 @@ importers:
 
   .:
     dependencies:
+      '@pmndrs/detect-gpu':
+        specifier: ^6.0.0
+        version: 6.0.0
       ws:
         specifier: ^8.20.0
         version: 8.20.0
@@ -211,6 +214,9 @@ packages:
 
   '@oxc-project/types@0.122.0':
     resolution: {integrity: sha512-oLAl5kBpV4w69UtFZ9xqcmTi+GENWOcPF7FCrczTiBbmC0ibXxCwyvZGbO39rCVEuLGAZM84DH0pUIyyv/YJzA==}
+
+  '@pmndrs/detect-gpu@6.0.0':
+    resolution: {integrity: sha512-eo4JOFtQf2CBt/q+SDIXAiiERnTMMALGTg1ZPu4YfarWNHb1I7qMxv5BTIEZ2ng+IjRK5PpptTuGJer7QWtikA==}
 
   '@rolldown/binding-android-arm64@1.0.0-rc.12':
     resolution: {integrity: sha512-pv1y2Fv0JybcykuiiD3qBOBdz6RteYojRFY1d+b95WVuzx211CRh+ytI/+9iVyWQ6koTh5dawe4S/yRfOFjgaA==}
@@ -506,6 +512,9 @@ packages:
       yaml:
         optional: true
 
+  webgl-constants@1.1.1:
+    resolution: {integrity: sha512-LkBXKjU5r9vAW7Gcu3T5u+5cvSvh5WwINdr0C+9jpzVB41cjQAP5ePArDtk/WHYdVj0GefCgM73BA7FlIiNtdg==}
+
   ws@8.20.0:
     resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}
     engines: {node: '>=10.0.0'}
@@ -622,6 +631,10 @@ snapshots:
     optional: true
 
   '@oxc-project/types@0.122.0': {}
+
+  '@pmndrs/detect-gpu@6.0.0':
+    dependencies:
+      webgl-constants: 1.1.1
 
   '@rolldown/binding-android-arm64@1.0.0-rc.12':
     optional: true
@@ -844,5 +857,7 @@ snapshots:
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
+
+  webgl-constants@1.1.1: {}
 
   ws@8.20.0: {}
