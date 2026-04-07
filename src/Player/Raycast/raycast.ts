@@ -53,6 +53,9 @@ let polyStringParts: string[] = [];
 
 // --- Segment pre-filtering: AABB overlap test ---
 
+// Reusable buffer for filtered segments (avoids allocation per frame)
+const _filteredSegments: WallSegment[] = [];
+
 function filterSegmentsByFOV(
     cx: number, cy: number,
     lowerRad: number, upperRad: number,
@@ -81,7 +84,8 @@ function filterSegmentsByFOV(
     minX -= pad; minY -= pad;
     maxX += pad; maxY += pad;
 
-    const result: WallSegment[] = [];
+    const result = _filteredSegments;
+    result.length = 0;
     for (const seg of segments) {
         const segMinX = seg.x1 < seg.x2 ? seg.x1 : seg.x2;
         const segMaxX = seg.x1 > seg.x2 ? seg.x1 : seg.x2;
@@ -215,9 +219,17 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
         }
     }
 
-    // Sort only the active portion of the buffer
-    const activeSlice = rayPathBuffer.slice(0, rayCount);
-    activeSlice.sort((a, b) => a.d - b.d);
+    // Sort only the active portion of the buffer in-place (insertion sort - no allocation)
+    for (let i = 1; i < rayCount; i++) {
+        const key = rayPathBuffer[i];
+        const keyD = key.d;
+        let j = i - 1;
+        while (j >= 0 && rayPathBuffer[j].d > keyD) {
+            rayPathBuffer[j + 1] = rayPathBuffer[j];
+            j--;
+        }
+        rayPathBuffer[j + 1] = key;
+    }
 
     // Build polygon string directly (avoid intermediate array + map + join)
     const totalPoints = rayCount + 4; // center + lowerHit + rays + upperHit + center
@@ -227,7 +239,7 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     polyStringParts[0] = `${Math.round(centerX)}px ${Math.round(centerY)}px`;
     polyStringParts[1] = `${Math.round(_lowerHit.x)}px ${Math.round(_lowerHit.y)}px`;
     for (let i = 0; i < rayCount; i++) {
-        polyStringParts[i + 2] = `${Math.round(activeSlice[i].x)}px ${Math.round(activeSlice[i].y)}px`;
+        polyStringParts[i + 2] = `${Math.round(rayPathBuffer[i].x)}px ${Math.round(rayPathBuffer[i].y)}px`;
     }
     polyStringParts[rayCount + 2] = `${Math.round(_upperHit.x)}px ${Math.round(_upperHit.y)}px`;
     polyStringParts[rayCount + 3] = `${Math.round(centerX)}px ${Math.round(centerY)}px`;

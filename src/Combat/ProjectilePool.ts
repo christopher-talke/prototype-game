@@ -1,22 +1,35 @@
 import { app } from '../Globals/App';
 
+const INITIAL_POOL_SIZE = 64;
 const MAX_PROJECTILES = 512;
 const poolElements: HTMLElement[] = [];
 const freeStack: number[] = [];
 
-export function initProjectilePool() {
-    for (let i = 0; i < MAX_PROJECTILES; i++) {
+function allocateElements(count: number) {
+    const start = poolElements.length;
+    for (let i = 0; i < count; i++) {
         const el = document.createElement('div');
         el.classList.add('projectile');
         el.style.display = 'none';
         app.appendChild(el);
+        const idx = start + i;
         poolElements.push(el);
-        freeStack.push(i);
+        freeStack.push(idx);
     }
 }
 
+export function initProjectilePool() {
+    allocateElements(INITIAL_POOL_SIZE);
+}
+
 export function acquireProjectile(weaponType?: string): { element: HTMLElement; poolIndex: number } | null {
-    if (freeStack.length === 0) return null;
+    if (freeStack.length === 0) {
+        if (poolElements.length >= MAX_PROJECTILES) return null;
+        // Grow by doubling, capped at MAX
+        const grow = Math.min(poolElements.length, MAX_PROJECTILES - poolElements.length);
+        if (grow <= 0) return null;
+        allocateElements(grow);
+    }
     const poolIndex = freeStack.pop()!;
     const element = poolElements[poolIndex];
     element.style.display = '';

@@ -28,17 +28,17 @@
 }
 
 .grenade-C4.placed {
-    box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6);
     animation: c4-blink 1s infinite;
+    will-change: opacity;
 }
 
 @keyframes c4-blink {
     0%,
     100% {
-        box-shadow: 0 0 6px 2px rgba(255, 60, 60, 0.6);
+        opacity: 1;
     }
     50% {
-        box-shadow: 0 0 2px 1px rgba(255, 60, 60, 0.2);
+        opacity: 0.3;
     }
 }
 
@@ -101,10 +101,9 @@
 .smoke-cloud {
     position: absolute;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(200, 200, 200, 0.7) 0%, rgba(180, 180, 180, 0.4) 50%, transparent 75%);
+    background: radial-gradient(circle, rgba(200, 200, 200, 0.65) 0%, rgba(190, 190, 190, 0.45) 30%, rgba(180, 180, 180, 0.25) 55%, rgba(170, 170, 170, 0.1) 75%, transparent 90%);
     pointer-events: none;
     z-index: 5;
-    filter: blur(8px);
     animation: smoke-appear 500ms ease-out forwards;
 }
 

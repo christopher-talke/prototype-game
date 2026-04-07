@@ -40,9 +40,15 @@ type AIController = {
     // Wall-hit tracking: stop firing when bullets keep hitting walls
     wallHitShots: number;
     hasBought: boolean;
+    // LOS throttle: cached enemy scan result
+    cachedEnemy: player_info | null;
+    cachedEnemyDist: number;
+    losFrame: number;
 };
 
 const controllers: AIController[] = [];
+let aiFrameCounter = 0;
+const AI_LOS_INTERVAL = 3; // only scan LOS every N frames per AI
 
 function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
@@ -105,10 +111,14 @@ export function registerAI(player: player_info) {
         unstickAngle: 0,
         wallHitShots: 0,
         hasBought: false,
+        cachedEnemy: null,
+        cachedEnemyDist: Infinity,
+        losFrame: controllers.length % AI_LOS_INTERVAL,
     });
 }
 
 export function updateAllAI(allPlayers: player_info[], timestamp: number) {
+    aiFrameCounter++;
     for (const ai of controllers) {
         if (isPlayerDead(ai.player)) continue;
         updateAI(ai, allPlayers, timestamp);
@@ -156,26 +166,41 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         return;
     }
 
-    // Find visible enemies
+    // Find visible enemies (throttled - expensive LOS check every N frames)
     let closestEnemy: player_info | null = null;
     let closestDist = Infinity;
 
-    for (const other of allPlayers) {
-        if (other.id === me.id) continue;
-        if (other.team === me.team) continue;
-        if (isPlayerDead(other)) continue;
+    const shouldScanLOS = (aiFrameCounter + ai.losFrame) % AI_LOS_INTERVAL === 0;
 
-        const ox = other.current_position.x + HALF_HIT_BOX;
-        const oy = other.current_position.y + HALF_HIT_BOX;
-        const dist = getDistance(myCx, myCy, ox, oy);
+    if (shouldScanLOS) {
+        for (const other of allPlayers) {
+            if (other.id === me.id) continue;
+            if (other.team === me.team) continue;
+            if (isPlayerDead(other)) continue;
 
-        if (dist > getConfig().ai.detectRange) continue;
+            const ox = other.current_position.x + HALF_HIT_BOX;
+            const oy = other.current_position.y + HALF_HIT_BOX;
+            const dist = getDistance(myCx, myCy, ox, oy);
 
-        const blocked = isLineBlocked(me.current_position.x, me.current_position.y, other.current_position.x, other.current_position.y, environment.segments);
+            if (dist > getConfig().ai.detectRange) continue;
 
-        if (!blocked && dist < closestDist) {
-            closestEnemy = other;
-            closestDist = dist;
+            const blocked = isLineBlocked(me.current_position.x, me.current_position.y, other.current_position.x, other.current_position.y, environment.segments);
+
+            if (!blocked && dist < closestDist) {
+                closestEnemy = other;
+                closestDist = dist;
+            }
+        }
+        ai.cachedEnemy = closestEnemy;
+        ai.cachedEnemyDist = closestDist;
+    } else {
+        // Use cached result from last LOS scan
+        closestEnemy = ai.cachedEnemy;
+        closestDist = ai.cachedEnemyDist;
+        // Validate cached enemy is still alive
+        if (closestEnemy && isPlayerDead(closestEnemy)) {
+            closestEnemy = null;
+            ai.cachedEnemy = null;
         }
     }
 

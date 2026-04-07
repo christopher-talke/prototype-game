@@ -32,6 +32,7 @@ body {
     height: 3000px;
     width: 3000px;
     background-color: #0f0f1a;
+    contain: layout style;
 }
 
 .d-none {

@@ -25,6 +25,10 @@ import { getConfig } from '../Config/activeConfig';
 let currentOffsetX = 0;
 let currentOffsetY = 0;
 
+// Camera scroll throttling
+let lastScrollX = NaN;
+let lastScrollY = NaN;
+
 // Grenade selection
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
@@ -285,7 +289,13 @@ function startGameLoop() {
 
                 const cameraX = newX + currentOffsetX + MAP_OFFSET - window.visualViewport.width / 2;
                 const cameraY = newY + currentOffsetY + MAP_OFFSET - window.visualViewport.height / 2;
-                window.scrollTo(cameraX, cameraY);
+                const roundedCX = Math.round(cameraX);
+                const roundedCY = Math.round(cameraY);
+                if (roundedCX !== lastScrollX || roundedCY !== lastScrollY) {
+                    lastScrollX = roundedCX;
+                    lastScrollY = roundedCY;
+                    window.scrollTo(roundedCX, roundedCY);
+                }
 
                 detectOtherPlayers(loopPlayer.id);
 

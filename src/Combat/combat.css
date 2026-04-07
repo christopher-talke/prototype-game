@@ -1,38 +1,30 @@
 .projectile {
     position: absolute;
-    width: 4px;
-    height: 4px;
-    background: #ffcc00;
-    box-shadow:
-        0 0 4px 1px #ffcc00,
-        0 0 8px 2px rgba(255, 204, 0, 0.25);
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle, #ffee66 30%, #ffcc00 70%, transparent 100%);
     border-radius: 50%;
     pointer-events: none;
     z-index: 50;
-    margin-left: -2px;
-    margin-top: -2px;
+    margin-left: -3px;
+    margin-top: -3px;
+    contain: layout style paint;
 }
 
 .projectile-shrapnel {
-    width: 3px;
-    height: 3px;
-    margin-left: -1.5px;
-    margin-top: -1.5px;
-    background: #ff6600;
-    box-shadow:
-        0 0 3px 1px #ff6600,
-        0 0 6px 2px rgba(255, 102, 0, 0.3);
+    width: 4px;
+    height: 4px;
+    margin-left: -2px;
+    margin-top: -2px;
+    background: radial-gradient(circle, #ff9944 30%, #ff6600 70%, transparent 100%);
 }
 
 .projectile-sniper {
-    width: 10px;
-    height: 10px;
-    margin-left: -5px;
-    margin-top: -5px;
-    background: #fff;
-    box-shadow:
-        0 0 6px 2px #ffcc00,
-        0 0 14px 4px rgba(255, 204, 0, 0.4);
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    margin-top: -6px;
+    background: radial-gradient(circle, #fff 20%, #ffcc00 60%, transparent 100%);
 }
 
 /* Damage numbers */
@@ -88,7 +80,6 @@
     background: transparent;
     transform: translate(-50%, -50%) rotate(45deg);
     border: 3px solid #ff4040;
-    box-shadow: 0 0 8px rgba(255, 64, 64, 0.9);
     animation: hitmarker-flash 0.3s ease-out forwards;
 }
 
@@ -104,7 +95,6 @@
     background: transparent;
     transform: translate(-50%, -50%) rotate(45deg);
     border: 3px solid #ff0000;
-    box-shadow: 0 0 16px rgba(255, 0, 0, 1);
     animation: hitmarker-flash 0.3s ease-out forwards;
 }
 

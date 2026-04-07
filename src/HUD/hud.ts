@@ -38,6 +38,21 @@ let onReturnToMenuCallback: (() => void) | null = null;
 let pauseOverlay: HTMLElement | null = null;
 let paused = false;
 
+// HUD value caches - avoid DOM writes when values haven't changed
+let _lastHealthPct = -1;
+let _lastArmorPct = -1;
+let _lastFilterStr = '';
+let _lastWeaponName = '';
+let _lastAmmo = '';
+let _lastAmmoMax = '';
+let _lastReloadDisplay = '';
+let _lastMoney = '';
+let _lastTimer = '';
+let _lastRoundScore = '';
+let _lastScore = '';
+let _lastDeathActive = false;
+let _lastChargeActive = false;
+
 export function setOnReturnToMenuCallback(cb: () => void) {
     onReturnToMenuCallback = cb;
 }
@@ -246,56 +261,74 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     const state = adapter.getPlayerState(playerInfo.id);
     if (!state) return;
 
-    // Health bar
+    // Health bar - only update DOM when value changes
     const healthPct = Math.max(0, playerInfo.health);
-    healthBar.style.width = `${healthPct}%`;
-    if (healthPct > 50) {
-        healthBar.style.background = '#4ade80';
-    } else if (healthPct > 25) {
-        healthBar.style.background = '#fbbf24';
-    } else {
-        healthBar.style.background = '#ef4444';
-    }
+    if (healthPct !== _lastHealthPct) {
+        _lastHealthPct = healthPct;
+        healthBar.style.width = `${healthPct}%`;
+        if (healthPct > 50) {
+            healthBar.style.background = '#4ade80';
+        } else if (healthPct > 25) {
+            healthBar.style.background = '#fbbf24';
+        } else {
+            healthBar.style.background = '#ef4444';
+        }
 
-    // Low-health desaturation + blur on the game world
-    const disableEffects = getConfig().gameplay.disableLowHealthEffects;
-    if (!disableEffects) {    
-        const t = healthPct / 100;
-        app.style.filter = `saturate(${t.toFixed(3)}) blur(${((1 - t) * 1.5).toFixed(2)}px)`;
+        // Low-health desaturation + blur on the game world
+        const disableEffects = getConfig().gameplay.disableLowHealthEffects;
+        if (!disableEffects) {
+            const t = healthPct / 100;
+            const filterStr = `saturate(${t.toFixed(3)}) blur(${((1 - t) * 1.5).toFixed(2)}px)`;
+            if (filterStr !== _lastFilterStr) {
+                _lastFilterStr = filterStr;
+                app.style.filter = filterStr;
+            }
+        }
     }
 
     // Armor bar
-    armorBar.style.width = `${Math.max(0, playerInfo.armour)}%`;
+    const armorPct = Math.max(0, playerInfo.armour);
+    if (armorPct !== _lastArmorPct) {
+        _lastArmorPct = armorPct;
+        armorBar.style.width = `${armorPct}%`;
+    }
 
     // Ammo
     const weapon = getActiveWeapon(playerInfo);
     if (weapon) {
         const wDef = getWeaponDef(weapon.type);
-        weaponName.textContent = wDef.name;
-        ammoCount.textContent = `${weapon.ammo}`;
-        ammoMax.textContent = `/ ${weapon.maxAmmo}`;
-        reloadText.style.display = weapon.reloading ? 'block' : 'none';
+        if (wDef.name !== _lastWeaponName) { _lastWeaponName = wDef.name; weaponName.textContent = wDef.name; }
+        const ammoStr = `${weapon.ammo}`;
+        if (ammoStr !== _lastAmmo) { _lastAmmo = ammoStr; ammoCount.textContent = ammoStr; }
+        const ammoMaxStr = `/ ${weapon.maxAmmo}`;
+        if (ammoMaxStr !== _lastAmmoMax) { _lastAmmoMax = ammoMaxStr; ammoMax.textContent = ammoMaxStr; }
+        const reloadDisplay = weapon.reloading ? 'block' : 'none';
+        if (reloadDisplay !== _lastReloadDisplay) { _lastReloadDisplay = reloadDisplay; reloadText.style.display = reloadDisplay; }
         crosshair.dataset.weapon = weapon.type;
     }
 
     // Money
-    moneyDisplay.textContent = `$${state.money}`;
+    const moneyStr = `$${state.money}`;
+    if (moneyStr !== _lastMoney) { _lastMoney = moneyStr; moneyDisplay.textContent = moneyStr; }
 
     // Timer
     const totalSecs = Math.ceil(timeRemaining / 1000);
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
-    timerDisplay.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    const timerStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+    if (timerStr !== _lastTimer) { _lastTimer = timerStr; timerDisplay.textContent = timerStr; }
 
     // Round score
     const wins = adapter.getTeamRoundWins();
     const round = adapter.getCurrentRound();
     const winsArr = Object.entries(wins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
     const winsText = winsArr.map(([t, w]) => `T${t}: ${w}`).join('  ');
-    roundScoreDisplay.textContent = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
+    const roundScoreStr = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
+    if (roundScoreStr !== _lastRoundScore) { _lastRoundScore = roundScoreStr; roundScoreDisplay.textContent = roundScoreStr; }
 
     // Score
-    scoreDisplay.textContent = `K: ${state.kills} / D: ${state.deaths}`;
+    const scoreStr = `K: ${state.kills} / D: ${state.deaths}`;
+    if (scoreStr !== _lastScore) { _lastScore = scoreStr; scoreDisplay.textContent = scoreStr; }
 
     // Grenade inventory
     if (playerInfo.grenades) {
@@ -309,20 +342,22 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     }
 
     // Death overlay
-    if (isPlayerDead(playerInfo)) {
-        deathOverlay.classList.add('active');
-    } else {
-        deathOverlay.classList.remove('active');
+    const dead = isPlayerDead(playerInfo);
+    if (dead !== _lastDeathActive) {
+        _lastDeathActive = dead;
+        deathOverlay.classList.toggle('active', dead);
     }
 
     // Grenade charge bar
     const chargePercent = getGrenadeChargePercent();
-    if (chargePercent > 0) {
-        grenadeChargeBar.classList.add('active');
+    const chargeActive = chargePercent > 0;
+    if (chargeActive) {
+        if (!_lastChargeActive) grenadeChargeBar.classList.add('active');
         grenadeChargeFill.style.width = `${chargePercent * 100}%`;
-    } else {
+    } else if (_lastChargeActive) {
         grenadeChargeBar.classList.remove('active');
     }
+    _lastChargeActive = chargeActive;
 }
 
 export function addKillFeedEntry(killerName: string, victimName: string, weaponType: string) {
