@@ -1,5 +1,5 @@
 import type { NetAdapter } from './NetAdapter';
-import type { EventHandler, PlayerInput } from './GameEvent';
+import type { EventHandler, GameEvent, PlayerInput } from './GameEvent';
 import type { ClientMessage, ServerMessage, PlayerSnapshot } from './Protocol';
 import { gameEventBus } from './GameEvent';
 import { getPlayerInfo, getPlayerElement, getAllPlayers } from '../Globals/Players';
@@ -319,7 +319,6 @@ export class WebSocketAdapter implements NetAdapter {
                 this.connected = true;
                 this.localPlayerId = msg.playerId;
                 setLocalPlayerId(msg.playerId);
-                // Late join: server sent current players and phase='playing'
                 if ((msg as any).phase === 'playing' && msg.players.length > 0) {
                     this._lateJoinPlayers = msg.players;
                     this._matchActive = true;
@@ -333,92 +332,7 @@ export class WebSocketAdapter implements NetAdapter {
                 break;
             case 'events':
                 console.log('[CLIENT] events received:', msg.events.length, msg.events.map((e: any) => e.type));
-                for (const event of msg.events) {
-                    if (event.type === 'ROUND_START') {
-                        this._roundActive = true;
-                        this._matchActive = true;
-                        this._currentRound = event.round;
-                        this._localBullets.clear();
-                        this._localGrenades.clear();
-                    } else if (event.type === 'ROUND_END') {
-                        this._roundActive = false;
-                        if (event.teamWins) {
-                            this._teamRoundWins = { ...event.teamWins };
-                        }
-                        if (event.isFinal) this._matchActive = false;
-                    } else if (event.type === 'PLAYER_KILLED') {
-                        const killer = this.ensurePlayerState(event.killerId);
-                        const victim = this.ensurePlayerState(event.targetId);
-                        killer.kills++;
-                        killer.points += 100;
-                        victim.deaths++;
-                        // Mark player as dead
-                        const deadPlayer = getPlayerInfo(event.targetId);
-                        if (deadPlayer) {
-                            deadPlayer.dead = true;
-                            deadPlayer.health = 0;
-                        }
-                    } else if (event.type === 'PLAYER_DAMAGED') {
-                        const damaged = getPlayerInfo(event.targetId);
-                        if (damaged) {
-                            damaged.health = event.newHealth;
-                            damaged.armour = event.newArmor;
-                        }
-                    } else if (event.type === 'PLAYER_RESPAWN') {
-                        this.ensurePlayerState(event.playerId);
-                        const respawned = getPlayerInfo(event.playerId);
-                        if (respawned) {
-                            respawned.dead = false;
-                            respawned.health = getConfig().player.maxHealth;
-                            respawned.armour = getConfig().player.startingArmor;
-                            respawned.current_position.x = event.x;
-                            respawned.current_position.y = event.y;
-                            respawned.current_position.rotation = event.rotation;
-                        }
-                    } else if (event.type === 'RELOAD_COMPLETE') {
-                        const reloadPlayer = getPlayerInfo(event.playerId);
-                        if (reloadPlayer) {
-                            const weapon = reloadPlayer.weapons.find((w: PlayerWeapon) => w.active);
-                            if (weapon) {
-                                weapon.ammo = event.ammo;
-                                weapon.reloading = false;
-                            }
-                        }
-                    } else if (event.type === 'RELOAD_START') {
-                        const reloadingPlayer = getPlayerInfo(event.playerId);
-                        if (reloadingPlayer) {
-                            const weapon = reloadingPlayer.weapons.find((w: PlayerWeapon) => w.active);
-                            if (weapon) weapon.reloading = true;
-                        }
-                    } else if (event.type === 'BULLET_SPAWN') {
-                        this._localBullets.set(event.bulletId, {
-                            id: event.bulletId,
-                            x: event.x,
-                            y: event.y,
-                            dx: event.dx ?? 0,
-                            dy: event.dy ?? 0,
-                            speed: event.speed ?? 0,
-                        });
-                    } else if (event.type === 'BULLET_REMOVED' || event.type === 'BULLET_HIT') {
-                        this._localBullets.delete(event.bulletId);
-                    } else if (event.type === 'GRENADE_SPAWN') {
-                        this._localGrenades.set(event.grenadeId, {
-                            id: event.grenadeId,
-                            x: event.x,
-                            y: event.y,
-                            dx: event.dx ?? 0,
-                            dy: event.dy ?? 0,
-                            speed: event.speed ?? 0,
-                            detonated: false,
-                        });
-                    } else if (event.type === 'GRENADE_DETONATE' || event.type === 'GRENADE_REMOVED') {
-                        const gId = event.type === 'GRENADE_DETONATE' ? event.grenadeId : event.grenadeId;
-                        const g = this._localGrenades.get(gId);
-                        if (g) g.detonated = true;
-                        if (event.type === 'GRENADE_REMOVED') this._localGrenades.delete(gId);
-                    }
-                }
-                gameEventBus.emitAll(msg.events);
+                this.eventHandler(msg.events);
                 break;
             case 'input_ack':
                 this.reconcileInputAck(msg.seq, msg.x, msg.y);
@@ -428,7 +342,6 @@ export class WebSocketAdapter implements NetAdapter {
                 if (msg.timeRemaining !== undefined) {
                     this._matchTimeRemaining = msg.timeRemaining;
                 }
-                // Sync bullet positions from server (authoritative correction)
                 if (msg.projectiles) {
                     for (const sp of msg.projectiles) {
                         const existing = this._localBullets.get(sp.id);
@@ -441,7 +354,6 @@ export class WebSocketAdapter implements NetAdapter {
                         }
                     }
                 }
-                // Sync grenade positions from server
                 if (msg.grenades) {
                     for (const sg of msg.grenades as any[]) {
                         const existing = this._localGrenades.get(sg.id);
@@ -487,6 +399,121 @@ export class WebSocketAdapter implements NetAdapter {
             case 'player_left':
                 break;
         }
+    }
+
+    private eventHandler(events: GameEvent[]): void {
+        console.log('[CLIENT] events received:', events.length, events.map((e: any) => e.type));
+        for (const event of events) {
+            switch (event.type) {
+                case 'ROUND_START':
+                    this._roundActive = true;
+                    this._matchActive = true;
+                    this._currentRound = event.round;
+                    this._localBullets.clear();
+                    this._localGrenades.clear();
+                    break;
+
+                case 'ROUND_END':
+                    this._roundActive = false;
+                    if (event.teamWins) {
+                        this._teamRoundWins = { ...event.teamWins };
+                    }
+                    if (event.isFinal) this._matchActive = false;
+                    break;
+
+                case 'PLAYER_KILLED':
+                    const killer = this.ensurePlayerState(event.killerId);
+                    const victim = this.ensurePlayerState(event.targetId);
+                    killer.kills++;
+                    killer.points += 100;
+                    victim.deaths++;
+                    const deadPlayer = getPlayerInfo(event.targetId);
+                    if (deadPlayer) {
+                        deadPlayer.dead = true;
+                        deadPlayer.health = 0;
+                    }
+                    break;
+
+                case 'PLAYER_DAMAGED':
+                    const damaged = getPlayerInfo(event.targetId);
+                    if (damaged) {
+                        damaged.health = event.newHealth;
+                        damaged.armour = event.newArmor;
+                    }
+                    break;
+
+                case 'PLAYER_RESPAWN':
+                    this.ensurePlayerState(event.playerId);
+                    const respawned = getPlayerInfo(event.playerId);
+                    if (respawned) {
+                        respawned.dead = false;
+                        respawned.health = getConfig().player.maxHealth;
+                        respawned.armour = getConfig().player.startingArmor;
+                        respawned.current_position.x = event.x;
+                        respawned.current_position.y = event.y;
+                        respawned.current_position.rotation = event.rotation;
+                    }
+                    break;
+
+                
+                case 'RELOAD_START':
+                    const reloadingPlayer = getPlayerInfo(event.playerId);
+                    if (reloadingPlayer) {
+                        const weapon = reloadingPlayer.weapons.find((w: PlayerWeapon) => w.active);
+                        if (weapon) weapon.reloading = true;
+                    }
+                    break;
+                    
+                case 'RELOAD_COMPLETE':
+                    const reloadPlayer = getPlayerInfo(event.playerId);
+                    if (reloadPlayer) {
+                        const weapon = reloadPlayer.weapons.find((w: PlayerWeapon) => w.active);
+                        if (weapon) {
+                            weapon.ammo = event.ammo;
+                            weapon.reloading = false;
+                        }
+                    }
+                    break;
+
+                case 'BULLET_SPAWN':
+                    this._localBullets.set(event.bulletId, {
+                        id: event.bulletId,
+                        x: event.x,
+                        y: event.y,
+                        dx: event.dx ?? 0,
+                        dy: event.dy ?? 0,
+                        speed: event.speed ?? 0,
+                    });
+                    break;
+
+                case 'BULLET_REMOVED':
+                case 'BULLET_HIT':
+                    this._localBullets.delete(event.bulletId);
+                    break;
+
+                case 'GRENADE_SPAWN':
+                    this._localGrenades.set(event.grenadeId, {
+                        id: event.grenadeId,
+                        x: event.x,
+                        y: event.y,
+                        dx: event.dx ?? 0,
+                        dy: event.dy ?? 0,
+                        speed: event.speed ?? 0,
+                        detonated: false,
+                    });
+                    break;
+
+                case 'GRENADE_DETONATE':
+                case 'GRENADE_REMOVED':
+                    const gId = event.grenadeId;
+                    const g = this._localGrenades.get(gId);
+                    if (g) g.detonated = true;
+                    if (event.type === 'GRENADE_REMOVED') this._localGrenades.delete(gId);
+                    break;
+            }
+        }
+        
+        gameEventBus.emitAll(events);
     }
 
     private applyLocalPrediction(input: Extract<PlayerInput, { type: 'MOVE' }>): void {

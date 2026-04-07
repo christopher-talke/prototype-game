@@ -80,6 +80,42 @@ export const GAME_MODES: ModeEntry[] = [
             }
         },
     },
+    {
+        id: 'chaos',
+        name: 'Chaos',
+        description: '32 v 32 mayhem. All weapons. Fast respawns. Nonstop action.',
+        tags: ['32v32', 'ALL WEAPONS', 'FAST RESPAWN'],
+        partial: {
+            match: {
+                maxPlayers: 64,
+                teamsCount: 2,
+                roundDuration: 180000,
+                roundsToWin: 3,
+                roundIntermission: 5000,
+            },
+            player: {
+                maxHealth: 100,
+                startingArmor: 0,
+                speed: 7,
+                respawnTime: 1000,
+                armorAbsorption: 0.5,
+                healthBarVisibleDuration: 3000
+            },
+            weapons: {
+                allowedWeapons: 'ALL',
+                startingWeapons: ['RIFLE', 'PISTOL', 'GRENADE'],
+                overrides: {},
+                globalDamageMultiplier: 1.0,
+                recoilMultiplier: 1.0,
+            },
+            grenades: {
+                allowedGrenades: 'ALL',
+                startingGrenades: { FRAG: 4, FLASH: 4, SMOKE: 4, C4: 4 },
+                chargeTime: 1000,
+                minThrowFraction: 0.2,
+            },
+        },
+    }
 ];
 
 export const GAME_MODES_MAP = new Map<string, ModeEntry>(GAME_MODES.map((m) => [m.id, m]));
