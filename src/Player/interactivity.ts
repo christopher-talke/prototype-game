@@ -93,10 +93,6 @@ export function initInteractivity() {
     startGameLoop();
 }
 
-export function addPlayerInteractivity(_renderedPlayerElement: HTMLElement, _targetPlayerId: number) {
-    // No-op: interactivity is now initialized once via initInteractivity()
-}
-
 function setupInputListeners() {
 
     window.addEventListener('keydown', (e) => {
@@ -238,6 +234,7 @@ function setupInputListeners() {
         cycleGrenade(e.deltaY > 0 ? 1 : -1);
     });
 }
+
 
 function startGameLoop() {
     let lastTime = 0;
