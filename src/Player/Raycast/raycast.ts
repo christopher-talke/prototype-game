@@ -190,14 +190,15 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
             castRay(centerX, centerY, Math.cos(radA), Math.sin(radA), filteredSegments, _hitA);
             castRay(centerX, centerY, Math.cos(radB), Math.sin(radB), filteredSegments, _hitB);
 
-            // Grow buffer if needed
             if (rayCount + 2 > rayPathBuffer.length) {
                 rayPathBuffer.push({ x: 0, y: 0, d: 0 }, { x: 0, y: 0, d: 0 });
             }
+
             rayPathBuffer[rayCount].x = _hitA.x;
             rayPathBuffer[rayCount].y = _hitA.y;
             rayPathBuffer[rayCount].d = normalizeAngle(angA - facingAngle);
             rayCount++;
+
             rayPathBuffer[rayCount].x = _hitB.x;
             rayPathBuffer[rayCount].y = _hitB.y;
             rayPathBuffer[rayCount].d = normalizeAngle(angB - facingAngle);
@@ -205,30 +206,48 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
 
             if (SETTINGS.debug) {
                 drawRay(centerX, centerY, _hitA.x, _hitA.y, `corner-${corner.x}-${corner.y}`, true, 'corner');
+                drawRay(centerX, centerY, _hitB.x, _hitB.y, `corner-${corner.x}-${corner.y}`, true, 'corner');
             }
         }
-    } else if (config.type === 'SPRAY') {
-        for (let i = lowerLimit; i < upperLimit; i += 10) {
-            const rad = angleToRadians(i);
+    } 
+    
+    // Spray pattern: fixed-count rays swept across FOV using incremental rotation.
+    // Rays are emitted in angular order so the sort below is skipped entirely.
+    else if (config.type === 'SPRAY') {
+        const SPRAY_STEP = 5; // degrees per ray
+        const stepRad = angleToRadians(SPRAY_STEP);
+        // Incremental sin/cos rotation (avoids per-ray Math.cos/sin)
+        const cosStep = Math.cos(stepRad);
+        const sinStep = Math.sin(stepRad);
+        let dirX = Math.cos(angleToRadians(lowerLimit));
+        let dirY = Math.sin(angleToRadians(lowerLimit));
+        for (let angle = lowerLimit; angle < upperLimit; angle += SPRAY_STEP) {
             if (rayCount >= rayPathBuffer.length) {
                 rayPathBuffer.push({ x: 0, y: 0, d: 0 });
             }
-            castRay(centerX, centerY, Math.cos(rad), Math.sin(rad), filteredSegments, rayPathBuffer[rayCount]);
-            rayPathBuffer[rayCount].d = normalizeAngle(i - facingAngle);
+            castRay(centerX, centerY, dirX, dirY, filteredSegments, rayPathBuffer[rayCount]);
+            rayPathBuffer[rayCount].d = normalizeAngle(angle - facingAngle);
             rayCount++;
+            // Rotate direction vector by stepRad (2D rotation matrix)
+            const nx = dirX * cosStep - dirY * sinStep;
+            const ny = dirX * sinStep + dirY * cosStep;
+            dirX = nx;
+            dirY = ny;
         }
     }
 
-    // Sort only the active portion of the buffer in-place (insertion sort - no allocation)
-    for (let i = 1; i < rayCount; i++) {
-        const key = rayPathBuffer[i];
-        const keyD = key.d;
-        let j = i - 1;
-        while (j >= 0 && rayPathBuffer[j].d > keyD) {
-            rayPathBuffer[j + 1] = rayPathBuffer[j];
-            j--;
+    // Sort only needed for CORNERS (spray rays are already in angular order)
+    if (config.type === 'CORNERS') {
+        for (let i = 1; i < rayCount; i++) {
+            const key = rayPathBuffer[i];
+            const keyD = key.d;
+            let j = i - 1;
+            while (j >= 0 && rayPathBuffer[j].d > keyD) {
+                rayPathBuffer[j + 1] = rayPathBuffer[j];
+                j--;
+            }
+            rayPathBuffer[j + 1] = key;
         }
-        rayPathBuffer[j + 1] = key;
     }
 
     // Build polygon string directly (avoid intermediate array + map + join)
@@ -352,7 +371,7 @@ function showAdaptiveQualityModal() {
     adaptiveModalEl.id = 'adaptive-quality-modal';
     adaptiveModalEl.innerHTML = `
         <div class="aq-title">PERFORMANCE ISSUES DETECTED</div>
-        <div class="aq-body">Switch to simplified visibility for better performance?</div>
+        <div class="aq-body">Switch to fast raycasting for better performance?</div>
         <div class="aq-buttons">
             <button id="aq-accept">ACCEPT</button>
             <button id="aq-dismiss">DISMISS</button>
@@ -361,13 +380,12 @@ function showAdaptiveQualityModal() {
     document.body.appendChild(adaptiveModalEl);
 
     document.getElementById('aq-accept')!.addEventListener('click', () => {
-        SETTINGS.raycast.type = 'DISABLED';
+        SETTINGS.raycast.type = 'SPRAY';
         const fogOfWar = document.getElementById('fog-of-war');
         if (fogOfWar) fogOfWar.classList.remove('d-none');
         removeAdaptiveModal();
-        // Update settings dropdown if open
         const dropdown = document.getElementById('opt-raycast') as HTMLSelectElement | null;
-        if (dropdown) dropdown.value = 'DISABLED';
+        if (dropdown) dropdown.value = 'SPRAY';
     });
 
     document.getElementById('aq-dismiss')!.addEventListener('click', () => {

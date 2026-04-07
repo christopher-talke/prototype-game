@@ -308,6 +308,9 @@ function startGameLoop() {
                     generateRayCast(loopPlayer, { type: RaycastTypes.CORNERS });
                     hideFOVCone();
                     tickAdaptiveQuality(timestamp);
+                } else if (SETTINGS.raycast.type === 'SPRAY') {
+                    generateRayCast(loopPlayer, { type: RaycastTypes.SPRAY });
+                    hideFOVCone();
                 } else {
                     generateFOVCone(loopPlayer);
                     if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');

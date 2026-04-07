@@ -188,8 +188,10 @@ function buildGameTab() {
             <label>Raycasting</label>
             <select id="opt-raycast">
                 <option value="DISABLED" ${SETTINGS.raycast.type === 'DISABLED' ? 'selected' : ''}>Simplified FOV Cone</option>
+                <option value="SPRAY" ${SETTINGS.raycast.type === 'SPRAY' ? 'selected' : ''}>Fast Raycasting</option>
                 <option value="MAIN_THREAD" ${SETTINGS.raycast.type === 'MAIN_THREAD' ? 'selected' : ''}>Full Raycasting</option>
             </select>
+            <span class="settings-hint">Fast uses fewer rays for better FPS</span>
         </div>
     `;
 
