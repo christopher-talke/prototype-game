@@ -1,7 +1,7 @@
 {
-    "name": "prototype-game",
+    "name": "sightline-2d-tactical-arena-shooter",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.1.0",
     "type": "module",
     "license": "MIT - Custom License (see LICENSE file)",
     "scripts": {
