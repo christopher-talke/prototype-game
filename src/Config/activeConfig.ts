@@ -3,7 +3,7 @@ import { BASE_DEFAULTS } from './defaults';
 
 let activeConfig: GameModeConfig = { ...BASE_DEFAULTS };
 
-function deepMerge<T extends Record<string, any>>(base: T, activeConfig: T, partial: DeepPartial<T>): T {
+export function deepMerge<T extends Record<string, any>>(base: T, activeConfig: T, partial: DeepPartial<T>): T {
     const result = { ...base, ...activeConfig };
     for (const key of Object.keys(partial) as (keyof T)[]) {
         const val = partial[key];

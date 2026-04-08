@@ -1,15 +1,18 @@
 import './menu.css';
+import type { DeepPartial, GameModeConfig } from '../Config/types';
 import { GAME_MODES } from '../Config/modes/index';
 import { toggleSettings } from '../Settings/settings';
 import { webSocketAdapter } from '../Net/WebSocketAdapter';
 import { showLobbyScreen, hideLobbyScreen } from '../Net/LobbyScreen';
+import { createGameCustomizer, type GameCustomizerInstance } from '../Config/GameCustomizer';
 
-type Screen = 'main' | 'mode-select' | 'how-to-play';
+type Screen = 'main' | 'mode-select' | 'customize' | 'how-to-play';
 
 let menuEl: HTMLElement | null = null;
 let selectedModeId = 'tdm';
-let onPlayCallback: ((modeId: string) => void) | null = null;
+let onPlayCallback: ((modeId: string, overrides?: DeepPartial<GameModeConfig>) => void) | null = null;
 let settingsClosedHandler: (() => void) | null = null;
+let customizer: GameCustomizerInstance | null = null;
 
 export function showMainMenu(onPlay: (modeId: string) => void) {
     onPlayCallback = onPlay;
@@ -25,6 +28,10 @@ export function showMainMenu(onPlay: (modeId: string) => void) {
 
 export function hideMainMenu() {
     if (!menuEl) return;
+    if (customizer) {
+        customizer.unmount();
+        customizer = null;
+    }
     menuEl.classList.add('fade-out');
     if (settingsClosedHandler) {
         document.removeEventListener('settings-closed', settingsClosedHandler);
@@ -94,7 +101,36 @@ function wireEvents() {
     menuEl.querySelector('#btn-play')?.addEventListener('click', () => {
         onPlayCallback?.(selectedModeId);
     });
+    menuEl.querySelector('#btn-customize')?.addEventListener('click', () => {
+        if (customizer) {
+            customizer.unmount();
+            customizer = null;
+        }
+        const mount = menuEl?.querySelector<HTMLElement>('#customizer-mount');
+        if (mount) {
+            customizer = createGameCustomizer({
+                container: mount,
+                baseModeId: selectedModeId,
+                showAISection: true,
+            });
+            customizer.mount();
+        }
+        showScreen('customize');
+    });
     menuEl.querySelector('#btn-back-mode')?.addEventListener('click', () => showScreen('main'));
+
+    // Customize screen
+    menuEl.querySelector('#btn-back-customize')?.addEventListener('click', () => {
+        if (customizer) {
+            customizer.unmount();
+            customizer = null;
+        }
+        showScreen('mode-select');
+    });
+    menuEl.querySelector('#btn-play-custom')?.addEventListener('click', () => {
+        const overrides = customizer?.getValue() ?? {};
+        onPlayCallback?.(selectedModeId, overrides);
+    });
 
     // How to play
     menuEl.querySelector('#btn-back-howto')?.addEventListener('click', () => showScreen('main'));
@@ -111,6 +147,7 @@ function buildHTML(): string {
         <div class="menu-panels">
             ${buildMainScreen()}
             ${buildModeSelectScreen()}
+            ${buildCustomizeScreen()}
             ${buildHowToPlayScreen()}
         </div>
         <div class="menu-version">ALPHA 0.1</div>
@@ -162,7 +199,21 @@ function buildModeSelectScreen(): string {
             <div class="mode-grid">${cards}</div>
             <div class="menu-btn-row">
                 <button id="btn-back-mode" class="menu-btn">Back</button>
+                <button id="btn-customize" class="menu-btn">Customize</button>
                 <button id="btn-play" class="menu-btn primary">Play</button>
+            </div>
+        </div>
+    `;
+}
+
+function buildCustomizeScreen(): string {
+    return `
+        <div id="screen-customize" class="menu-panel">
+            <div class="menu-section-title">Customize Game</div>
+            <div id="customizer-mount"></div>
+            <div class="menu-btn-row">
+                <button id="btn-back-customize" class="menu-btn">Back</button>
+                <button id="btn-play-custom" class="menu-btn primary">Play</button>
             </div>
         </div>
     `;

@@ -1,6 +1,7 @@
 import './lobby.css';
 import type { GameModeConfig, DeepPartial } from '../Config/types';
 import type { LobbyPlayer } from './Protocol';
+import { createGameCustomizer, type GameCustomizerInstance } from '../Config/GameCustomizer';
 
 type LobbyStateView = {
     host: number;
@@ -29,6 +30,7 @@ let currentState: LobbyStateView | null = null;
 let phase: 'connect' | 'room' = 'connect';
 let connecting = false;
 let connectError = '';
+let lobbyCustomizer: GameCustomizerInstance | null = null;
 
 export function getLobbyState(): LobbyStateView | null {
     return currentState;
@@ -57,6 +59,10 @@ export function showLobbyScreen(cb: LobbyCallbacks) {
 
 export function hideLobbyScreen() {
     if (!rootEl) return;
+    if (lobbyCustomizer) {
+        lobbyCustomizer.unmount();
+        lobbyCustomizer = null;
+    }
     rootEl.classList.add('fade-out');
     setTimeout(() => {
         rootEl?.remove();
@@ -189,14 +195,7 @@ function renderRoom() {
 
             <div class="lobby-config">
                 <div class="lobby-config-title">Match Config</div>
-                <div class="lobby-config-row">
-                    <span class="lobby-config-label">Rounds to Win</span>
-                    <input type="number" id="lobby-rounds" min="1" max="30" value="${state.config.match.roundsToWin}" ${isHost ? '' : 'disabled'} />
-                </div>
-                <div class="lobby-config-row">
-                    <span class="lobby-config-label">Round Duration (s)</span>
-                    <input type="number" id="lobby-duration" min="20" max="1200" value="${Math.floor(state.config.match.roundDuration / 1000)}" ${isHost ? '' : 'disabled'} />
-                </div>
+                <div id="lobby-customizer-mount"></div>
             </div>
 
             <div class="lobby-actions">
@@ -210,6 +209,20 @@ function renderRoom() {
         </div>
     `;
 
+    // Mount customizer
+    const custMount = rootEl.querySelector<HTMLElement>('#lobby-customizer-mount');
+    if (custMount) {
+        if (lobbyCustomizer) lobbyCustomizer.unmount();
+        lobbyCustomizer = createGameCustomizer({
+            container: custMount,
+            readonly: !isHost,
+            showAISection: false,
+            compact: true,
+        });
+        lobbyCustomizer.mount();
+        lobbyCustomizer.applyConfig(state.config);
+    }
+
     rootEl.querySelectorAll<HTMLButtonElement>('[data-action="swap"]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const playerId = Number(btn.dataset.player);
@@ -219,6 +232,10 @@ function renderRoom() {
     });
 
     rootEl.querySelector('#lobby-leave')?.addEventListener('click', () => {
+        if (lobbyCustomizer) {
+            lobbyCustomizer.unmount();
+            lobbyCustomizer = null;
+        }
         callbacks?.onDisconnect();
         phase = 'connect';
         connecting = false;
@@ -233,11 +250,8 @@ function renderRoom() {
     });
 
     rootEl.querySelector('#lobby-apply')?.addEventListener('click', () => {
-        const rounds = Number((rootEl?.querySelector('#lobby-rounds') as HTMLInputElement)?.value ?? state.config.match.roundsToWin);
-        const durationSec = Number((rootEl?.querySelector('#lobby-duration') as HTMLInputElement)?.value ?? Math.floor(state.config.match.roundDuration / 1000));
-        callbacks?.onSetConfig({
-            match: { roundsToWin: rounds, roundDuration: durationSec * 1000 },
-        });
+        const overrides = lobbyCustomizer?.getValue() ?? {};
+        callbacks?.onSetConfig(overrides);
     });
 
     rootEl.querySelector('#lobby-start')?.addEventListener('click', () => {

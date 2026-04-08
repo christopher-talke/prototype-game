@@ -2,6 +2,7 @@ import { createPlayer, generatePlayers, PlayerStatus } from '../Player/player';
 import { setActivePlayer, getAllPlayers } from '../Globals/Players';
 import { clientRenderer } from '../Net/ClientRenderer';
 import { registerAI, clearAllAI } from '../AI/ai';
+import type { DeepPartial, GameModeConfig } from '../Config/types';
 import { getConfig, setGameMode } from '../Config/activeConfig';
 import { GAME_MODES_MAP } from '../Config/modes/index';
 import { offlineAdapter } from '../Net/OfflineAdapter';
@@ -126,9 +127,10 @@ function destroyAllPlayers() {
     clientRenderer.clearPlayers();
 }
 
-export function launchMatch(modeId: string) {
+export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConfig>) {
     const entry = GAME_MODES_MAP.get(modeId);
     if (entry) setGameMode(entry.partial);
+    if (overrides) setGameMode(overrides);
     stopMenuMusic();
     spawnOfflinePlayers();
     const playerIds = getAllPlayers().map((p) => p.id);

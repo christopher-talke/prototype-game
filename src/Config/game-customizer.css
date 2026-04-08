@@ -1,0 +1,270 @@
+.game-customizer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: 1px solid var(--color-border);
+    box-sizing: border-box;
+    margin-bottom: 20px;
+}
+
+/* Mode selector */
+.gc-mode-select {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.gc-mode-select label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.gc-mode-select select {
+    flex: 1;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 4px 8px;
+    outline: none;
+}
+
+.gc-mode-select select:focus {
+    border-color: var(--color-cyan-50);
+}
+
+/* Tabs - mirrors .settings-tabs / .settings-tab */
+.gc-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border-subtle);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.gc-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.gc-tab {
+    flex: 1 0 auto;
+    padding: 8px 6px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.gc-tab:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.gc-tab.active {
+    color: var(--color-gold);
+    border-bottom-color: var(--color-gold);
+}
+
+/* Tab body - scrollable content area */
+.gc-body {
+    padding: 8px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 240px;
+    max-height: 50vh;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-cyan-20) transparent;
+}
+
+.gc-body.gc-compact {
+    min-height: 180px;
+    max-height: 35vh;
+}
+
+/* Panels - mirrors .settings-panel */
+.gc-panel {
+    display: none;
+}
+
+.gc-panel.active {
+    display: block;
+}
+
+/* Rows - mirrors .settings-row / .keybind-row */
+.gc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 12px;
+}
+
+.gc-row label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.gc-row input[type="number"] {
+    width: 80px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 3px 6px;
+    text-align: right;
+    outline: none;
+}
+
+.gc-row input[type="number"]:focus {
+    border-color: var(--color-cyan-50);
+}
+
+.gc-row input[type="number"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Checkbox toggle */
+.gc-toggle {
+    position: relative;
+    width: 32px;
+    height: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.gc-toggle.active {
+    background: var(--color-cyan-20);
+    border-color: var(--color-cyan-50);
+}
+
+.gc-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    background: var(--color-text-muted);
+    border-radius: 50%;
+    transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.gc-toggle.active::after {
+    transform: translateX(16px);
+    background: var(--color-cyan);
+}
+
+.gc-toggle.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Checkbox grid (weapons/grenades) */
+.gc-checkbox-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 0;
+}
+
+.gc-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-family: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.gc-chip.checked {
+    border-color: var(--color-cyan-50);
+    background: var(--color-cyan-06);
+    color: var(--color-cyan);
+}
+
+.gc-chip.all-toggle {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+    opacity: 0.6;
+}
+
+.gc-chip.all-toggle.checked {
+    opacity: 1;
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.gc-chip.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Grenade starting counts */
+.gc-grenade-counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.gc-grenade-count {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.gc-grenade-count input {
+    width: 40px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    padding: 1px 4px;
+    text-align: right;
+    outline: none;
+}
+
+.gc-grenade-count input:focus {
+    border-color: var(--color-cyan-50);
+}
+
+.gc-grenade-count input:disabled {
+    opacity: 0.4;
+}
+
+.gc-sub-label {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    padding: 4px 0 2px;
+    opacity: 0.6;
+}
