@@ -9,11 +9,13 @@ type Screen = 'main' | 'mode-select' | 'how-to-play';
 let menuEl: HTMLElement | null = null;
 let selectedModeId = 'tdm';
 let onPlayCallback: ((modeId: string) => void) | null = null;
+let settingsClosedHandler: (() => void) | null = null;
 
 export function showMainMenu(onPlay: (modeId: string) => void) {
     onPlayCallback = onPlay;
     menuEl = document.createElement('div');
     menuEl.id = 'main-menu';
+    menuEl.classList.add('menu-overlay');
     menuEl.innerHTML = buildHTML();
     document.body.appendChild(menuEl);
 
@@ -24,6 +26,10 @@ export function showMainMenu(onPlay: (modeId: string) => void) {
 export function hideMainMenu() {
     if (!menuEl) return;
     menuEl.classList.add('fade-out');
+    if (settingsClosedHandler) {
+        document.removeEventListener('settings-closed', settingsClosedHandler);
+        settingsClosedHandler = null;
+    }
     setTimeout(() => {
         menuEl?.remove();
         menuEl = null;
@@ -36,6 +42,7 @@ function showScreen(screen: Screen) {
     if (!menuEl) return;
     menuEl.querySelectorAll<HTMLElement>('.menu-panel').forEach((p) => p.classList.remove('active'));
     menuEl.querySelector<HTMLElement>(`#screen-${screen}`)?.classList.add('active');
+    menuEl.classList.toggle('is-subscreen', screen !== 'main');
 }
 
 // ---- Event wiring ----
@@ -68,7 +75,12 @@ function wireEvents() {
     menuEl.querySelector('#btn-editor')?.addEventListener('click', () => {
         window.location.href = '/editor.html';
     });
-    menuEl.querySelector('#btn-settings')?.addEventListener('click', toggleSettings);
+    menuEl.querySelector('#btn-settings')?.addEventListener('click', () => {
+        toggleSettings();
+        menuEl?.classList.add('is-subscreen');
+    });
+    settingsClosedHandler = () => menuEl?.classList.remove('is-subscreen');
+    document.addEventListener('settings-closed', settingsClosedHandler);
     menuEl.querySelector('#btn-howto')?.addEventListener('click', () => showScreen('how-to-play'));
 
     // Mode select
@@ -92,9 +104,15 @@ function wireEvents() {
 
 function buildHTML(): string {
     return `
-        ${buildMainScreen()}
-        ${buildModeSelectScreen()}
-        ${buildHowToPlayScreen()}
+        <div class="menu-header">
+            <div class="menu-title">Sightline</div>
+            <div class="menu-subtitle">2D Tactical Arena Shooter</div>
+        </div>
+        <div class="menu-panels">
+            ${buildMainScreen()}
+            ${buildModeSelectScreen()}
+            ${buildHowToPlayScreen()}
+        </div>
         <div class="menu-version">ALPHA 0.1</div>
     `;
 }
@@ -102,9 +120,6 @@ function buildHTML(): string {
 function buildMainScreen(): string {
     return `
         <div id="screen-main" class="menu-panel">
-            <div class="menu-title">Sightline</div>
-            <div class="menu-subtitle">2D Tactical Arena Shooter</div>
-
             <button id="btn-offline" class="menu-btn">
                 Offline
             </button>

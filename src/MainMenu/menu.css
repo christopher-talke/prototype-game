@@ -1,16 +1,7 @@
 #main-menu {
-    position: fixed;
-    inset: 0;
     z-index: 9500;
-    background: rgba(8, 8, 16, 0.97);
-    /* Subtle grid texture */
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Courier New', monospace;
     transition: opacity 0.4s ease;
+    flex-direction: column;
 }
 
 #main-menu.fade-out {
@@ -18,9 +9,9 @@
     pointer-events: none;
 }
 
-/* ---- Panel ---- */
-.menu-panel {
-    display: none;
+/* ---- Header (title + subtitle, persists across screens) ---- */
+.menu-header {
+    display: flex;
     flex-direction: column;
     align-items: center;
     width: 100%;
@@ -29,8 +20,41 @@
     box-sizing: border-box;
 }
 
+#main-menu.is-subscreen .menu-header {
+    visibility: hidden;
+}
+
+/* ---- Panels wrapper ---- */
+.menu-panels {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    padding: 0 24px;
+    box-sizing: border-box;
+}
+
+/* ---- Panel ---- */
+.menu-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+@keyframes panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .menu-panel.active {
     display: flex;
+    animation: panel-in 0.22s ease forwards;
 }
 
 /* ---- Title ---- */
@@ -57,31 +81,31 @@
     width: 100%;
     padding: 14px 24px;
     margin-bottom: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.85);
-    font-family: 'Courier New', monospace;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-ui);
     font-size: 14px;
     letter-spacing: 3px;
     text-transform: uppercase;
     text-align: left;
     cursor: pointer;
     transition:
-        background 0.12s,
-        border-color 0.12s,
-        color 0.12s;
+        background var(--transition-fast),
+        border-color var(--transition-fast),
+        color var(--transition-fast);
     box-sizing: border-box;
     position: relative;
 }
 
 .menu-btn:hover {
-    background: rgba(0, 229, 255, 0.06);
-    border-color: rgba(0, 229, 255, 0.5);
-    color: #00e5ff;
+    background: var(--color-cyan-06);
+    border-color: var(--color-cyan-50);
+    color: var(--color-cyan);
 }
 
 .menu-btn:active {
-    background: rgba(0, 229, 255, 0.12);
+    background: var(--color-cyan-12);
 }
 
 .menu-btn.disabled {
@@ -97,8 +121,8 @@
     transform: translateY(-50%);
     font-size: 9px;
     letter-spacing: 2px;
-    color: rgba(255, 255, 255, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--color-text-dim);
+    border: 1px solid var(--color-border);
     padding: 2px 6px;
     border-radius: 2px;
 }
@@ -112,7 +136,7 @@
 .menu-section-title {
     font-size: 11px;
     letter-spacing: 4px;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text-dim);
     text-transform: uppercase;
     align-self: flex-start;
     margin-bottom: 16px;
@@ -130,15 +154,15 @@
 .mode-card {
     width: 100%;
     padding: 14px 16px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--color-surface-02);
+    border: 1px solid var(--color-border-subtle);
     cursor: pointer;
     transition:
-        background 0.12s,
-        border-color 0.12s;
+        background var(--transition-fast),
+        border-color var(--transition-fast);
     box-sizing: border-box;
     text-align: left;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-ui);
     color: #fff;
 }
 
@@ -148,7 +172,7 @@
 }
 
 .mode-card.selected {
-    background: rgba(0, 229, 255, 0.06);
+    background: var(--color-cyan-06);
     border-color: rgba(0, 229, 255, 0.6);
     box-shadow: 0 0 12px rgba(0, 229, 255, 0.1);
 }
@@ -162,7 +186,7 @@
 }
 
 .mode-card.selected .mode-card-name {
-    color: #00e5ff;
+    color: var(--color-cyan);
 }
 
 .mode-card-desc {
@@ -200,14 +224,14 @@
 }
 
 .menu-btn.primary {
-    background: rgba(0, 229, 255, 0.08);
-    border-color: rgba(0, 229, 255, 0.4);
-    color: #00e5ff;
+    background: var(--color-cyan-08);
+    border-color: var(--color-cyan-40);
+    color: var(--color-cyan);
 }
 
 .menu-btn.primary:hover {
-    background: rgba(0, 229, 255, 0.15);
-    border-color: #00e5ff;
+    background: var(--color-cyan-15);
+    border-color: var(--color-cyan);
 }
 
 /* ---- How To Play table ---- */
@@ -229,7 +253,7 @@
 
 .how-to-table td:first-child {
     width: 160px;
-    color: #fbbf24;
+    color: var(--color-gold);
     letter-spacing: 1px;
     font-weight: bold;
 }
@@ -247,7 +271,7 @@
     position: fixed;
     bottom: 16px;
     right: 20px;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-ui);
     font-size: 10px;
     color: rgba(255, 255, 255, 0.15);
     letter-spacing: 2px;

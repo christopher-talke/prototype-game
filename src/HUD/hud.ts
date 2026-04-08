@@ -159,7 +159,8 @@ export function initHUD() {
     // Buy menu
     const bm = document.createElement('div');
     bm.id = 'hud-buymenu';
-    bm.innerHTML = `<h3>BUY MENU [B to close]</h3><div class="buymenu-grid" id="buymenu-grid"></div>`;
+    bm.classList.add('menu-overlay', 'menu-overlay--translucent');
+    bm.innerHTML = `<div class="buymenu-panel"><h3>BUY MENU [B to close]</h3><div class="buymenu-grid" id="buymenu-grid"></div></div>`;
     document.body.appendChild(bm);
 
     // Death overlay
@@ -195,18 +196,21 @@ export function initHUD() {
     // Round end banner
     const rb = document.createElement('div');
     rb.id = 'hud-round-banner';
+    rb.classList.add('menu-overlay', 'menu-overlay--translucent');
     rb.innerHTML = `<div id="round-banner-text">ROUND OVER</div><div id="round-banner-sub"></div>`;
     document.body.appendChild(rb);
 
     // Match end overlay
     const meo = document.createElement('div');
     meo.id = 'hud-match-end';
+    meo.classList.add('menu-overlay', 'menu-overlay--translucent');
     meo.innerHTML = `<div id="match-end-title">MATCH OVER</div><div id="match-end-winner"></div><div id="match-end-score"></div><button id="match-end-return">Return to Menu</button>`;
     document.body.appendChild(meo);
 
     // Pause overlay
     const pause = document.createElement('div');
     pause.id = 'hud-pause';
+    pause.classList.add('menu-overlay', 'menu-overlay--translucent');
     pause.innerHTML = `
         <div id="pause-title">PAUSED</div>
         <button id="pause-resume">Resume</button>

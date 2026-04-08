@@ -48,6 +48,7 @@ export function showLobbyScreen(cb: LobbyCallbacks) {
     if (!rootEl) {
         rootEl = document.createElement('div');
         rootEl.id = 'lobby-screen';
+        rootEl.classList.add('menu-overlay');
         document.body.appendChild(rootEl);
     }
 

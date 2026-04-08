@@ -131,22 +131,11 @@
 
 /* Round end banner */
 #hud-round-banner {
-    position: fixed;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    top: 0;
-    left: 0;
     z-index: 1100;
+    flex-direction: column;
     text-align: center;
     pointer-events: none;
     opacity: 0;
-    background: rgba(8, 8, 16, 0.92);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    width: 100%;
-    height: 100vh;
     transition: opacity 1s ease;
 }
 
@@ -155,19 +144,14 @@
 }
 
 #hud-round-banner.active.won {
-    background: rgba(32, 128, 32, 0.25);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-color: rgba(32, 128, 32, 0.25);
 }
 
 #hud-round-banner.active.lost {
-    background: rgba(128, 32, 32, 0.25);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-color: rgba(128, 32, 32, 0.25);
 }
 
 #round-banner-text {
-    font-family: 'Courier New', monospace;
     font-size: 48px;
     font-weight: bold;
     color: #fff;
@@ -178,7 +162,6 @@
 }
 
 #round-banner-sub {
-    font-family: 'Courier New', monospace;
     font-size: 18px;
     color: rgba(255, 255, 255, 0.7);
     margin-top: 12px;
@@ -187,16 +170,8 @@
 /* Pause overlay */
 #hud-pause {
     display: none;
-    position: fixed;
-    inset: 0;
     z-index: 9000;
-    background: rgba(8, 8, 16, 0.92);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Courier New', monospace;
 }
 
 #hud-pause.active {
@@ -206,7 +181,7 @@
 #pause-title {
     font-size: 36px;
     font-weight: bold;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text-dim);
     letter-spacing: 10px;
     text-transform: uppercase;
     margin-bottom: 40px;
@@ -217,51 +192,34 @@
     width: 260px;
     padding: 14px 24px;
     margin-bottom: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.85);
-    font-family: 'Courier New', monospace;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-ui);
     font-size: 13px;
     letter-spacing: 3px;
     text-transform: uppercase;
     cursor: pointer;
     transition:
-        background 0.12s,
-        border-color 0.12s,
-        color 0.12s;
+        background var(--transition-fast),
+        border-color var(--transition-fast),
+        color var(--transition-fast);
 }
 
-#pause-resume:hover {
-    background: rgba(0, 229, 255, 0.06);
-    border-color: rgba(0, 229, 255, 0.5);
-    color: #00e5ff;
-}
-
+#pause-resume:hover,
 #pause-return:hover {
-    background: rgba(0, 229, 255, 0.06);
-    border-color: rgba(0, 229, 255, 0.5);
-    color: #00e5ff;
+    background: var(--color-cyan-06);
+    border-color: var(--color-cyan-50);
+    color: var(--color-cyan);
 }
 
 /* Match end overlay */
 #hud-match-end {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(8, 8, 16, 0.92);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
     z-index: 1200;
-    display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.6s ease;
-    font-family: 'Courier New', monospace;
 }
 
 #hud-match-end.active {
@@ -270,21 +228,17 @@
 }
 
 #hud-match-end.active.won {
-    background: rgba(32, 128, 32, 0.25);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-color: rgba(32, 128, 32, 0.25);
 }
 
 #hud-match-end.active.lost {
-    background: rgba(128, 32, 32, 0.25);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-color: rgba(128, 32, 32, 0.25);
 }
 
 #match-end-title {
     font-size: 56px;
     font-weight: bold;
-    color: #fbbf24;
+    color: var(--color-gold);
     text-shadow: 0 0 30px rgba(255, 200, 50, 0.5);
     letter-spacing: 6px;
 }
@@ -304,24 +258,24 @@
 #match-end-return {
     margin-top: 40px;
     padding: 14px 36px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.85);
-    font-family: 'Courier New', monospace;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-ui);
     font-size: 13px;
     letter-spacing: 3px;
     text-transform: uppercase;
     cursor: pointer;
     transition:
-        background 0.12s,
-        border-color 0.12s,
-        color 0.12s;
+        background var(--transition-fast),
+        border-color var(--transition-fast),
+        color var(--transition-fast);
 }
 
 #match-end-return:hover {
-    background: rgba(0, 229, 255, 0.06);
-    border-color: rgba(0, 229, 255, 0.5);
-    color: #00e5ff;
+    background: var(--color-cyan-06);
+    border-color: var(--color-cyan-50);
+    color: var(--color-cyan);
 }
 
 /* Kill banner */
@@ -622,28 +576,24 @@
 /* Buy Menu */
 #hud-buymenu {
     display: none;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(8, 8, 16, 0.97);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    padding: 20px;
-    pointer-events: auto;
     z-index: 1002;
-    min-width: 400px;
-    font-family: 'Courier New', monospace;
+    pointer-events: auto;
 }
 
 #hud-buymenu.open {
-    display: block;
+    display: flex;
+}
+
+.buymenu-panel {
+    width: 100%;
+    max-width: 520px;
+    padding: 0 24px;
+    box-sizing: border-box;
 }
 
 #hud-buymenu h3 {
     margin: 0 0 16px 0;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text-dim);
     font-size: 11px;
     letter-spacing: 4px;
     text-transform: uppercase;
@@ -657,21 +607,21 @@
 }
 
 .buymenu-item {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
     padding: 10px;
     cursor: pointer;
     transition:
-        background 0.12s,
-        border-color 0.12s;
-    color: rgba(255, 255, 255, 0.85);
-    font-family: 'Courier New', monospace;
+        background var(--transition-fast),
+        border-color var(--transition-fast);
+    color: var(--color-text);
+    font-family: var(--font-ui);
     text-align: left;
 }
 
 .buymenu-item:hover {
-    background: rgba(0, 229, 255, 0.06);
-    border-color: rgba(0, 229, 255, 0.5);
+    background: var(--color-cyan-06);
+    border-color: var(--color-cyan-50);
 }
 
 .buymenu-item.too-expensive {
@@ -690,12 +640,12 @@
 
 .buymenu-item-price {
     font-size: 11px;
-    color: #4ade80;
+    color: var(--color-green);
 }
 
 .buymenu-item-stats {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-text-muted);
     margin-top: 4px;
 }
 

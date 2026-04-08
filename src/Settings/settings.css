@@ -1,19 +1,18 @@
 #settings-menu {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     z-index: 10000;
-    background: rgba(8, 8, 16, 0.97);
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    width: 420px;
-    max-height: 80vh;
-    color: rgba(255, 255, 255, 0.85);
-    font-family: 'Courier New', monospace;
+    color: var(--color-text);
+    font-family: var(--font-ui);
     font-size: 13px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+}
+
+.settings-panel-wrapper {
+    width: 100%;
+    max-width: 420px;
+    max-height: 80vh;
+    border: 1px solid var(--color-border);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
 .settings-header {
@@ -21,7 +20,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .settings-header h2 {
@@ -30,25 +29,25 @@
     font-weight: bold;
     letter-spacing: 4px;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text-dim);
 }
 
 .settings-header button {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-text-muted);
     font-size: 22px;
     cursor: pointer;
     padding: 0 4px;
     line-height: 1;
 }
 .settings-header button:hover {
-    color: #00e5ff;
+    color: var(--color-cyan);
 }
 
 .settings-tabs {
     display: flex;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .settings-tab {
@@ -57,8 +56,8 @@
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
-    color: rgba(255, 255, 255, 0.4);
-    font-family: 'Courier New', monospace;
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
     font-size: 11px;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -71,14 +70,15 @@
     color: rgba(255, 255, 255, 0.8);
 }
 .settings-tab.active {
-    color: #fbbf24;
-    border-bottom-color: #fbbf24;
+    color: var(--color-gold);
+    border-bottom-color: var(--color-gold);
 }
 
 .settings-body {
     padding: 12px 16px;
-    max-height: 55vh;
     overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .settings-panel {
@@ -104,34 +104,30 @@
 .keybind-btn {
     min-width: 64px;
     padding: 4px 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.85);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
     font-size: 13px;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-ui);
     cursor: pointer;
     text-align: center;
     transition:
-        border-color 0.12s,
-        color 0.12s;
+        border-color var(--transition-fast),
+        color var(--transition-fast);
 }
 .keybind-btn:hover {
-    border-color: rgba(0, 229, 255, 0.5);
-    color: #00e5ff;
+    border-color: var(--color-cyan-50);
+    color: var(--color-cyan);
 }
 .keybind-btn.listening {
-    border-color: #fbbf24;
-    color: #fbbf24;
+    border-color: var(--color-gold);
+    color: var(--color-gold);
     animation: pulse-border 0.8s ease-in-out infinite alternate;
 }
 
 @keyframes pulse-border {
-    from {
-        border-color: #fbbf24;
-    }
-    to {
-        border-color: #b8860b;
-    }
+    from { border-color: var(--color-gold); }
+    to { border-color: #b8860b; }
 }
 
 /* Audio / Game settings rows */
@@ -149,7 +145,7 @@
 
 .settings-row input[type='range'] {
     flex: 1;
-    accent-color: #fbbf24;
+    accent-color: var(--color-gold);
 }
 
 .settings-row span {
@@ -161,13 +157,13 @@
 
 .settings-row select {
     padding: 4px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    font-family: 'Courier New', monospace;
+    border: 1px solid var(--color-border);
+    font-family: var(--font-ui);
     font-size: 13px;
 }
 
 .settings-row input[type='checkbox'] {
-    accent-color: #fbbf24;
+    accent-color: var(--color-gold);
     width: 16px;
     height: 16px;
 }

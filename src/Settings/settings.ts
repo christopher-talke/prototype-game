@@ -25,26 +25,29 @@ export function closeSettings() {
     isOpen = false;
     settingsEl?.classList.add('d-none');
     cancelListening();
+    document.dispatchEvent(new CustomEvent('settings-closed'));
 }
 
 function buildSettingsUI() {
     settingsEl = document.createElement('div');
     settingsEl.id = 'settings-menu';
-    settingsEl.classList.add('d-none');
+    settingsEl.classList.add('menu-overlay', 'menu-overlay--translucent', 'd-none');
     settingsEl.innerHTML = `
-        <div class="settings-header">
-            <h2>Settings</h2>
-            <button id="settings-close">&times;</button>
-        </div>
-        <div class="settings-tabs">
-            <button class="settings-tab active" data-tab="controls">Controls</button>
-            <button class="settings-tab" data-tab="audio">Audio</button>
-            <button class="settings-tab" data-tab="game">Game</button>
-        </div>
-        <div class="settings-body">
-            <div class="settings-panel active" data-panel="controls" id="settings-controls"></div>
-            <div class="settings-panel" data-panel="audio" id="settings-audio"></div>
-            <div class="settings-panel" data-panel="game" id="settings-game"></div>
+        <div class="settings-panel-wrapper">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="settings-close">&times;</button>
+            </div>
+            <div class="settings-tabs">
+                <button class="settings-tab active" data-tab="controls">Controls</button>
+                <button class="settings-tab" data-tab="audio">Audio</button>
+                <button class="settings-tab" data-tab="game">Game</button>
+            </div>
+            <div class="settings-body">
+                <div class="settings-panel active" data-panel="controls" id="settings-controls"></div>
+                <div class="settings-panel" data-panel="audio" id="settings-audio"></div>
+                <div class="settings-panel" data-panel="game" id="settings-game"></div>
+            </div>
         </div>
     `;
     document.body.appendChild(settingsEl);

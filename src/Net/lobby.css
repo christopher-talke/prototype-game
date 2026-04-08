@@ -1,16 +1,5 @@
 #lobby-screen {
-    position: fixed;
-    inset: 0;
     z-index: 9800;
-    background: rgba(8, 8, 16, 0.97);
-    background-image:
-        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Courier New', monospace;
     color: #f3f4f6;
     transition: opacity 0.4s ease;
 }
@@ -50,7 +39,7 @@
     display: block;
     font-size: 10px;
     letter-spacing: 3px;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-text-muted);
     text-transform: uppercase;
     margin-bottom: 6px;
 }
@@ -59,18 +48,18 @@
     width: 100%;
     padding: 12px 14px;
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--color-border);
     color: #fff;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-ui);
     font-size: 14px;
     letter-spacing: 1px;
     box-sizing: border-box;
     outline: none;
-    transition: border-color 0.12s;
+    transition: border-color var(--transition-fast);
 }
 
 .lobby-field input:focus {
-    border-color: rgba(0, 229, 255, 0.5);
+    border-color: var(--color-cyan-50);
 }
 
 .lobby-field input::placeholder {
@@ -79,7 +68,7 @@
 
 .lobby-error {
     width: 100%;
-    color: #ff5050;
+    color: var(--color-red);
     font-size: 11px;
     letter-spacing: 1px;
     margin-bottom: 14px;
@@ -96,27 +85,27 @@
 .lobby-btn {
     width: 100%;
     padding: 14px 24px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 0.85);
-    font-family: 'Courier New', monospace;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: var(--font-ui);
     font-size: 14px;
     letter-spacing: 3px;
     text-transform: uppercase;
     text-align: center;
     cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
     box-sizing: border-box;
 }
 
 .lobby-btn:hover {
-    background: rgba(0, 229, 255, 0.06);
-    border-color: rgba(0, 229, 255, 0.5);
-    color: #00e5ff;
+    background: var(--color-cyan-06);
+    border-color: var(--color-cyan-50);
+    color: var(--color-cyan);
 }
 
 .lobby-btn:active {
-    background: rgba(0, 229, 255, 0.12);
+    background: var(--color-cyan-12);
 }
 
 .lobby-btn:disabled {
@@ -126,9 +115,9 @@
 }
 
 .lobby-btn.primary {
-    background: rgba(0, 229, 255, 0.08);
-    border-color: rgba(0, 229, 255, 0.4);
-    color: #00e5ff;
+    background: var(--color-cyan-08);
+    border-color: var(--color-cyan-40);
+    color: var(--color-cyan);
 }
 
 .lobby-btn.primary:hover {
@@ -137,14 +126,14 @@
 }
 
 .lobby-btn.danger {
-    color: #ff5050;
+    color: var(--color-red);
     border-color: rgba(255, 80, 80, 0.3);
 }
 
 .lobby-btn.danger:hover {
     background: rgba(255, 80, 80, 0.08);
     border-color: rgba(255, 80, 80, 0.6);
-    color: #ff5050;
+    color: var(--color-red);
 }
 
 .lobby-btn-row .lobby-btn {
@@ -189,15 +178,15 @@
 }
 
 .lobby-team {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-02);
     padding: 12px;
 }
 
 .lobby-team-header {
     font-size: 10px;
     letter-spacing: 3px;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-text-muted);
     text-transform: uppercase;
     margin-bottom: 10px;
     padding-bottom: 8px;
@@ -228,7 +217,7 @@
 
 .lobby-player-name {
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-text);
 }
 
 .lobby-player-tag {
@@ -267,19 +256,19 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     color: rgba(255, 255, 255, 0.5);
     cursor: pointer;
-    font-family: 'Courier New', monospace;
-    transition: border-color 0.12s, color 0.12s;
+    font-family: var(--font-ui);
+    transition: border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .lobby-swap-btn:hover {
-    border-color: rgba(0, 229, 255, 0.4);
-    color: #00e5ff;
+    border-color: var(--color-cyan-40);
+    color: var(--color-cyan);
 }
 
 /* ---- Config section ---- */
 .lobby-config {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-02);
     padding: 12px;
     margin-bottom: 20px;
 }
@@ -287,7 +276,7 @@
 .lobby-config-title {
     font-size: 10px;
     letter-spacing: 3px;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--color-text-muted);
     text-transform: uppercase;
     margin-bottom: 10px;
     padding-bottom: 8px;
@@ -310,9 +299,9 @@
     width: 80px;
     padding: 6px 8px;
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--color-border);
     color: #fff;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-ui);
     font-size: 12px;
     text-align: right;
     box-sizing: border-box;
@@ -320,7 +309,7 @@
 }
 
 .lobby-config input:focus {
-    border-color: rgba(0, 229, 255, 0.5);
+    border-color: var(--color-cyan-50);
 }
 
 .lobby-config input:disabled {
@@ -349,7 +338,7 @@
 }
 
 .lobby-status.countdown {
-    color: #00e5ff;
+    color: var(--color-cyan);
     font-size: 14px;
     letter-spacing: 4px;
 }
