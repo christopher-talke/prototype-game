@@ -17,7 +17,7 @@ export const directions: Record<string, string> = {
     right: 'right',
 };
 
-export const keys: Record<string, string | undefined> = {
+const keys: Record<string, string | undefined> = {
     w: directions.up,
     W: directions.up,
     a: directions.left,

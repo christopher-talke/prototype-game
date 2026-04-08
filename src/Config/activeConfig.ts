@@ -17,12 +17,8 @@ function deepMerge<T extends Record<string, any>>(base: T, activeConfig: T, part
     return result;
 }
 
-export function resolveConfig(partial: DeepPartial<GameModeConfig>): GameModeConfig {
-    return deepMerge(BASE_DEFAULTS, activeConfig, partial);
-}
-
 export function setGameMode(partial: DeepPartial<GameModeConfig>): void {
-    activeConfig = resolveConfig(partial);
+    activeConfig = deepMerge(BASE_DEFAULTS, activeConfig, partial);
 }
 
 export function getConfig(): GameModeConfig {

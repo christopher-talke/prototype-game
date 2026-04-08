@@ -2,7 +2,7 @@ import './lobby.css';
 import type { GameModeConfig, DeepPartial } from '../Config/types';
 import type { LobbyPlayer } from './Protocol';
 
-export type LobbyStateView = {
+type LobbyStateView = {
     host: number;
     players: LobbyPlayer[];
     config: GameModeConfig;
@@ -11,7 +11,7 @@ export type LobbyStateView = {
     roomCode?: string;
 };
 
-export type LobbyCallbacks = {
+type LobbyCallbacks = {
     onConnect: (serverUrl: string, name: string) => Promise<void>;
     onDisconnect: () => void;
     onBack: () => void;

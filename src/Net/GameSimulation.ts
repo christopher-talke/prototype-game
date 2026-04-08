@@ -11,7 +11,7 @@ import { getConfig } from '../Config/activeConfig';
 import { getPlayerInfo } from '../Globals/Players';
 
 // -- Simulation-only projectile state (no DOM) --
-export type SimProjectile = {
+type SimProjectile = {
     id: number;
     x: number;
     y: number;
@@ -25,7 +25,7 @@ export type SimProjectile = {
 };
 
 // -- Simulation-only grenade state (no DOM) --
-export type SimGrenade = {
+type SimGrenade = {
     id: number;
     type: GrenadeType;
     x: number;

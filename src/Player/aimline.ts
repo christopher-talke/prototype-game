@@ -21,14 +21,6 @@ const SPREAD_GROWTH_PER_SHOT = 0.4;
 const MAX_SPREAD_MULTIPLIER = 3;
 
 /**
- * Checks if the player is currently aiming down sights (ADS).
- * @returns True if ADS is active, false otherwise.
- */
-export function isADS(): boolean {
-    return adsActive;
-}
-
-/**
  * Initializes event listeners for aiming down sights (ADS) and tracking mouse movement for the aim line.
  * Right mouse button is used to toggle ADS, and mouse movement updates the position of the aim line.
  * This function should be called during game initialization to set up the necessary interactivity for aiming.
