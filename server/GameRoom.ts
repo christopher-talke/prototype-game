@@ -4,7 +4,7 @@ import { Arena } from '../src/Maps/arena.ts';
 import { BASE_DEFAULTS } from '../src/Config/defaults.ts';
 import { createDefaultWeapon } from '../src/Combat/weapons.ts';
 
-export type Connection = {
+type Connection = {
     id: string;
     send(message: string): void;
     close(): void;

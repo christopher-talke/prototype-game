@@ -32,7 +32,7 @@ export function createWall(wallInfo: wall_info) {
     return;
 }
 
-export function addWallToCollisions(element: HTMLElement) {
+function addWallToCollisions(element: HTMLElement) {
     const newCollisions = { ...environment.collisions };
 
     const coords = getElementCoordinates(element);

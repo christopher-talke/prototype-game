@@ -15,7 +15,7 @@ import { updateHUD, toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairP
 import { isPlayerDead } from '../Combat/damage';
 import { getWeaponDef } from '../Combat/weapons';
 import { updateAllAI } from '../AI/ai';
-import { setMouseWorldPosition, getMouseWorldPosition } from '../Combat/grenadeProjectiles';
+import { setMouseWorldPosition, getMouseWorldPosition } from '../Utilities/mouseWorldPosition';
 import { updateSmokeClouds } from '../Combat/smoke';
 import { clientRenderer } from '../Net/ClientRenderer';
 import { initADS, updateAimLine } from './aimline';

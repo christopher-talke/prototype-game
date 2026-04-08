@@ -201,7 +201,7 @@ export type PlayerInput =
 
 export type EventHandler = (event: GameEvent) => void;
 
-export class EventBus {
+class EventBus {
     private handlers: EventHandler[] = [];
 
     subscribe(handler: EventHandler): () => void {

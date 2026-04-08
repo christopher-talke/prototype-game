@@ -3,7 +3,6 @@ import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarEleme
 import { app } from '../Globals/App';
 import { HALF_HIT_BOX } from '../constants';
 import { createDefaultWeapon } from '../Combat/weapons';
-export { PLAYER_HIT_BOX, FOV } from '../constants';
 
 // Cached child references to avoid querySelector per updateHealthBar call
 const healthBarChildren = new Map<number, { bar: HTMLElement; armor: HTMLElement }>();

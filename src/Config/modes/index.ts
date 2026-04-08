@@ -1,7 +1,7 @@
 import type { DeepPartial } from '../types';
 import type { GameModeConfig } from '../types';
 
-export interface ModeEntry {
+interface ModeEntry {
     id: string;
     name: string;
     description: string;

@@ -28,7 +28,7 @@ export function getWallAABBs(): readonly { x: number; y: number; w: number; h: n
  * @param py The y-coordinate of the point.
  * @returns True if the point collides with a wall, false otherwise.
  */
-export function collidesWithWall(px: number, py: number): boolean {
+function collidesWithWall(px: number, py: number): boolean {
     const cx = px + COLLISION_MARGIN;
     const cy = py + COLLISION_MARGIN;
     for (const wall of wallAABBs) {

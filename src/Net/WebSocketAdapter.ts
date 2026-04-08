@@ -18,7 +18,7 @@ type InterpTarget = { x: number; y: number; rotation: number };
 
 const MOVE_SEND_INTERVAL = 1000 / 60; // 60 inputs/sec - match frame rate so prediction speed equals server speed
 
-export class WebSocketAdapter implements NetAdapter {
+class WebSocketAdapter implements NetAdapter {
     readonly mode = 'online' as const;
 
     private ws: WebSocket | null = null;

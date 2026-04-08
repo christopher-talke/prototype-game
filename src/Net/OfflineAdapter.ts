@@ -7,7 +7,7 @@ import { gameEventBus } from './GameEvent';
 import { AuthoritativeSimulation } from './AuthoritativeSimulation';
 import { playFootstep } from '../Audio/audio';
 
-export class OfflineAdapter implements NetAdapter {
+class OfflineAdapter implements NetAdapter {
     readonly mode = 'offline' as const;
     readonly authSim = new AuthoritativeSimulation();
 
