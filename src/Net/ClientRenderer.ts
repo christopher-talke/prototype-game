@@ -4,10 +4,11 @@
 import '../Combat/combat.css';
 import '../Combat/grenade.css';
 import { gameEventBus, type GameEvent } from './GameEvent';
-import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent } from './GameEvent';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent } from './GameEvent';
 import { acquireProjectile, releaseProjectile } from '../Combat/ProjectilePool';
-import { ACTIVE_PLAYER, getAllPlayers, getPlayerElement, getPlayerInfo, getHealthBarElement, clearPlayerData } from '../Globals/Players';
-import { updateHealthBar, positionHealthBar } from '../Player/player';
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerElement, getPlayerInfo, getHealthBarElement, getNametagElement, clearPlayerData } from '../Globals/Players';
+import { updateHealthBar, positionHealthBar, positionNametag } from '../Player/player';
+import { PlayerStatus } from '../Player/player';
 import { removeLastKnownForPlayer } from '../Player/lineOfSight';
 import { playSoundAtPlayer, playSound } from '../Audio/audio';
 import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
@@ -19,6 +20,7 @@ import { app } from '../Globals/App';
 import { getConfig } from '../Config/activeConfig';
 import { getAdapter } from './activeAdapter';
 import { cssTransform } from '../Rendering/cssTransform';
+import { HALF_HIT_BOX } from '../constants';
 
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
@@ -30,6 +32,8 @@ class ClientRendererImpl {
     
     // Last written transform per remote player to skip redundant DOM writes
     private lastPlayerTransform = new Map<number, string>();
+    private statusLabels = new Map<number, { el: HTMLElement; timer: ReturnType<typeof setTimeout> | null }>();
+    private lastWeaponType = new Map<number, string>();
     private initialized = false;
 
     init() {
@@ -91,6 +95,9 @@ class ClientRendererImpl {
             case 'RELOAD_START':
                 this.onReloadStart(event);
                 break;
+            case 'PLAYER_STATUS_CHANGED':
+                this.onPlayerStatusChanged(event);
+                break;
         }
     }
 
@@ -120,6 +127,19 @@ class ClientRendererImpl {
                     el.style.transform = transform;
                     const hbEl = getHealthBarElement(player.id);
                     if (hbEl) positionHealthBar(hbEl, player);
+                    const ntEl = getNametagElement(player.id);
+                    if (ntEl) positionNametag(ntEl, player);
+                    const labelEntry = this.statusLabels.get(player.id);
+                    if (labelEntry) {
+                        labelEntry.el.style.transform = cssTransform(pos.x + HALF_HIT_BOX, pos.y - 24);
+                    }
+                }
+                // Update weapon icon data attribute
+                const activeWeapon = player.weapons.find(w => w.active);
+                const weaponType = activeWeapon ? activeWeapon.type : '';
+                if (this.lastWeaponType.get(player.id) !== weaponType) {
+                    this.lastWeaponType.set(player.id, weaponType);
+                    el.dataset.weapon = weaponType;
                 }
             }
         }
@@ -324,6 +344,59 @@ class ClientRendererImpl {
         }
         this.corpseMarkers.length = 0;
         this.detonatedGrenades.clear();
+        for (const [id] of this.statusLabels) {
+            this.removeStatusLabel(id);
+        }
+    }
+
+    // -- Player status labels --
+
+    private static readonly STATUS_DISPLAY: Partial<Record<PlayerStatus, string>> = {
+        [PlayerStatus.RELOADING]: 'RELOADING',
+        [PlayerStatus.BUYING]: 'BUYING',
+        [PlayerStatus.THROWING_FRAG]: 'FRAG OUT',
+        [PlayerStatus.THROWING_FLASH]: 'FLASH OUT',
+        [PlayerStatus.THROWING_SMOKE]: 'SMOKE OUT',
+        [PlayerStatus.PLACING_C4]: 'PLANTING C4',
+        [PlayerStatus.DEAD]: 'DEAD',
+    };
+
+    private removeStatusLabel(playerId: number) {
+        const existing = this.statusLabels.get(playerId);
+        if (existing) {
+            if (existing.timer) clearTimeout(existing.timer);
+            existing.el.remove();
+            this.statusLabels.delete(playerId);
+        }
+    }
+
+    private onPlayerStatusChanged(event: PlayerStatusChangedEvent) {
+        this.removeStatusLabel(event.playerId);
+
+        const displayText = ClientRendererImpl.STATUS_DISPLAY[event.status];
+        if (!displayText) return;
+
+        const player = getPlayerInfo(event.playerId);
+        if (!player) return;
+
+        const label = document.createElement('div');
+        label.classList.add('player-status-label');
+        label.setAttribute('data-status', event.status);
+        label.textContent = displayText;
+        label.style.transform = cssTransform(
+            player.current_position.x + HALF_HIT_BOX,
+            player.current_position.y - 24,
+        );
+        app.appendChild(label);
+
+        // BUYING persists until menu closes; DEAD gets longer display; others fade
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        if (event.status !== PlayerStatus.BUYING) {
+            const duration = event.status === PlayerStatus.DEAD ? 2000 : 1500;
+            timer = setTimeout(() => this.removeStatusLabel(event.playerId), duration);
+        }
+
+        this.statusLabels.set(event.playerId, { el: label, timer });
     }
 
     // -- Helpers --
@@ -379,9 +452,13 @@ class ClientRendererImpl {
             if (el) el.remove();
             const hb = getHealthBarElement(playerId);
             if (hb) hb.remove();
+            const nt = getNametagElement(playerId);
+            if (nt) nt.remove();
+            this.removeStatusLabel(playerId);
         }
         clearPlayerData();
         this.lastPlayerTransform.clear();
+        this.lastWeaponType.clear();
     }
 }
 

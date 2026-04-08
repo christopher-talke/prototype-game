@@ -382,8 +382,10 @@ export function toggleBuyMenu(playerInfo: player_info) {
     if (buyMenuOpen) {
         renderBuyMenu(playerInfo);
         buyMenu.classList.add('open');
+        getAdapter().sendInput({ type: 'OPEN_BUY_MENU', playerId: playerInfo.id });
     } else {
         buyMenu.classList.remove('open');
+        getAdapter().sendInput({ type: 'CLOSE_BUY_MENU', playerId: playerInfo.id });
     }
 }
 
@@ -392,8 +394,14 @@ export function isBuyMenuOpen(): boolean {
 }
 
 export function closeBuyMenu() {
-    buyMenuOpen = false;
-    buyMenu.classList.remove('open');
+    if (buyMenuOpen) {
+        buyMenuOpen = false;
+        buyMenu.classList.remove('open');
+        if (ACTIVE_PLAYER != null) {
+            const playerInfo = getPlayerInfo(ACTIVE_PLAYER);
+            if (playerInfo) getAdapter().sendInput({ type: 'CLOSE_BUY_MENU', playerId: playerInfo.id });
+        }
+    }
 }
 
 function renderBuyMenu(playerInfo: player_info) {

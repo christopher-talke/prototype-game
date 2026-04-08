@@ -2,7 +2,8 @@
 // Consolidates all game logic: movement, weapons, grenades, projectiles, match state, respawns.
 // Can run on client (offline) or server (online).
 
-import type { GameEvent, PlayerInput } from './GameEvent';
+import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from './GameEvent';
+import { PlayerStatus } from '../Player/player';
 import { GameSimulation } from './GameSimulation';
 import { getWeaponDef, createDefaultWeapon } from '../Combat/weapons';
 import { getGrenadeDef } from '../Combat/grenades';
@@ -203,6 +204,14 @@ export class AuthoritativeSimulation {
         return { x, y };
     }
 
+    // -- Status change helper --
+
+    private emitStatusChange(player: player_info, newStatus: PlayerStatus): PlayerStatusChangedEvent {
+        const prev = player.status;
+        player.status = newStatus;
+        return { type: 'PLAYER_STATUS_CHANGED', playerId: player.id, status: newStatus, previousStatus: prev };
+    }
+
     // -- Input processing --
 
     processInput(input: PlayerInput, timestamp: number): GameEvent[] {
@@ -251,6 +260,12 @@ export class AuthoritativeSimulation {
                 this.buyArmor(input.playerId);
                 events = [];
                 break;
+            case 'OPEN_BUY_MENU':
+                events = [this.emitStatusChange(player, PlayerStatus.BUYING)];
+                break;
+            case 'CLOSE_BUY_MENU':
+                events = [this.emitStatusChange(player, PlayerStatus.IDLE)];
+                break;
         }
         return this.postProcessEvents(events, timestamp);
     }
@@ -279,18 +294,20 @@ export class AuthoritativeSimulation {
         const weaponDef = getWeaponDef(weapon.type);
 
         // Shell-by-shell reload can be interrupted by firing
+        const interruptEvents: GameEvent[] = [];
         if (weapon.reloading) {
             if (weaponDef.shellReloadTime && weapon.ammo > 0) {
                 weapon.reloading = false;
                 ws.nextShellTime = 0;
+                interruptEvents.push(this.emitStatusChange(player, PlayerStatus.IDLE));
             } else {
                 return [];
             }
         }
 
-        if (timestamp - ws.lastFireTime < weaponDef.fireRate) return [];
+        if (timestamp - ws.lastFireTime < weaponDef.fireRate) return interruptEvents;
         if (weapon.ammo <= 0) {
-            return this.processReload(player, timestamp);
+            return [...interruptEvents, ...this.processReload(player, timestamp)];
         }
 
         ws.lastFireTime = timestamp;
@@ -325,7 +342,7 @@ export class AuthoritativeSimulation {
             events.push(...this.processReload(player, timestamp));
         }
 
-        return events;
+        return [...interruptEvents, ...events];
     }
 
     private processReload(player: player_info, timestamp: number): GameEvent[] {
@@ -344,7 +361,10 @@ export class AuthoritativeSimulation {
             ws.reloadStartTime = timestamp;
         }
 
-        return [{ type: 'RELOAD_START', playerId: player.id }];
+        return [
+            { type: 'RELOAD_START', playerId: player.id },
+            this.emitStatusChange(player, PlayerStatus.RELOADING),
+        ];
     }
 
     private processSwitchWeapon(player: player_info, index: number): GameEvent[] {
@@ -364,6 +384,13 @@ export class AuthoritativeSimulation {
         player.weapons[index].active = true;
         return [];
     }
+
+    private static readonly GRENADE_STATUS_MAP: Record<GrenadeType, PlayerStatus> = {
+        FRAG: PlayerStatus.THROWING_FRAG,
+        FLASH: PlayerStatus.THROWING_FLASH,
+        SMOKE: PlayerStatus.THROWING_SMOKE,
+        C4: PlayerStatus.PLACING_C4,
+    };
 
     private processThrowGrenade(player: player_info, type: GrenadeType, chargePercent: number, aimDx: number, aimDy: number, timestamp: number): GameEvent[] {
         if (player.grenades[type] <= 0) return [];
@@ -388,7 +415,9 @@ export class AuthoritativeSimulation {
             speed = def.throwSpeed * chargeFraction;
         }
 
-        return this.simulation.throwGrenade(type, player.id, cx, cy, dx, dy, speed, timestamp);
+        const events = this.simulation.throwGrenade(type, player.id, cx, cy, dx, dy, speed, timestamp);
+        events.push(this.emitStatusChange(player, AuthoritativeSimulation.GRENADE_STATUS_MAP[type]));
+        return events;
     }
 
     private processBuyWeapon(player: player_info, weaponType: string): GameEvent[] {
@@ -557,6 +586,8 @@ export class AuthoritativeSimulation {
             if (event.type === 'PLAYER_KILLED') {
                 extra.push(...this.recordKill(event.killerId, event.targetId));
                 this.notifyPlayerDeath(event.targetId, timestamp);
+                const victim = this.playerMap.get(event.targetId);
+                if (victim) extra.push(this.emitStatusChange(victim, PlayerStatus.DEAD));
             }
         }
         if (extra.length > 0) events.push(...extra);
@@ -644,6 +675,7 @@ export class AuthoritativeSimulation {
                         weapon.reloading = false;
                         ws.nextShellTime = 0;
                         events.push({ type: 'RELOAD_COMPLETE', playerId: player.id, ammo: weapon.ammo });
+                        events.push(this.emitStatusChange(player, PlayerStatus.IDLE));
                     }
                 }
             } else {
@@ -653,6 +685,7 @@ export class AuthoritativeSimulation {
                     weapon.reloading = false;
                     ws.reloadStartTime = 0;
                     events.push({ type: 'RELOAD_COMPLETE', playerId: player.id, ammo: weapon.ammo });
+                    events.push(this.emitStatusChange(player, PlayerStatus.IDLE));
                 }
             }
         }
@@ -721,6 +754,7 @@ export class AuthoritativeSimulation {
                 y: spawn.y,
                 rotation: player.current_position.rotation,
             },
+            this.emitStatusChange(player, PlayerStatus.IDLE),
         ];
     }
 
@@ -790,6 +824,7 @@ export class AuthoritativeSimulation {
             player.health = getConfig().player.maxHealth;
             player.armour = getConfig().player.startingArmor;
             player.dead = false;
+            player.status = PlayerStatus.IDLE;
             player.current_position.x = spawn.x;
             player.current_position.y = spawn.y;
             player.weapons = [createDefaultWeapon()];

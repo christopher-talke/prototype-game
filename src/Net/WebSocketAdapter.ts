@@ -510,6 +510,11 @@ class WebSocketAdapter implements NetAdapter {
                     if (g) g.detonated = true;
                     if (event.type === 'GRENADE_REMOVED') this._localGrenades.delete(gId);
                     break;
+
+                case 'PLAYER_STATUS_CHANGED':
+                    const statusPlayer = getPlayerInfo(event.playerId);
+                    if (statusPlayer) statusPlayer.status = event.status;
+                    break;
             }
         }
         

@@ -1,4 +1,4 @@
-import { createPlayer, generatePlayers } from '../Player/player';
+import { createPlayer, generatePlayers, PlayerStatus } from '../Player/player';
 import { setActivePlayer, getAllPlayers } from '../Globals/Players';
 import { clientRenderer } from '../Net/ClientRenderer';
 import { registerAI, clearAllAI } from '../AI/ai';
@@ -46,6 +46,7 @@ export function initMatchSystem() {
             name: snapshot.name,
             team: snapshot.team,
             current_position: { x: snapshot.x, y: snapshot.y, rotation: snapshot.rotation },
+            status: PlayerStatus.IDLE,
             health: snapshot.health,
             armour: snapshot.armour,
             dead: snapshot.dead,
@@ -82,6 +83,7 @@ function spawnOnlinePlayers() {
                 name: sp.name,
                 team: sp.team,
                 current_position: { x: sp.x, y: sp.y, rotation: sp.rotation },
+                status: PlayerStatus.IDLE,
                 health: sp.health,
                 armour: sp.armour,
                 dead: sp.dead,
@@ -103,6 +105,7 @@ function spawnOnlinePlayers() {
             name: lp.name,
             team: lp.team,
             current_position: { x: spawn.x, y: spawn.y, rotation: 0 },
+            status: PlayerStatus.IDLE,
             health: getConfig().player.maxHealth,
             armour: 0,
             dead: false,

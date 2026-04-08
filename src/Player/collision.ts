@@ -18,6 +18,10 @@ export function registerWallAABB(x: number, y: number, w: number, h: number) {
     wallAABBs.push({ x, y, w, h });
 }
 
+/**
+ * Returns a readonly array of all registered wall axis-aligned bounding boxes (AABBs).
+ * @returns An array of wall AABBs.
+ */
 export function getWallAABBs(): readonly { x: number; y: number; w: number; h: number }[] {
     return wallAABBs;
 }
@@ -39,6 +43,14 @@ function collidesWithWall(px: number, py: number): boolean {
     return false;
 }
 
+/**
+ * Checks if a point collides with any other player's axis-aligned bounding box (AABB).
+ * @param px The x-coordinate of the point.
+ * @param py The y-coordinate of the point.
+ * @param excludeId The ID of the player to exclude from collision checks.
+ * @param players The array of all players.
+ * @returns True if the point collides with another player, false otherwise.
+ */
 function collidesWithPlayer(px: number, py: number, excludeId: number, players: player_info[]): boolean {
     const cx = px + COLLISION_MARGIN;
     const cy = py + COLLISION_MARGIN;
@@ -53,6 +65,16 @@ function collidesWithPlayer(px: number, py: number, excludeId: number, players: 
     return false;
 }
 
+/**
+ * Moves a point with collision detection against walls and optionally other players.
+ * @param currentX The current x-coordinate of the point.
+ * @param currentY The current y-coordinate of the point.
+ * @param dx The change in x-coordinate.
+ * @param dy The change in y-coordinate.
+ * @param excludeId The ID of the player to exclude from collision checks.
+ * @param players The array of all players.
+ * @returns The new coordinates of the point after applying movement and collision detection.
+ */
 export function moveWithCollision(currentX: number, currentY: number, dx: number, dy: number, excludeId?: number, players?: player_info[]): { x: number; y: number } {
     const collides = excludeId !== undefined && players
         ? (px: number, py: number) => collidesWithWall(px, py) || collidesWithPlayer(px, py, excludeId, players)

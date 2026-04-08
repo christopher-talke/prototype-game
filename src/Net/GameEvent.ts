@@ -26,7 +26,9 @@ export type GameEvent =
     | RoundEndEvent
     // Reload
     | ReloadStartEvent
-    | ReloadCompleteEvent;
+    | ReloadCompleteEvent
+    // Player status
+    | PlayerStatusChangedEvent;
 
 // -- Projectile events --
 
@@ -181,6 +183,17 @@ export type ReloadCompleteEvent = {
     ammo: number;
 };
 
+// -- Player status events --
+
+import { PlayerStatus } from '../Player/player';
+
+export type PlayerStatusChangedEvent = {
+    type: 'PLAYER_STATUS_CHANGED';
+    playerId: number;
+    status: PlayerStatus;
+    previousStatus: PlayerStatus;
+};
+
 // -- Player input (what the client sends to the server) --
 
 export type PlayerInput =
@@ -195,7 +208,9 @@ export type PlayerInput =
     | { type: 'BUY_WEAPON'; playerId: number; weaponType: string }
     | { type: 'BUY_GRENADE'; playerId: number; grenadeType: GrenadeType }
     | { type: 'BUY_HEALTH'; playerId: number }
-    | { type: 'BUY_ARMOR'; playerId: number };
+    | { type: 'BUY_ARMOR'; playerId: number }
+    | { type: 'OPEN_BUY_MENU'; playerId: number }
+    | { type: 'CLOSE_BUY_MENU'; playerId: number };
 
 // -- Event bus --
 

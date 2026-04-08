@@ -2,6 +2,7 @@ const PLAYERS = [] as player_info[];
 const PLAYERS_MAP = new Map<number, player_info>();
 const PLAYER_ELEMENTS = new Map<number, HTMLElement>();
 const HEALTH_BAR_ELEMENTS = new Map<number, HTMLElement>();
+const NAMETAG_ELEMENTS = new Map<number, HTMLElement>();
 export let ACTIVE_PLAYER = null as null | number;
 
 export function addPlayer(player_info: player_info) {
@@ -25,6 +26,14 @@ export function registerHealthBarElement(playerId: number, element: HTMLElement)
 
 export function getHealthBarElement(playerId: number): HTMLElement | undefined {
     return HEALTH_BAR_ELEMENTS.get(playerId);
+}
+
+export function registerNametagElement(playerId: number, element: HTMLElement) {
+    NAMETAG_ELEMENTS.set(playerId, element);
+}
+
+export function getNametagElement(playerId: number): HTMLElement | undefined {
+    return NAMETAG_ELEMENTS.get(playerId);
 }
 
 export function* iterOtherPlayers(excludeId: number): Generator<player_info> {
@@ -56,5 +65,6 @@ export function clearPlayerData() {
     PLAYERS_MAP.clear();
     PLAYER_ELEMENTS.clear();
     HEALTH_BAR_ELEMENTS.clear();
+    NAMETAG_ELEMENTS.clear();
     ACTIVE_PLAYER = null;
 }

@@ -4,7 +4,8 @@
         "useDefineForClassFields": true,
         "module": "ESNext",
         "lib": ["ESNext", "DOM", "WebWorker"],
-        "moduleResolution": "Node",
+        "ignoreDeprecations": "6.0",
+        "moduleResolution": "Node", 
         "strict": true,
         "resolveJsonModule": true,
         "isolatedModules": true,
@@ -14,6 +15,6 @@
         "noUnusedParameters": true,
         "noImplicitReturns": true,
         "skipLibCheck": true
-    }
-    // "include": ["src"]
+    },
+    "include": ["src"]
 }

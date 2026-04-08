@@ -9,6 +9,7 @@ import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { getConfig } from '../Config/activeConfig';
 import { getActiveMap } from '../Maps/helpers';
 import { offlineAdapter } from '../Net/OfflineAdapter';
+import { getGrenadeDef, GRENADE_DEFS, isGrenadeAllowed } from '../Combat/grenades';
 
 const STUCK_THRESHOLD = 0.5;
 const STUCK_FRAMES_BEFORE_REROUTE = 15;
@@ -116,6 +117,7 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
     // Try to buy a better weapon once
     if (!ai.hasBought) {
         tryBuyWeapon(ai);
+        tryBuyGrenade(ai);
     }
 
     // Stuck detection
@@ -264,7 +266,9 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
 
     if (dist > 200) {
         moveToward(ai, tx, ty, getConfig().ai.speed);
-    } else if (dist < 100) {
+    } 
+    
+    else if (dist < 100) {
         moveToward(ai, tx, ty, -getConfig().ai.speed * 0.5);
     }
 
@@ -289,6 +293,11 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
 
     if (Math.abs(diff) < getConfig().ai.fireCone) {
         tryAIFire(ai, timestamp);
+    }
+
+    // Try to throw a grenade if we have one and are close enough
+    if (dist < 300) {
+        tryAiThrowGrenade(ai, target);
     }
 }
 
@@ -365,6 +374,52 @@ function tryAIFire(ai: AIController, timestamp: number) {
     // Send fire input - AuthoritativeSimulation handles fire rate, ammo, recoil
     // Sound is played by ClientRenderer.onBulletSpawn
     offlineAdapter.sendInput({ type: 'FIRE', playerId: me.id, timestamp });
+}
+
+function tryAiThrowGrenade(ai: AIController, enemy: player_info) {
+    const me = ai.player;
+
+    if (Math.random() < 0.5 && me.grenades['FLASH'] > 0) {
+        if (isGrenadeAllowed('FLASH')) return;
+        offlineAdapter.sendInput({ 
+            type: 'THROW_GRENADE', 
+            playerId: me.id, 
+            grenadeType: 'FLASH', 
+            chargePercent: 1.0, 
+            aimDx: enemy.current_position.x - me.current_position.x, 
+            aimDy: enemy.current_position.y - me.current_position.y 
+        });
+        return;
+    }
+
+    else if (me.grenades['FRAG'] > 0) {
+        if (isGrenadeAllowed('FRAG')) return;
+        offlineAdapter.sendInput({ 
+            type: 'THROW_GRENADE', 
+            playerId: me.id, 
+            grenadeType: 'FRAG', 
+            chargePercent: 1.0, 
+            aimDx: enemy.current_position.x - me.current_position.x, 
+            aimDy: enemy.current_position.y - me.current_position.y 
+        });
+        return;
+    }
+
+
+};
+
+function tryBuyGrenade(ai: AIController) {
+    const state = offlineAdapter.authSim.getPlayerState(ai.player.id);
+    if (!state) return;
+
+    for (const grenadeType of ['FRAG', 'FLASH', 'SMOKE'] as GrenadeType[]) {
+        if (!isGrenadeAllowed(grenadeType)) continue;
+        const def = getGrenadeDef(grenadeType);
+        if (state.money >= def.price) {
+            offlineAdapter.sendInput({ type: 'BUY_GRENADE', playerId: ai.player.id, grenadeType });
+            return;
+        }
+    }
 }
 
 function tryBuyWeapon(ai: AIController) {
