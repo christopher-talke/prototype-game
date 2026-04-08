@@ -131,7 +131,7 @@ class ClientRendererImpl {
                     if (ntEl) positionNametag(ntEl, player);
                     const labelEntry = this.statusLabels.get(player.id);
                     if (labelEntry) {
-                        labelEntry.el.style.transform = cssTransform(pos.x + HALF_HIT_BOX, pos.y - 24);
+                        labelEntry.el.style.transform = cssTransform(pos.x + HALF_HIT_BOX, pos.y - 52);
                     }
                 }
                 // Update weapon icon data attribute
@@ -141,6 +141,9 @@ class ClientRendererImpl {
                     this.lastWeaponType.set(player.id, weaponType);
                     el.dataset.weapon = weaponType;
                 }
+                // Flip gun icon when facing left half (90°–270°) to avoid upside-down grip
+                const rot = ((pos.rotation % 360) + 360) % 360;
+                el.classList.toggle('weapon-flip', rot > 180 && rot < 360);
             }
         }
     }
@@ -385,7 +388,7 @@ class ClientRendererImpl {
         label.textContent = displayText;
         label.style.transform = cssTransform(
             player.current_position.x + HALF_HIT_BOX,
-            player.current_position.y - 24,
+            player.current_position.y - 52,
         );
         app.appendChild(label);
 

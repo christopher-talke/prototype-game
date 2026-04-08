@@ -53,7 +53,9 @@ export function initMatchSystem() {
             weapons: snapshot.weapons,
             grenades: snapshot.grenades,
         };
-        createPlayer(info, false);
+        const localId = webSocketAdapter.getLocalPlayerId();
+        const localPlayer = localId != null ? getAllPlayers().find(p => p.id === localId) : undefined;
+        createPlayer(info, false, localPlayer?.team);
     };
 }
 
@@ -62,8 +64,9 @@ function spawnOfflinePlayers() {
 
     console.log(`fnc: spawnOfflinePlayers", config:`, config);
     const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, ACTIVE_MAP.teamSpawns);
+    const localTeam = players.find(p => p.id === 1)?.team;
     for (const player of players) {
-        createPlayer(player, player.id === 1);
+        createPlayer(player, player.id === 1, localTeam);
         if (player.id !== 1) {
             registerAI(player);
         }
@@ -77,6 +80,7 @@ function spawnOnlinePlayers() {
 
     const lateJoinPlayers = webSocketAdapter.getLateJoinPlayers();
     if (lateJoinPlayers) {
+        const localTeam = lateJoinPlayers.find(sp => sp.id === localId)?.team;
         for (const sp of lateJoinPlayers) {
             const info: player_info = {
                 id: sp.id,
@@ -90,13 +94,14 @@ function spawnOnlinePlayers() {
                 weapons: sp.weapons,
                 grenades: sp.grenades,
             };
-            createPlayer(info, sp.id === localId);
+            createPlayer(info, sp.id === localId, localTeam);
         }
         return;
     }
 
     const lobby = getLobbyState();
     if (!lobby) return;
+    const localTeam = lobby.players.find(lp => lp.id === localId)?.team;
     for (const lp of lobby.players) {
         const spawns = ACTIVE_MAP.teamSpawns[lp.team] ?? Object.values(ACTIVE_MAP.teamSpawns).flat();
         const spawn = spawns[0];
@@ -112,7 +117,7 @@ function spawnOnlinePlayers() {
             weapons: [createDefaultWeapon()],
             grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
         };
-        createPlayer(info, lp.id === localId);
+        createPlayer(info, lp.id === localId, localTeam);
     }
 }
 

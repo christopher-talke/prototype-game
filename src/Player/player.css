@@ -5,17 +5,18 @@
     width: 42px;
     border-radius: 25px;
     opacity: 0;
-    contain: layout style paint;
+    contain: layout style;
     will-change: opacity;
 }
 
 .player::after {
     content: '';
     position: absolute;
-    top: -6px;
-    left: 21px;
-    height: 12px;
-    width: 1px;
+    top: -5px;
+    left: 20px;
+    height: 8px;
+    width: 2px;
+    z-index: 1;
 }
 
 .player.visible {
@@ -259,12 +260,12 @@
     pointer-events: none;
     translate: -50% 0;
     font-family: 'Courier New', monospace;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: bold;
     color: #ddd;
-    text-shadow: 0 0 3px #000, 1px 1px 0 #000;
+    text-shadow: 0 0 4px #000, 1px 1px 0 #000;
     white-space: nowrap;
-    opacity: 0.8;
+    opacity: 0.9;
     z-index: 180;
 }
 
@@ -276,15 +277,20 @@
     font-family: 'Courier New', monospace;
     font-size: 11px;
     font-weight: bold;
-    color: #ffcc00;
-    text-shadow: 0 0 4px #000, 1px 1px 0 #000;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.6);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     translate: -50% 0;
     white-space: nowrap;
     animation: status-fade 1.5s ease-out forwards;
 }
 
 .player-status-label[data-status="DEAD"] {
-    color: #ff4040;
+    color: rgba(255, 80, 80, 0.9);
+    border-color: rgba(255, 80, 80, 0.25);
     animation-duration: 2s;
 }
 
@@ -299,50 +305,49 @@
     100% { opacity: 0; }
 }
 
-/* Weapon icon via ::before pseudo-element */
+/* Weapon icon centered inside player circle via ::before */
 .player::before {
     content: '';
     position: absolute;
-    left: 50%;
-    bottom: -16px;
-    translate: -50% 0;
-    width: 20px;
-    height: 10px;
-    background-color: #ccc;
-    mask-size: contain;
+    inset: 0;
+    background-color: var(--team-color, #fff);
+    mask-size: 65%;
     mask-repeat: no-repeat;
     mask-position: center;
-    -webkit-mask-size: contain;
+    -webkit-mask-size: 65%;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-position: center;
     pointer-events: none;
-    opacity: 0.7;
+    opacity: 0.75;
+    /* SVG barrels point right; player faces up (::after indicator). Rotate to align. */
+    transform: rotate(-90deg);
+}
+
+.player.weapon-flip::before {
+    transform: rotate(-90deg) scaleY(-1);
 }
 
 .player[data-weapon="PISTOL"]::before {
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Cpath d='M4 2h12v4h-4v4h-4v4H4v-4H2V6h2z' fill='%23fff'/%3E%3C/svg%3E");
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16'%3E%3Cpath d='M4 2h12v4h-4v4h-4v4H4v-4H2V6h2z' fill='%23fff'/%3E%3C/svg%3E");
+    mask-image: url('/icons/weapons/pistol.svg');
+    -webkit-mask-image: url('/icons/weapons/pistol.svg');
 }
 
 .player[data-weapon="SMG"]::before {
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 12'%3E%3Cpath d='M2 3h16v3h4v2h-4v1H8v2H5V9H2z' fill='%23fff'/%3E%3C/svg%3E");
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 12'%3E%3Cpath d='M2 3h16v3h4v2h-4v1H8v2H5V9H2z' fill='%23fff'/%3E%3C/svg%3E");
+    mask-image: url('/icons/weapons/smg.svg');
+    -webkit-mask-image: url('/icons/weapons/smg.svg');
 }
 
 .player[data-weapon="RIFLE"]::before {
-    width: 24px;
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 12'%3E%3Cpath d='M1 4h20v2h5v2h-5v1H10v2H7V9H1z' fill='%23fff'/%3E%3C/svg%3E");
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 12'%3E%3Cpath d='M1 4h20v2h5v2h-5v1H10v2H7V9H1z' fill='%23fff'/%3E%3C/svg%3E");
+    mask-image: url('/icons/weapons/rifle.svg');
+    -webkit-mask-image: url('/icons/weapons/rifle.svg');
 }
 
 .player[data-weapon="SHOTGUN"]::before {
-    width: 24px;
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 10'%3E%3Cpath d='M1 3h22v2h3v2H20v2H8V7H1z' fill='%23fff'/%3E%3C/svg%3E");
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 10'%3E%3Cpath d='M1 3h22v2h3v2H20v2H8V7H1z' fill='%23fff'/%3E%3C/svg%3E");
+    mask-image: url('/icons/weapons/shotgun.svg');
+    -webkit-mask-image: url('/icons/weapons/shotgun.svg');
 }
 
 .player[data-weapon="SNIPER"]::before {
-    width: 26px;
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 10'%3E%3Cpath d='M1 4h24v1h3v2h-3v1H12v1H9V8H1z' fill='%23fff'/%3E%3C/svg%3E");
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 10'%3E%3Cpath d='M1 4h24v1h3v2h-3v1H12v1H9V8H1z' fill='%23fff'/%3E%3C/svg%3E");
+    mask-image: url('/icons/weapons/sniper.svg');
+    -webkit-mask-image: url('/icons/weapons/sniper.svg');
 }

@@ -38,7 +38,7 @@ export const directions: Record<string, string> = {
  * @param controllable Whether the player is controllable by the local user.
  * @returns The created player entity.
  */
-export function createPlayer(playerInfo: player_info, controllable: boolean = false) {
+export function createPlayer(playerInfo: player_info, controllable: boolean = false, localTeam?: number) {
     const newPlayerEntity = window.document.createElement('div');
     const newPlayerIdentifier = playerInfo.id;
 
@@ -75,12 +75,15 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
         registerHealthBarElement(playerInfo.id, wrap);
         healthBarChildren.set(playerInfo.id, { bar, armor });
 
-        const nameTag = document.createElement('div');
-        nameTag.classList.add('player-nametag');
-        nameTag.textContent = playerInfo.name;
-        app.appendChild(nameTag);
-        positionNametag(nameTag, playerInfo);
-        registerNametagElement(playerInfo.id, nameTag);
+        const sameTeam = localTeam != null && localTeam === playerInfo.team;
+        if (sameTeam) {
+            const nameTag = document.createElement('div');
+            nameTag.classList.add('player-nametag');
+            nameTag.textContent = playerInfo.name;
+            app.appendChild(nameTag);
+            positionNametag(nameTag, playerInfo);
+            registerNametagElement(playerInfo.id, nameTag);
+        }
     }
 
     return newPlayerEntity;
@@ -99,7 +102,7 @@ export function positionHealthBar(wrap: HTMLElement, playerInfo: player_info) {
 
 export function positionNametag(el: HTMLElement, playerInfo: player_info) {
     const x = playerInfo.current_position.x + HALF_HIT_BOX;
-    const y = playerInfo.current_position.y - 24;
+    const y = playerInfo.current_position.y - 36;
     el.style.transform = cssTransform(x, y);
 }
 
