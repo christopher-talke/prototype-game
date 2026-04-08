@@ -1,5 +1,6 @@
 import { createPlayer, generatePlayers } from '../Player/player';
-import { setActivePlayer, clearAllPlayers, getAllPlayers } from '../Globals/Players';
+import { setActivePlayer, getAllPlayers } from '../Globals/Players';
+import { clientRenderer } from '../Net/ClientRenderer';
 import { registerAI, clearAllAI } from '../AI/ai';
 import { getConfig, setGameMode } from '../Config/activeConfig';
 import { GAME_MODES_MAP } from '../Config/modes/index';
@@ -114,7 +115,7 @@ function spawnOnlinePlayers() {
 
 function destroyAllPlayers() {
     clearAllAI();
-    clearAllPlayers();
+    clientRenderer.clearPlayers();
 }
 
 export function launchMatch(modeId: string) {

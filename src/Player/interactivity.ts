@@ -20,19 +20,11 @@ import { updateSmokeClouds } from '../Combat/smoke';
 import { clientRenderer } from '../Net/ClientRenderer';
 import { initADS, updateAimLine } from './aimline';
 import { getConfig } from '../Config/activeConfig';
-
-// Camera aim offset (lerped)
-let currentOffsetX = 0;
-let currentOffsetY = 0;
-
-// Camera scroll throttling
-let lastScrollX = NaN;
-let lastScrollY = NaN;
+import { setCameraTarget, setCameraWeaponOffset, updateCamera } from '../Rendering/Camera';
+import { offlineAdapter } from '../Net/OfflineAdapter';
 
 // Cached fog-of-war element (avoid getElementById every frame)
 let _cachedFogEl: HTMLElement | null = null;
-// Track whether local player classes were set
-let _localPlayerClassesSet = false;
 
 // Grenade selection
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
@@ -156,8 +148,6 @@ function setupInputListeners() {
             }
         }
 
-        const activeEl = getActivePlayerElement();
-        if (activeEl) activeEl.setAttribute('moving', 'true');
     });
 
     window.addEventListener('mousemove', (e) => {
@@ -224,8 +214,6 @@ function setupInputListeners() {
             getAdapter().sendInput({ type: 'THROW_GRENADE', playerId: activePlayer.id, grenadeType: type, chargePercent, aimDx, aimDy });
         }
 
-        const activeEl = getActivePlayerElement();
-        if (activeEl) activeEl.setAttribute('moving', 'false');
     });
 
     // Scroll wheel to cycle grenade selection
@@ -279,25 +267,13 @@ function startGameLoop() {
                 const newY = loopPlayer.current_position.y;
                 const newRotation = loopPlayer.current_position.rotation;
 
-                // Camera aim offset
+                // Camera
                 const weapon = getActiveWeapon(loopPlayer);
                 const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
                 const cameraOffsetDist = weaponDef ? weaponDef.cameraOffset : 0;
-                const facingRad = angleToRadians(newRotation - ROTATION_OFFSET);
-                const targetOffsetX = Math.cos(facingRad) * cameraOffsetDist;
-                const targetOffsetY = Math.sin(facingRad) * cameraOffsetDist;
-                currentOffsetX += (targetOffsetX - currentOffsetX) * 0.18;
-                currentOffsetY += (targetOffsetY - currentOffsetY) * 0.18;
-
-                const cameraX = newX + currentOffsetX + MAP_OFFSET - window.visualViewport.width / 2;
-                const cameraY = newY + currentOffsetY + MAP_OFFSET - window.visualViewport.height / 2;
-                const roundedCX = Math.round(cameraX);
-                const roundedCY = Math.round(cameraY);
-                if (roundedCX !== lastScrollX || roundedCY !== lastScrollY) {
-                    lastScrollX = roundedCX;
-                    lastScrollY = roundedCY;
-                    window.scrollTo(roundedCX, roundedCY);
-                }
+                setCameraTarget(newX, newY);
+                setCameraWeaponOffset(cameraOffsetDist, angleToRadians(newRotation - ROTATION_OFFSET));
+                updateCamera(window.visualViewport.width, window.visualViewport.height);
 
                 detectOtherPlayers(loopPlayer.id);
 
@@ -314,15 +290,8 @@ function startGameLoop() {
                     _cachedFogEl?.classList.add('d-none');
                 }
 
-                // Set once rather than every frame
-                if (!_localPlayerClassesSet) {
-                    loopPlayerEl.classList.add('visible');
-                    loopPlayerEl.classList.remove('same-team-not-visible');
-                    _localPlayerClassesSet = true;
-                }
-                loopPlayerEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${newRotation}deg)`;
-
-                updateAimLine(loopPlayer);
+                const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(loopPlayer.id) : 0;
+                updateAimLine(loopPlayer, shots);
 
                 updateHUD(loopPlayer, adapter.getMatchTimeRemaining());
             }

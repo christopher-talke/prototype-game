@@ -10,6 +10,7 @@ import { getKeyForAction, getKeyDisplayName } from '../Settings/keybinds';
 import { playSound } from '../Audio/audio';
 import { getConfig } from '../Config/activeConfig';
 import { app } from '../Globals/App';
+import { cssTransform } from '../Rendering/cssTransform';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -698,7 +699,7 @@ export function spawnDamageNumber(worldX: number, worldY: number, damage: number
 
     if (isKill) el.classList.add('kill');
     el.textContent = isKill ? `${damage} 💀` : `${damage}`;
-    el.style.transform = `translate3d(${worldX}px, ${worldY}px, 0)`;
+    el.style.transform = cssTransform(worldX, worldY);
 
     const app = document.getElementById('app');
     if (app) {

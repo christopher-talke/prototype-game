@@ -27,12 +27,6 @@ export function getHealthBarElement(playerId: number): HTMLElement | undefined {
     return HEALTH_BAR_ELEMENTS.get(playerId);
 }
 
-/**
- * Yields other players without allocating a filtered array
- * This has better performance than filtering the global player list, especially as player count grows, at the cost of being slightly less ergonomic to use. For most use cases (e.g. LOS checks) this is a good tradeoff since they often run every frame.
- * @param excludeId The player ID to exclude from the iteration (usually the local player).
- * @returns A generator yielding player_info objects for all players except the excluded one.
- */
 export function* iterOtherPlayers(excludeId: number): Generator<player_info> {
     for (let i = 0; i < PLAYERS.length; i++) {
         if (PLAYERS[i].id !== excludeId) yield PLAYERS[i];
@@ -47,19 +41,17 @@ export function getPlayerInfo(playerId: number) {
     return PLAYERS_MAP.get(playerId);
 }
 
+// Sets the active player and updates visibility class on the player element.
 export function setActivePlayer(playerId: number) {
     if (ACTIVE_PLAYER != null) {
-        const oldEl = PLAYER_ELEMENTS.get(ACTIVE_PLAYER);
-        if (oldEl) oldEl.classList.remove('visible');
+        PLAYER_ELEMENTS.get(ACTIVE_PLAYER)?.classList.remove('visible');
     }
     ACTIVE_PLAYER = playerId;
-    const newEl = PLAYER_ELEMENTS.get(playerId);
-    if (newEl) newEl.classList.add('visible');
+    PLAYER_ELEMENTS.get(playerId)?.classList.add('visible');
 }
 
-export function clearAllPlayers() {
-    for (const el of PLAYER_ELEMENTS.values()) el.remove();
-    for (const el of HEALTH_BAR_ELEMENTS.values()) el.remove();
+// Clears all player data. Rendering layer is responsible for removing DOM elements.
+export function clearPlayerData() {
     PLAYERS.length = 0;
     PLAYERS_MAP.clear();
     PLAYER_ELEMENTS.clear();

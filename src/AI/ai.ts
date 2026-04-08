@@ -5,11 +5,8 @@ import { environment } from '../Environment/environment';
 import { isPlayerDead } from '../Combat/damage';
 import { getActiveWeapon } from '../Combat/shooting';
 import { getWeaponDef, isWeaponAllowed } from '../Combat/weapons';
-import { getPlayerElement, getHealthBarElement } from '../Globals/Players';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
-import { positionHealthBar } from '../Player/player';
 import { getConfig } from '../Config/activeConfig';
-import { SETTINGS } from '../Globals/App';
 import { getActiveMap } from '../Maps/helpers';
 import { offlineAdapter } from '../Net/OfflineAdapter';
 
@@ -70,20 +67,6 @@ function generatePatrolPoints(): coordinates[] {
             }
 
             points.push(newPoint);
-        }
-    }
-
-    if (SETTINGS.debug) {
-
-        for (const point of points) {
-            const el = document.createElement('div');
-            el.style.position = 'absolute';
-            el.style.width = '10px';
-            el.style.height = '10px';
-            el.style.backgroundColor = 'red';
-            el.style.left = `${point.x - 5}px`;
-            el.style.top = `${point.y - 5}px`;
-            document.body.appendChild(el);
         }
     }
 
@@ -162,7 +145,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         const dx = Math.cos(ai.unstickAngle);
         const dy = Math.sin(ai.unstickAngle);
         offlineAdapter.sendInput({ type: 'MOVE', playerId: me.id, dx, dy });
-        updateElement(ai);
         return;
     }
 
@@ -243,17 +225,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
             break;
     }
 
-    updateElement(ai);
-}
-
-function updateElement(ai: AIController) {
-    const me = ai.player;
-    const el = getPlayerElement(me.id);
-    if (el) {
-        el.style.transform = `translate3d(${me.current_position.x}px, ${me.current_position.y}px, 0) rotate(${me.current_position.rotation}deg)`;
-    }
-    const wrap = getHealthBarElement(me.id);
-    if (wrap) positionHealthBar(wrap, me);
 }
 
 function doPatrol(ai: AIController, timestamp: number) {

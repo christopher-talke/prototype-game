@@ -1,5 +1,6 @@
 import { environment } from '../../Environment/environment';
 import { app, SETTINGS } from '../../Globals/App';
+import { cssTransform } from '../../Rendering/cssTransform';
 import { getAngle } from '../../Utilities/getAngle';
 import { getDistance } from '../../Utilities/getDistance';
 import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from '../../constants';
@@ -267,13 +268,15 @@ export function generateRayCast(playerInfo: player_info, config: raycast_config)
     polyStringParts[rayCount + 3] = `${Math.round(centerX)}px ${Math.round(centerY)}px`;
 
     const polygonPath = 'polygon(' + polyStringParts.slice(0, totalPoints).join(',') + ')';
-    if (!_fogOfWarEl) _fogOfWarEl = document.getElementById('fog-of-war');
-    if (_fogOfWarEl) {
-        _fogOfWarEl.style.clipPath = polygonPath;
-    }
+    applyFogOfWarClipPath(polygonPath);
 }
 
 let _fogOfWarEl: HTMLElement | null = null;
+
+function applyFogOfWarClipPath(polygonPath: string) {
+    if (!_fogOfWarEl) _fogOfWarEl = document.getElementById('fog-of-war');
+    if (_fogOfWarEl) _fogOfWarEl.style.clipPath = polygonPath;
+}
 
 let fovLineLeft: HTMLElement | null = null;
 let fovLineRight: HTMLElement | null = null;
@@ -412,6 +415,6 @@ function drawRay(sx: number, sy: number, tx: number, ty: number, identifier: str
     el.classList.add('ray');
     if (type !== undefined) el.classList.add(type);
     el.style.width = `${distance}px`;
-    el.style.transform = `translate3d(${sx}px, ${sy}px, 0) rotate(${angleToTarget}deg)`;
+    el.style.transform = cssTransform(sx, sy, angleToTarget);
     app.appendChild(el);
 }

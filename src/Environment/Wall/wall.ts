@@ -1,12 +1,23 @@
 import './wall.css';
 
 import { app } from '../../Globals/App';
-import { getElementCoordinates } from '../../Utilities/getElementCoordinates';
 import { getRandomNumber } from '../../Utilities/getRandomNumber';
 import { environment } from '../environment';
 import { registerWallAABB } from '../../Player/collision';
+import { cssTransform } from '../../Rendering/cssTransform';
 
 export function createWall(wallInfo: wall_info) {
+    registerWallGeometry(wallInfo);
+    renderWall(wallInfo);
+}
+
+function registerWallGeometry(wallInfo: wall_info) {
+    const { x, y, width, height } = wallInfo;
+    registerWallAABB(x, y, width, height);
+    addWallToCollisions(x, y, width, height);
+}
+
+function renderWall(wallInfo: wall_info) {
     const newWallEntity = window.document.createElement('div');
     const newWallIdentifier = getRandomNumber(1000, 9999);
 
@@ -16,7 +27,7 @@ export function createWall(wallInfo: wall_info) {
     newWallEntity.setAttribute('data-wall-type', wallInfo.type ?? 'concrete');
     newWallEntity.style.width = `${wallInfo.width}px`;
     newWallEntity.style.height = `${wallInfo.height}px`;
-    newWallEntity.style.transform = `translate3d(${wallInfo.x}px, ${wallInfo.y}px, 0)`;
+    newWallEntity.style.transform = cssTransform(wallInfo.x, wallInfo.y);
 
     if (wallInfo.sprite) {
         const img = document.createElement('img');
@@ -26,16 +37,10 @@ export function createWall(wallInfo: wall_info) {
     }
 
     app.appendChild(newWallEntity);
-    registerWallAABB(wallInfo.x, wallInfo.y, wallInfo.width, wallInfo.height);
-    addWallToCollisions(newWallEntity);
-
-    return;
 }
 
-function addWallToCollisions(element: HTMLElement) {
+function addWallToCollisions(x: number, y: number, width: number, height: number) {
     const newCollisions = { ...environment.collisions };
-
-    const coords = getElementCoordinates(element);
 
     const collisionsToAdd = {} as CollisionMap;
     const corner_collision: Collision = {
@@ -54,10 +59,10 @@ function addWallToCollisions(element: HTMLElement) {
         isCorner: false,
     };
 
-    const left = Math.floor(coords.left);
-    const right = Math.floor(coords.right);
-    const top = Math.floor(coords.top);
-    const bottom = Math.floor(coords.bottom);
+    const left = Math.floor(x);
+    const right = Math.floor(x + width);
+    const top = Math.floor(y);
+    const bottom = Math.floor(y + height);
 
     // Add corner collisions
     collisionsToAdd[`${left},${top}`] = corner_collision;
@@ -94,6 +99,4 @@ function addWallToCollisions(element: HTMLElement) {
         const [x, y] = coord.split(',');
         environment.corners.push({ x: Number(x), y: Number(y) });
     });
-
-    return;
 }

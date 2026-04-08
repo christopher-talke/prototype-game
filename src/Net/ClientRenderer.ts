@@ -6,7 +6,7 @@ import '../Combat/grenade.css';
 import { gameEventBus, type GameEvent } from './GameEvent';
 import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent } from './GameEvent';
 import { acquireProjectile, releaseProjectile } from '../Combat/ProjectilePool';
-import { ACTIVE_PLAYER, getAllPlayers, getPlayerElement, getPlayerInfo, getHealthBarElement } from '../Globals/Players';
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerElement, getPlayerInfo, getHealthBarElement, clearPlayerData } from '../Globals/Players';
 import { updateHealthBar, positionHealthBar } from '../Player/player';
 import { removeLastKnownForPlayer } from '../Player/lineOfSight';
 import { playSoundAtPlayer, playSound } from '../Audio/audio';
@@ -18,6 +18,7 @@ import { spawnSmoke } from '../Combat/smoke';
 import { app } from '../Globals/App';
 import { getConfig } from '../Config/activeConfig';
 import { getAdapter } from './activeAdapter';
+import { cssTransform } from '../Rendering/cssTransform';
 
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
@@ -99,22 +100,21 @@ class ClientRendererImpl {
         for (const p of adapter.getProjectiles()) {
             const entry = this.bulletElements.get(p.id);
             if (entry) {
-                entry.element.style.transform = `translate3d(${Math.round(p.x)}px, ${Math.round(p.y)}px, 0)`;
+                entry.element.style.transform = cssTransform(Math.round(p.x), Math.round(p.y));
             }
         }
         for (const g of adapter.getGrenades()) {
             const el = this.grenadeElements.get(g.id);
             if (el && !g.detonated) {
-                el.style.transform = `translate3d(${Math.round(g.x)}px, ${Math.round(g.y)}px, 0)`;
+                el.style.transform = cssTransform(Math.round(g.x), Math.round(g.y));
             }
         }
-        // Update remote player DOM elements -- only write transform when it changed
+        // Update all player DOM elements -- only write transform when it changed
         for (const player of getAllPlayers()) {
-            if (player.id === ACTIVE_PLAYER) continue;
             const el = getPlayerElement(player.id);
             if (el) {
                 const pos = player.current_position;
-                const transform = `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${pos.rotation}deg)`;
+                const transform = cssTransform(pos.x, pos.y, pos.rotation);
                 if (this.lastPlayerTransform.get(player.id) !== transform) {
                     this.lastPlayerTransform.set(player.id, transform);
                     el.style.transform = transform;
@@ -133,7 +133,7 @@ class ClientRendererImpl {
 
         const acquired = acquireProjectile(event.weaponType);
         if (acquired) {
-            acquired.element.style.transform = `translate3d(${event.x}px, ${event.y}px, 0)`;
+            acquired.element.style.transform = cssTransform(event.x, event.y);
             this.bulletElements.set(event.bulletId, acquired);
         }
 
@@ -206,7 +206,7 @@ class ClientRendererImpl {
         // Spawn a corpse marker at the death position
         const corpse = document.createElement('div');
         corpse.classList.add('corpse-marker', `team-${target.team}`);
-        corpse.style.transform = `translate3d(${target.current_position.x}px, ${target.current_position.y}px, 0) rotate(${target.current_position.rotation}deg)`;
+        corpse.style.transform = cssTransform(target.current_position.x, target.current_position.y, target.current_position.rotation);
         app.appendChild(corpse);
         const corpseTimer = setTimeout(() => {
             corpse.remove();
@@ -224,7 +224,7 @@ class ClientRendererImpl {
         const el = getPlayerElement(event.playerId);
         if (el) {
             el.classList.remove('dead');
-            el.style.transform = `translate3d(${event.x}px, ${event.y}px, 0) rotate(${event.rotation}deg)`;
+            el.style.transform = cssTransform(event.x, event.y, event.rotation);
             if (event.playerId === ACTIVE_PLAYER) el.classList.add('visible');
         }
 
@@ -239,7 +239,7 @@ class ClientRendererImpl {
         const el = document.createElement('div');
         el.classList.add('grenade', `grenade-${event.grenadeType}`);
         if (event.isC4) el.classList.add('placed');
-        el.style.transform = `translate3d(${event.x}px, ${event.y}px, 0)`;
+        el.style.transform = cssTransform(event.x, event.y);
         app.appendChild(el);
         this.grenadeElements.set(event.grenadeId, el);
         playSound('grenade_throw', { x: event.x, y: event.y });
@@ -370,6 +370,18 @@ class ClientRendererImpl {
         app.appendChild(ring);
 
         setTimeout(() => ring.remove(), 600);
+    }
+
+    // Remove all player and health bar DOM elements, then clear player data.
+    clearPlayers() {
+        for (const playerId of getAllPlayers().map(p => p.id)) {
+            const el = getPlayerElement(playerId);
+            if (el) el.remove();
+            const hb = getHealthBarElement(playerId);
+            if (hb) hb.remove();
+        }
+        clearPlayerData();
+        this.lastPlayerTransform.clear();
     }
 }
 

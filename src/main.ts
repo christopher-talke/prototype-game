@@ -1,7 +1,7 @@
 import './style.css';
 
 import { SETTINGS } from './Globals/App';
-import { drawFogOfWar } from './Player/Raycast/fogOfWar';
+import { drawFogOfWar } from './Rendering/FogOfWar';
 import { drawCollisionOverlay } from './Environment/generateCollisionMap';
 import { environment, generateEnvironment } from './Environment/environment';
 import { createWall } from './Environment/Wall/wall';

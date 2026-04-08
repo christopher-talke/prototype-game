@@ -3,6 +3,7 @@ import { ACTIVE_PLAYER, addPlayer, registerPlayerElement, registerHealthBarEleme
 import { app } from '../Globals/App';
 import { HALF_HIT_BOX } from '../constants';
 import { createDefaultWeapon } from '../Combat/weapons';
+import { cssTransform } from '../Rendering/cssTransform';
 
 // Cached child references to avoid querySelector per updateHealthBar call
 const healthBarChildren = new Map<number, { bar: HTMLElement; armor: HTMLElement }>();
@@ -45,7 +46,7 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
     // Remove old team class and data-player-team, use data-team for CSS
     newPlayerEntity.setAttribute('data-team', `${playerInfo.team}`);
     newPlayerEntity.setAttribute('data-player-id', `${newPlayerIdentifier}`);
-    newPlayerEntity.style.transform = `translate3d(${playerInfo.current_position.x}px, ${playerInfo.current_position.y}px, 0) rotate(${playerInfo.current_position.rotation}deg)`;
+    newPlayerEntity.style.transform = cssTransform(playerInfo.current_position.x, playerInfo.current_position.y, playerInfo.current_position.rotation);
 
     app.appendChild(newPlayerEntity);
     addPlayer(playerInfo);
@@ -78,7 +79,7 @@ export function createPlayer(playerInfo: player_info, controllable: boolean = fa
 export function positionHealthBar(wrap: HTMLElement, playerInfo: player_info) {
     const x = playerInfo.current_position.x + HALF_HIT_BOX;
     const y = playerInfo.current_position.y;
-    wrap.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    wrap.style.transform = cssTransform(x, y);
 }
 
 /**

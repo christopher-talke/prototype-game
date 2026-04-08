@@ -1,19 +1,35 @@
 import { app } from '../Globals/App';
 
-type SmokeCloud = {
+// Pure simulation data - no DOM references
+type SmokeData = {
     x: number;
     y: number;
     radius: number;
     expiresAt: number;
     fadeStart: number;
+};
+
+// Rendering state - extends data with DOM element
+type SmokeCloud = SmokeData & {
     element: HTMLElement;
     fading: boolean;
 };
 
 const FADE_DURATION = 2000;
+const smokeDatas: SmokeData[] = [];
 const activeClouds: SmokeCloud[] = [];
 
 export function spawnSmoke(x: number, y: number, radius: number, duration: number) {
+    const now = performance.now();
+    const data: SmokeData = {
+        x,
+        y,
+        radius,
+        expiresAt: now + duration,
+        fadeStart: now + duration - FADE_DURATION,
+    };
+    smokeDatas.push(data);
+
     const size = radius * 2;
     const el = document.createElement('div');
     el.classList.add('smoke-cloud');
@@ -23,16 +39,7 @@ export function spawnSmoke(x: number, y: number, radius: number, duration: numbe
     el.style.height = `${size}px`;
     app.appendChild(el);
 
-    const now = performance.now();
-    activeClouds.push({
-        x,
-        y,
-        radius,
-        expiresAt: now + duration,
-        fadeStart: now + duration - FADE_DURATION,
-        element: el,
-        fading: false,
-    });
+    activeClouds.push({ ...data, element: el, fading: false });
 }
 
 export function updateSmokeClouds(timestamp: number) {
@@ -49,12 +56,18 @@ export function updateSmokeClouds(timestamp: number) {
             activeClouds.splice(i, 1);
         }
     }
+    // Keep smokeDatas in sync with expired clouds
+    for (let i = smokeDatas.length - 1; i >= 0; i--) {
+        if (timestamp >= smokeDatas[i].expiresAt) {
+            smokeDatas.splice(i, 1);
+        }
+    }
 }
 
-// Check if a line from (x1,y1) to (x2,y2) passes through any active smoke cloud
+// Pure geometry query - reads only from simulation data, no DOM
 export function isSmoked(x1: number, y1: number, x2: number, y2: number): boolean {
-    for (const cloud of activeClouds) {
-        if (lineIntersectsCircle(x1, y1, x2, y2, cloud.x, cloud.y, cloud.radius)) {
+    for (const data of smokeDatas) {
+        if (lineIntersectsCircle(x1, y1, x2, y2, data.x, data.y, data.radius)) {
             return true;
         }
     }
@@ -69,7 +82,6 @@ function lineIntersectsCircle(x1: number, y1: number, x2: number, y2: number, cx
 
     const a = dx * dx + dy * dy;
     if (a < 1e-10) {
-        // Degenerate line (point)
         return fx * fx + fy * fy <= r * r;
     }
 
@@ -83,6 +95,5 @@ function lineIntersectsCircle(x1: number, y1: number, x2: number, y2: number, cx
     const t1 = (-b - discriminant) / (2 * a);
     const t2 = (-b + discriminant) / (2 * a);
 
-    // Check if intersection is within the segment [0, 1]
     return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || (t1 < 0 && t2 > 1);
 }

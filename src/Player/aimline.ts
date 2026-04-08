@@ -3,7 +3,6 @@ import { app } from '../Globals/App';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { angleToRadians } from '../Utilities/angleToRadians';
 import { getActiveWeapon } from '../Combat/shooting';
-import { offlineAdapter } from '../Net/OfflineAdapter';
 import { getWeaponDef } from '../Combat/weapons';
 import { raySegmentIntersect } from './Raycast/raycast';
 import { environment } from '../Environment/environment';
@@ -42,7 +41,7 @@ export function initADS() {
  * Updates the aim line and cone for the player based on their current weapon and ADS status.
  * @param playerInfo The player's information.
  */
-export function updateAimLine(playerInfo: player_info) {
+export function updateAimLine(playerInfo: player_info, consecutiveShots: number = 0) {
     if (!adsActive) {
         hideAimLine();
         return;
@@ -74,7 +73,7 @@ export function updateAimLine(playerInfo: player_info) {
     const toCrosshairDist = Math.sqrt((mouseWorldX - startX) ** 2 + (mouseWorldY - startY) ** 2);
 
     // Spread calculation
-    const shots = offlineAdapter.authSim.getConsecutiveShots(playerInfo.id);
+    const shots = consecutiveShots;
     const spreadMult = Math.min(1 + shots * SPREAD_GROWTH_PER_SHOT, MAX_SPREAD_MULTIPLIER);
     const baseSpread = weaponDef.spread;
     const currentSpread = baseSpread * spreadMult;
