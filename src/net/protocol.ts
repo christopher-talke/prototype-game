@@ -8,13 +8,7 @@ export type MapJSON = {
     height?: number;
     teamSpawns: Record<number, { x: number; y: number }[]>;
     patrolPoints: { x: number; y: number }[];
-    walls: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        type?: WallType;
-    }[];
+    walls: { x: number; y: number; width: number; height: number; type?: WallType; }[];
 };
 
 export type PlayerSnapshot = {
@@ -76,36 +70,11 @@ export type ClientMessage =
     | { v: 1; t: 'ready'; ready: boolean };
 
 export type ServerMessage =
-    | {
-          v: 1;
-          t: 'welcome';
-          playerId: number;
-          mapData: MapJSON;
-          config: GameModeConfig;
-          players: PlayerSnapshot[];
-          isHost?: boolean;
-          phase?: string;
-      }
+    | { v: 1; t: 'welcome'; playerId: number; mapData: MapJSON; config: GameModeConfig; players: PlayerSnapshot[]; isHost?: boolean; phase?: string; }
     | { v: 1; t: 'player_joined'; player: PlayerSnapshot }
     | { v: 1; t: 'player_left'; playerId: number }
     | { v: 1; t: 'events'; tick: number; events: GameEvent[] }
-    | {
-          v: 1;
-          t: 'snapshot';
-          tick: number;
-          players: PlayerSnapshot[];
-          projectiles: SimProjectileSnapshot[];
-          grenades: SimGrenadeSnapshot[];
-          timeRemaining: number;
-      }
+    | { v: 1; t: 'snapshot'; tick: number; players: PlayerSnapshot[]; projectiles: SimProjectileSnapshot[]; grenades: SimGrenadeSnapshot[]; timeRemaining: number; }
     | { v: 1; t: 'input_ack'; seq: number; x: number; y: number }
-    | {
-          v: 1;
-          t: 'lobby_state';
-          host: number;
-          players: LobbyPlayer[];
-          config: GameModeConfig;
-          mapName: string;
-          started: boolean;
-      }
+    | { v: 1; t: 'lobby_state'; host: number; players: LobbyPlayer[]; config: GameModeConfig; mapName: string; started: boolean; }
     | { v: 1; t: 'game_starting'; countdown: number };

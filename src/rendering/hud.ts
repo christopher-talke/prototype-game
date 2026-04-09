@@ -138,7 +138,6 @@ export function initHUD() {
     const kf = document.createElement('div');
     kf.id = 'hud-killfeed';
     container.appendChild(kf);
-
     document.body.appendChild(container);
 
     // Crosshair
@@ -146,7 +145,6 @@ export function initHUD() {
     ch.id = 'hud-crosshair';
     ch.innerHTML = `<div class="ch-h"></div><div class="ch-v"></div><div class="ch-dot"></div>`;
     document.body.appendChild(ch);
-
 
     // Buy menu
     const bm = document.createElement('div');
@@ -248,7 +246,6 @@ export function initHUD() {
         const count = slot.querySelector('.grenade-count') as HTMLElement;
         grenadeSlotCache.set(type, { slot: slot as HTMLElement, count });
     });
-    // deathText element exists in DOM but doesn't need a JS reference
 }
 
 export function updateHUD(playerInfo: player_info, timeRemaining: number) {
@@ -263,15 +260,14 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     if (healthPct !== _lastHealthPct) {
         _lastHealthPct = healthPct;
         healthBar.style.width = `${healthPct}%`;
-        if (healthPct > 50) {
-            healthBar.style.background = '#4ade80';
-        } else if (healthPct > 25) {
-            healthBar.style.background = '#fbbf24';
-        } else {
-            healthBar.style.background = '#ef4444';
+
+        switch(healthPct) {
+            case 100: healthBar.style.background = '#4ade80'; break;
+            case 75: healthBar.style.background = '#fbbf24'; break;
+            case 30: healthBar.style.background = '#ef4444'; break;
+            default: healthBar.style.background = '#ef4444'; break;
         }
 
-        // Low-health desaturation + blur on the game world
         const disableEffects = getConfig().gameplay.disableLowHealthEffects;
         if (!disableEffects) {
             const t = healthPct / 100;
@@ -283,14 +279,14 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
         }
     }
 
-    // Armor bar
+
     const armorPct = Math.max(0, playerInfo.armour);
     if (armorPct !== _lastArmorPct) {
         _lastArmorPct = armorPct;
         armorBar.style.width = `${armorPct}%`;
     }
 
-    // Ammo
+
     const weapon = getActiveWeapon(playerInfo);
     if (weapon) {
         const wDef = getWeaponDef(weapon.type);
@@ -304,18 +300,18 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
         crosshair.dataset.weapon = weapon.type;
     }
 
-    // Money
+
     const moneyStr = `$${state.money}`;
     if (moneyStr !== _lastMoney) { _lastMoney = moneyStr; moneyDisplay.textContent = moneyStr; }
 
-    // Timer
+
     const totalSecs = Math.ceil(timeRemaining / 1000);
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
     const timerStr = `${mins}:${secs.toString().padStart(2, '0')}`;
     if (timerStr !== _lastTimer) { _lastTimer = timerStr; timerDisplay.textContent = timerStr; }
 
-    // Round score
+
     const wins = adapter.getTeamRoundWins();
     const round = adapter.getCurrentRound();
     const winsArr = Object.entries(wins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
@@ -323,11 +319,11 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     const roundScoreStr = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
     if (roundScoreStr !== _lastRoundScore) { _lastRoundScore = roundScoreStr; roundScoreDisplay.textContent = roundScoreStr; }
 
-    // Score
+
     const scoreStr = `K: ${state.kills} / D: ${state.deaths}`;
     if (scoreStr !== _lastScore) { _lastScore = scoreStr; scoreDisplay.textContent = scoreStr; }
 
-    // Grenade inventory
+
     if (playerInfo.grenades) {
         const selected = getSelectedGrenadeType();
         for (const [type, { slot, count }] of grenadeSlotCache) {
@@ -338,7 +334,7 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
         }
     }
 
-    // Death overlay
+
     const dead = isPlayerDead(playerInfo);
     if (dead !== _lastDeathActive) {
         _lastDeathActive = dead;
@@ -391,7 +387,6 @@ function renderBuyMenu(playerInfo: player_info) {
     if (!state) return;
 
     buyMenuGrid.innerHTML = '';
-
     const disableHealth = getConfig().economy.disableHealth;
     const disableArmor = getConfig().economy.disableArmor;
 
@@ -403,33 +398,44 @@ function renderBuyMenu(playerInfo: player_info) {
         buyMenuGrid.appendChild(healthAndArmourHeader);
     }
 
-    const healthAndArmour =  [
-        ['Health', getConfig().economy.healthCost, () => getAdapter().sendInput({ type: 'BUY_HEALTH', playerId: playerInfo.id })],
-        ['Armor', getConfig().economy.armorCost, () => getAdapter().sendInput({ type: 'BUY_ARMOR', playerId: playerInfo.id })],
-    ] as [string, number, () => void][];
-    for (const [label, cost, buy] of healthAndArmour) {
+    if (!disableHealth) {
         const item = document.createElement('div');
-
-        if ((label === 'Health' && disableHealth) || (label === 'Armor' && disableArmor)) continue;
-
         item.classList.add('buymenu-item');
-        if (state.money < cost) item.classList.add('too-expensive');
-        item.innerHTML = `<div class="buymenu-item-name">${label}</div><div class="buymenu-item-price">$${cost}</div>`;
+        if (state.money < getConfig().economy.healthCost) item.classList.add('too-expensive');
+
+        item.innerHTML = `<div class="buymenu-item-name">Health</div><div class="buymenu-item-price">$${getConfig().economy.healthCost}</div>`;
         item.addEventListener('click', () => {
-            if (state.money >= cost) { buy(); renderBuyMenu(playerInfo); }
+            if (state.money >= getConfig().economy.healthCost) {
+                getAdapter().sendInput({ type: 'BUY_HEALTH', playerId: playerInfo.id });
+                renderBuyMenu(playerInfo);
+            }
         });
 
         buyMenuGrid.appendChild(item);
     }
 
-    // Weapon section
+    if (!disableArmor) {
+        const item = document.createElement('div');
+        item.classList.add('buymenu-item');
+        if (state.money < getConfig().economy.armorCost) item.classList.add('too-expensive');
+
+        item.innerHTML = `<div class="buymenu-item-name">Armor</div><div class="buymenu-item-price">$${getConfig().economy.armorCost}</div>`;
+        item.addEventListener('click', () => {
+            if (state.money >= getConfig().economy.armorCost) {
+                getAdapter().sendInput({ type: 'BUY_ARMOR', playerId: playerInfo.id });
+                renderBuyMenu(playerInfo);
+            }
+        });
+
+        buyMenuGrid.appendChild(item);
+    }
+
     const weaponHeader = document.createElement('div');
     weaponHeader.classList.add('buymenu-section-header');
     weaponHeader.textContent = 'WEAPONS';
     buyMenuGrid.appendChild(weaponHeader);
-
     Object.values(WEAPON_DEFS).forEach((wDef) => {
-        if (wDef.price === 0) return; // Don't show pistol (free)
+        if (wDef.price === 0) return;
         if (!isWeaponAllowed(wDef.id)) return;
 
         const item = document.createElement('div');
@@ -447,7 +453,7 @@ function renderBuyMenu(playerInfo: player_info) {
         item.addEventListener('click', () => {
             if (state.money >= wDef.price) {
                 getAdapter().sendInput({ type: 'BUY_WEAPON', playerId: playerInfo.id, weaponType: wDef.id });
-                renderBuyMenu(playerInfo); // Re-render to update money
+                renderBuyMenu(playerInfo);
             }
         });
 
@@ -485,7 +491,6 @@ function renderBuyMenu(playerInfo: player_info) {
 }
 
 let damageIndicatorTimeout: ReturnType<typeof setTimeout> | null = null;
-
 export function showDamageIndicator(angleDeg: number, playerRotation: number) {
     const el = document.getElementById('hud-damage-indicator');
     if (!el) return;
@@ -507,12 +512,13 @@ export function updateCrosshairPosition(x: number, y: number) {
 }
 
 let hitMarkerTimeout: ReturnType<typeof setTimeout> | null = null;
-
 export function showHitMarker(isKill: boolean, victimName?: string) {
     crosshair.classList.remove('hit', 'kill');
-    // Force reflow so animation restarts
+
+    // Triggers reflow to restart animation
     void crosshair.offsetWidth;
     crosshair.classList.add(isKill ? 'kill' : 'hit');
+
     if (hitMarkerTimeout) clearTimeout(hitMarkerTimeout);
     hitMarkerTimeout = setTimeout(() => {
         crosshair.classList.remove('hit', 'kill');
@@ -525,7 +531,6 @@ export function showHitMarker(isKill: boolean, victimName?: string) {
 }
 
 let killBannerContainer: HTMLElement | null = null;
-
 function getKillBannerContainer(): HTMLElement {
     if (!killBannerContainer) {
         killBannerContainer = document.createElement('div');
@@ -538,11 +543,15 @@ function getKillBannerContainer(): HTMLElement {
 function showKillBanner(victimName: string) {
     const container = getKillBannerContainer();
     const el = document.createElement('div');
+
     el.classList.add('kill-banner');
     el.innerHTML = `<span class="kill-banner-icon">&#x2620;</span><span class="kill-banner-text">ELIMINATED</span><span class="kill-banner-name">${victimName}</span>`;
     container.appendChild(el);
+
+    // Triggers reflow to restart animation
     void el.offsetWidth;
     el.classList.add('active');
+
     setTimeout(() => {
         el.classList.add('fade-out');
         setTimeout(() => el.remove(), 500);
@@ -658,6 +667,7 @@ function renderLeaderboard() {
             sep.innerHTML = '<td colspan="5"></td>';
             leaderboardBody.appendChild(sep);
         }
+
         first = false;
         members.sort((a, b) => b.state.points - a.state.points);
         for (const { state, info } of members) {
@@ -674,6 +684,7 @@ function renderLeaderboard() {
                 <td>${state.kills}</td>
                 <td>${state.deaths}</td>
             `;
+            
             leaderboardBody.appendChild(row);
         }
     }

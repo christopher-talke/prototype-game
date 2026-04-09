@@ -1,25 +1,37 @@
-// NetAdapter: abstraction layer between game input and simulation.
-// Offline mode processes inputs locally. Online mode sends them to a server.
+/**
+ * NetAdapter defines the interface for communication between the game client and the authoritative game logic (which could be local or remote).
+ * It abstracts away the details of how player inputs are sent and how game events are received, allowing for both offline (local) and online (networked) implementations.
+ * The adapter also provides methods for querying the current match state, which can be used for UI updates and client-side prediction.
+ */
 
 import type { GameEvent, PlayerInput } from './gameEvent';
 
 export interface NetAdapter {
     mode: 'offline' | 'online';
 
-    // Send a player input (movement, fire, etc.) to the authority
+    /**
+     * Sends a player input to the authoritative game logic.
+     * @param input The player input to send.
+     */
     sendInput(input: PlayerInput): void;
 
-    // Subscribe to authoritative game events
+    /**
+     * Subscribes to authoritative game events.
+     * @param callback The callback to invoke when a game event occurs.
+     */
     onEvent(callback: (event: GameEvent) => void): void;
 
-    // Tick the simulation (called each frame).
-    // In offline mode, advances the local simulation.
-    // In online mode, this could handle interpolation/prediction.
+    /**
+     * Advances the simulation by one tick.
+     * @param segments The wall segments in the game.
+     * @param players The player information in the game.
+     * @param timestamp The current timestamp.
+     */
     tick(segments: WallSegment[], players: player_info[], timestamp: number): void;
 
-    // Match state queries
-    isRoundActive(): boolean;
     isMatchActive(): boolean;
+    isRoundActive(): boolean;
+
     getMatchTimeRemaining(): number;
     getPlayerState(playerId: number): PlayerGameState | undefined;
     getAllPlayerStates(): PlayerGameState[];
@@ -28,9 +40,6 @@ export interface NetAdapter {
     getProjectiles(): readonly { id: number; x: number; y: number }[];
     getGrenades(): readonly { id: number; x: number; y: number; detonated: boolean }[];
 
-    // Connect to server (online only)
     connect?(): Promise<void>;
-
-    // Disconnect from server (online only)
     disconnect?(): void;
 }

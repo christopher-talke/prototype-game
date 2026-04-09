@@ -115,7 +115,9 @@ export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info
         newLosEntity.style.transform = cssTransform(sx, sy, angleToTarget);
 
         app.appendChild(newLosEntity);
-    } else {
+    } 
+    
+    else {
         existingLosEl.style.width = `${distance}px`;
 
         if (canSee) {

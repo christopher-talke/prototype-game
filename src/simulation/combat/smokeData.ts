@@ -33,6 +33,18 @@ export function isSmoked(x1: number, y1: number, x2: number, y2: number): boolea
     return false;
 }
 
+/**
+ * Checks if a line segment intersects with a circle (algorithm adapted from https://stackoverflow.com/a/1088058)
+ * - This sucked, and thank god for LLMs to help me get it right on the first try. I hate geometry (Sorry Mrs Ryan).
+ * @param x1 The x-coordinate of the start of the line segment.
+ * @param y1 The y-coordinate of the start of the line segment.
+ * @param x2 The x-coordinate of the end of the line segment.
+ * @param y2 The y-coordinate of the end of the line segment.
+ * @param cx The x-coordinate of the circle's center.
+ * @param cy The y-coordinate of the circle's center.
+ * @param r The radius of the circle.
+ * @returns True if the line segment intersects the circle, false otherwise.
+ */
 function lineIntersectsCircle(x1: number, y1: number, x2: number, y2: number, cx: number, cy: number, r: number): boolean {
     const dx = x2 - x1;
     const dy = y2 - y1;

@@ -37,7 +37,6 @@ export function updateCamera(viewportWidth: number, viewportHeight: number) {
     }
 }
 
-// Convert a world-space point to screen-space (for future WebGL use)
 export function worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
     return {
         x: worldX + MAP_OFFSET - lastScrollX,

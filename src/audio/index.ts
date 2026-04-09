@@ -15,10 +15,6 @@ let sfxGain: GainNode | null = null;
 let musicGain: GainNode | null = null;
 let musicSource: AudioBufferSourceNode | null = null;
 
-// Gain hierarchy:
-//   sfx source -> spatialGain -> sfxGain -\
-//                                          masterGain -> destination
-//   music source -----------> musicGain -/
 
 function getContext(): AudioContext {
     if (!ctx) {

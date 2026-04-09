@@ -9,6 +9,10 @@ export const environment = {
     corners: [],
 } as Environment;
 
+/**
+ * Generates the environment segments and corners based on the defined limits. 
+ * This is called once at the start of the game to set up the environment data structure, which is used for raycasting and visibility calculations.
+ */
 export function generateEnvironment() {
     const { left, right, top, bottom } = environment.limits;
 

@@ -44,13 +44,11 @@ export class GameRoom {
         const player: RoomPlayer = { id, name, team, ready: false, conn };
         this.players.set(conn.id, player);
 
-        // First player becomes host
         if (!this.hostConnId) {
             this.hostConnId = conn.id;
         }
 
         if (this.phase === 'playing') {
-            // Late join: add player to sim as dead, send full game state
             const spawns = Arena.teamSpawns[team] ?? Arena.teamSpawns[1];
             const spawn = spawns[(id - 1) % spawns.length];
             const playerInfo: player_info = {
@@ -66,7 +64,6 @@ export class GameRoom {
             };
             this.sim.addPlayer(playerInfo);
 
-            // Send welcome with current player list
             const currentPlayers = this.sim.getPlayers().map((p) => {
                 const state = this.sim.getPlayerState(p.id);
                 return {
@@ -104,7 +101,6 @@ export class GameRoom {
                 phase: this.phase,
             }));
 
-            // Notify existing players
             this.broadcast({ v: 1, t: 'player_joined', player: {
                 id,
                 name,
@@ -122,7 +118,6 @@ export class GameRoom {
             return;
         }
 
-        // Send welcome
         conn.send(JSON.stringify({
             v: 1,
             t: 'welcome',
@@ -271,8 +266,6 @@ export class GameRoom {
             });
         }
     }
-
-    // ---- Private ----
 
     private startCountdown(): void {
         console.log('[SERVER] startCountdown called');

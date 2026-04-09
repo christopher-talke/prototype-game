@@ -8,12 +8,12 @@ export interface GameModeConfig {
     name: string;
 
     match: {
-        roundDuration: number; // ms (currently 120000)
-        roundsToWin: number; // currently 5
-        roundIntermission: number; // ms (currently 4000)
-        maxPlayers: number; // currently 20
-        teamsCount: number; // currently 2
-        friendlyFire: boolean; // currently false
+        roundDuration: number;
+        roundsToWin: number;
+        roundIntermission: number;
+        maxPlayers: number;
+        teamsCount: number;
+        friendlyFire: boolean;
     };
 
     economy: {
@@ -21,50 +21,50 @@ export interface GameModeConfig {
         disableHealth: boolean;
         armorCost: number;
         disableArmor: boolean;
-        startingMoney: number; // currently 99999
-        killRewardMultiplier: number; // 1.0
+        startingMoney: number;
+        killRewardMultiplier: number;
     };
 
     player: {
         maxArmor: number;
-        maxHealth: number; // 100
-        startingArmor: number; // 0
-        speed: number; // 6
-        respawnTime: number; // 3000
-        armorAbsorption: number; // 0.5
-        healthBarVisibleDuration: number; // 3000
+        maxHealth: number;
+        startingArmor: number;
+        speed: number;
+        respawnTime: number;
+        armorAbsorption: number;
+        healthBarVisibleDuration: number;
     };
 
     physics: {
-        grenadeFriction: number; // 0.94
-        bulletSpeedMultiplier: number; // 1.0
+        grenadeFriction: number;
+        bulletSpeedMultiplier: number;
     };
 
     weapons: {
         allowedWeapons: string[] | 'ALL';
-        startingWeapons: string[]; // ['PISTOL']
+        startingWeapons: string[];
         overrides: Record<string, Partial<WeaponDef>>;
-        globalDamageMultiplier: number; // 1.0
-        recoilMultiplier: number; // 1.0
+        globalDamageMultiplier: number;
+        recoilMultiplier: number;
     };
 
     grenades: {
         allowedGrenades: GrenadeType[] | 'ALL';
         startingGrenades: Partial<Record<GrenadeType, number>>;
-        chargeTime: number; // ms to reach full charge (1000)
-        minThrowFraction: number; // minimum throw power as fraction (0.2)
+        chargeTime: number;
+        minThrowFraction: number;
     };
 
     ai: {
-        speed: number; // 3
-        turnSpeed: number; // 4
-        detectRange: number; // 800
-        fireCone: number; // 8
-        chaseTimeout: number; // 3000
-        patrolPause: number; // 1500
+        speed: number;
+        turnSpeed: number;
+        detectRange: number;
+        fireCone: number;
+        chaseTimeout: number;
+        patrolPause: number;
     };
 
     shooting: {
-        recoilResetDelay: number; // 300
+        recoilResetDelay: number;
     };
 }

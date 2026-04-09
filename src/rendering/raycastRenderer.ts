@@ -88,14 +88,14 @@ function showAdaptiveQualityModal() {
     adaptiveModalEl.id = 'adaptive-quality-modal';
     adaptiveModalEl.innerHTML = `
         <div class="aq-title">PERFORMANCE ISSUES DETECTED</div>
-        <div class="aq-body">Switch to fast raycasting for better performance?</div>
+        <div class="aq-body">Auto adjust rendering configuration for better performance?</div>
         <div class="aq-buttons">
             <button id="aq-accept">ACCEPT</button>
             <button id="aq-dismiss">DISMISS</button>
         </div>
     `;
+    
     document.body.appendChild(adaptiveModalEl);
-
     document.getElementById('aq-accept')!.addEventListener('click', () => {
         SETTINGS.raycast.type = 'DISABLED';
         const fogOfWar = document.getElementById('fog-of-war');

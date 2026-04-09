@@ -1,16 +1,16 @@
-// GameSimulation: authoritative game state with NO DOM dependencies.
-// All methods return GameEvent arrays. Callers (or the renderer) handle visuals/audio.
+/**
+ * Game simulation module responsible for handling core game mechanics such as movement, combat, and grenades.
+ * This module is designed to be used by both the authoritative server simulation and the client-side prediction.
+ * It operates on simple data structures and pure functions to ensure consistency across different environments.
+ */
 
 import type { GameEvent } from '@net/gameEvent';
 import { raySegmentIntersect, isLineBlocked } from './detection/rayGeometry';
 import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
-import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
-import { getActiveMap } from '@maps/helpers';
-import { createDefaultWeapon } from '@simulation/combat/weapons';
+import { getGrenadeDef } from '@simulation/combat/grenades';
 import { getConfig } from '@config/activeConfig';
 import { getPlayerInfo } from './player/playerRegistry';
 
-// -- Simulation-only projectile state (no DOM) --
 type SimProjectile = {
     id: number;
     x: number;
@@ -24,7 +24,6 @@ type SimProjectile = {
     weaponType?: string;
 };
 
-// -- Simulation-only grenade state (no DOM) --
 type SimGrenade = {
     id: number;
     type: GrenadeType;
@@ -45,8 +44,6 @@ export class GameSimulation {
     private grenadesList: SimGrenade[] = [];
     private nextProjectileId = 0;
     private nextGrenadeId = 0;
-
-    // -- Damage --
 
     applyDamage(target: player_info, rawDamage: number, attackerId: number): GameEvent[] {
         if (target.dead) return [];
@@ -82,7 +79,9 @@ export class GameSimulation {
                 targetId: target.id,
                 killerId: attackerId,
             });
-        } else {
+        } 
+        
+        else {
             events.push({
                 type: 'PLAYER_DAMAGED',
                 targetId: target.id,
@@ -96,61 +95,12 @@ export class GameSimulation {
         return events;
     }
 
-    // -- Respawn --
-
-    respawnPlayer(target: player_info): GameEvent[] {
-        const teamSpawns = getActiveMap().teamSpawns;
-        const spawnPoints = teamSpawns[target.team] ?? Object.values(teamSpawns).flat();
-        const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
-
-        target.health = getConfig().player.maxHealth;
-        target.armour = getConfig().player.startingArmor;
-        target.dead = false;
-        target.current_position.x = spawn.x;
-        target.current_position.y = spawn.y;
-
-        target.weapons = [createDefaultWeapon()];
-        target.grenades = createDefaultGrenades();
-
-        return [
-            {
-                type: 'PLAYER_RESPAWN',
-                playerId: target.id,
-                x: spawn.x,
-                y: spawn.y,
-                rotation: target.current_position.rotation,
-            },
-        ];
-    }
-
-    // -- Projectiles --
-
     spawnBullet(ownerId: number, x: number, y: number, dx: number, dy: number, speed: number, damage: number, weaponType?: string): GameEvent[] {
         const id = this.nextProjectileId++;
-        this.projectiles.push({
-            id,
-            x,
-            y,
-            dx,
-            dy,
-            speed,
-            damage,
-            ownerId,
-            alive: true,
-            weaponType,
-        });
-        return [
-            {
-                type: 'BULLET_SPAWN',
-                bulletId: id,
-                ownerId,
-                x,
-                y,
-                dx,
-                dy,
-                speed,
-                weaponType,
-            },
+        this.projectiles.push({ id, x, y, dx, dy, speed, damage, ownerId, alive: true, weaponType});
+
+        return [ 
+            { type: 'BULLET_SPAWN', bulletId: id, ownerId, x, y, dx, dy, speed, weaponType }
         ];
     }
 
@@ -163,8 +113,6 @@ export class GameSimulation {
 
             const newX = p.x + p.dx * p.speed;
             const newY = p.y + p.dy * p.speed;
-
-            // Wall collision
             for (const seg of segments) {
                 const t = raySegmentIntersect(p.x, p.y, p.dx, p.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                 if (t !== null && t >= 0 && t <= p.speed) {
@@ -174,15 +122,16 @@ export class GameSimulation {
                 }
             }
 
-            // Player collision
             if (p.alive) {
-                for (const player of players) {
+                for (const player of players) { // Detect if we are hitting a player
                     if (player.id === p.ownerId) continue;
                     if (player.dead) continue;
 
                     const pcx = player.current_position.x + HALF_HIT_BOX;
                     const pcy = player.current_position.y + HALF_HIT_BOX;
 
+                    // Scary math time... 
+                    // Find closest point on bullet path to player center, and check if it's within hitbox radius
                     const ox = pcx - p.x;
                     const oy = pcy - p.y;
                     const t = Math.max(0, Math.min(p.speed, ox * p.dx + oy * p.dy));
@@ -192,6 +141,8 @@ export class GameSimulation {
                     const distY = closestY - pcy;
                     const distSq = distX * distX + distY * distY;
 
+                    // This allows for some leniency in hit registration, as the player doesn't have to be perfectly intersected by the bullet path to get hit. 
+                    // This is intentional to account for high bullet speeds and low tick rates (Added this to fix a bug with snipers, but should help with general latency).
                     if (distSq < HALF_HIT_BOX * HALF_HIT_BOX) {
                         const wasAlive = !player.dead;
                         const dmgEvents = this.applyDamage(player, p.damage, p.ownerId);
@@ -213,12 +164,12 @@ export class GameSimulation {
 
                         p.alive = false;
                         events.push({ type: 'BULLET_REMOVED', bulletId: p.id });
+
                         break;
                     }
                 }
             }
 
-            // Bounds check
             if (p.alive && (newX < 0 || newX > MAP_SIZE || newY < 0 || newY > MAP_SIZE)) {
                 p.alive = false;
                 events.push({ type: 'BULLET_REMOVED', bulletId: p.id });
@@ -227,8 +178,9 @@ export class GameSimulation {
             if (p.alive) {
                 p.x = newX;
                 p.y = newY;
-            } else {
-                // swap-and-pop
+            } 
+            
+            else {
                 const last = this.projectiles.length - 1;
                 if (i !== last) this.projectiles[i] = this.projectiles[last];
                 this.projectiles.length = last;
@@ -242,51 +194,24 @@ export class GameSimulation {
         return this.projectiles;
     }
 
-    // -- Grenades --
-
     throwGrenade(type: GrenadeType, ownerId: number, x: number, y: number, dx: number, dy: number, speed: number, timestamp: number): GameEvent[] {
         const id = this.nextGrenadeId++;
-        this.grenadesList.push({
-            id,
-            type,
-            x,
-            y,
-            dx,
-            dy,
-            speed,
-            ownerId,
-            spawnTime: timestamp,
-            detonated: false,
-        });
+        this.grenadesList.push({ id, type, x, y, dx, dy, speed, ownerId, spawnTime: timestamp, detonated: false});
+
         return [
-            {
-                type: 'GRENADE_SPAWN',
-                grenadeId: id,
-                grenadeType: type,
-                ownerId,
-                x,
-                y,
-                dx,
-                dy,
-                speed,
-                isC4: type === 'C4',
-            },
+            { type: 'GRENADE_SPAWN', grenadeId: id, grenadeType: type, ownerId, x, y, dx, dy, speed, isC4: type === 'C4' },
         ];
     }
 
     detonateC4(playerId: number, segments: WallSegment[]): GameEvent[] {
         for (const g of this.grenadesList) {
             if (g.type === 'C4' && g.ownerId === playerId && !g.detonated) {
-                // Manual C4 detonation: no explosion damage to players, only shrapnel
                 return this.detonateGrenade(g, [], segments);
             }
         }
         return [];
     }
 
-    hasPlacedC4(playerId: number): boolean {
-        return this.grenadesList.some((g) => g.type === 'C4' && g.ownerId === playerId && !g.detonated);
-    }
 
     tickGrenades(segments: WallSegment[], allPlayers: player_info[], timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
@@ -476,6 +401,3 @@ export class GameSimulation {
         return events;
     }
 }
-
-// Singleton simulation instance
-export const simulation = new GameSimulation();

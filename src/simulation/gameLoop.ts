@@ -48,28 +48,24 @@ function startLoop() {
                 const adapter = getAdapter();
                 const roundRunning = adapter.isRoundActive();
 
-                // Collect and send input
                 if (roundRunning && !isPlayerDead(player)) {
                     if (!isMenuOpen()) {
                         const { dx, dy } = getMovementInput();
                         if (dx !== 0 || dy !== 0) {
                             adapter.sendInput({ type: 'MOVE', playerId: player.id, dx, dy });
                         }
+
                         if (isFiringInput()) {
                             adapter.sendInput({ type: 'FIRE', playerId: player.id, timestamp });
                         }
                     }
                 }
 
-                // Tick simulation
                 if (adapter.isMatchActive() && !isPauseOpen()) {
                     adapter.tick(environment.segments, getAllPlayers(), timestamp);
-
-                    // Render pipeline (camera, detection, raycast, HUD, etc.)
                     updateRenderPipeline(player, adapter, timestamp);
                 }
-
-                // AI
+                
                 if (roundRunning && !isPauseOpen() && adapter.mode === 'offline') {
                     updateAllAI(getAllPlayers(), timestamp);
                 }

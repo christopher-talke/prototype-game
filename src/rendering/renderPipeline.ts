@@ -20,12 +20,11 @@ import type { NetAdapter } from '@net/netAdapter';
 let _cachedFogEl: HTMLElement | null = null;
 
 export function updateRenderPipeline(player: player_info, adapter: NetAdapter, timestamp: number) {
-    // Sim-adjacent per-frame updates
+
     clientRenderer.updateVisuals();
     removeExpiredSmoke(timestamp);
     updateSmokeClouds(timestamp);
 
-    // Camera
     const weapon = getActiveWeapon(player);
     const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
     const cameraOffsetDist = weaponDef ? weaponDef.cameraOffset : 0;
@@ -33,7 +32,6 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     setCameraWeaponOffset(cameraOffsetDist, angleToRadians(player.current_position.rotation - ROTATION_OFFSET));
     updateCamera(window.visualViewport!.width, window.visualViewport!.height);
 
-    // Detection / visibility: compute results (pure) then apply to DOM
     const detections = detectOtherPlayers(player.id);
     for (const entry of detections) {
         const targetEl = getPlayerElement(entry.targetId);
@@ -45,7 +43,6 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
         }
     }
 
-    // Raycasting / FOV
     if (SETTINGS.raycast.type === 'MAIN_THREAD') {
         generateRayCast(player, { type: RaycastTypes.CORNERS });
         hideFOVCone();
@@ -59,11 +56,9 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
         _cachedFogEl?.classList.add('d-none');
     }
 
-    // Aim line
     const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;
     updateAimLine(player, shots);
     updateGrenadeAimLine(player);
 
-    // HUD
     updateHUD(player, adapter.getMatchTimeRemaining());
 }

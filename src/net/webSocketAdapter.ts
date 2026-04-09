@@ -7,14 +7,12 @@ import { getPlayerElement } from '@rendering/playerElements';
 import { getConfig } from '@config/activeConfig';
 import { setLocalPlayerId, updateLobbyState, showCountdown, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import type { DeepPartial, GameModeConfig } from '@config/types';
-import { moveWithCollision } from '@simulation/player/collision';
+import { moveWithCollisionPure, getWallAABBs } from '@simulation/player/collision';
+import { environment } from '@simulation/environment/environment';
 
 type PendingInput = { seq: number; input: PlayerInput };
-
 type LocalBullet = { id: number; x: number; y: number; dx: number; dy: number; speed: number };
 type LocalGrenade = { id: number; x: number; y: number; dx: number; dy: number; speed: number; detonated: boolean };
-
-// Interpolation target for remote players
 type InterpTarget = { x: number; y: number; rotation: number };
 
 const MOVE_SEND_INTERVAL = 1000 / 60; // 60 inputs/sec - match frame rate so prediction speed equals server speed
@@ -528,11 +526,13 @@ class WebSocketAdapter implements NetAdapter {
         if (!player) return;
 
         const speed = getConfig().player.speed;
-        const result = moveWithCollision(
+        const result = moveWithCollisionPure(
             player.current_position.x,
             player.current_position.y,
             input.dx * speed,
             input.dy * speed,
+            getWallAABBs(),
+            environment.limits,
             id,
             getAllPlayers(),
         );
@@ -554,7 +554,7 @@ class WebSocketAdapter implements NetAdapter {
         const speed = getConfig().player.speed;
         for (const pending of this.pendingInputs) {
             if (pending.input.type !== 'MOVE') continue;
-            const result = moveWithCollision(reconX, reconY, pending.input.dx * speed, pending.input.dy * speed, this.localPlayerId ?? 0, getAllPlayers());
+            const result = moveWithCollisionPure(reconX, reconY, pending.input.dx * speed, pending.input.dy * speed, getWallAABBs(), environment.limits, this.localPlayerId ?? 0, getAllPlayers());
             reconX = result.x;
             reconY = result.y;
         }

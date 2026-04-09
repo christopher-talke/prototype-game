@@ -11,7 +11,6 @@ import { getIsFiring } from '@simulation/combat/shooting';
 import { setMouseWorldPosition, getMouseWorldPosition } from '@utils/mouseWorldPosition';
 import { getConfig } from '@config/activeConfig';
 
-// Grenade selection
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
 let grenadeChargeStart = 0;

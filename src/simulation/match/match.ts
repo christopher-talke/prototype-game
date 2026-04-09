@@ -1,24 +1,31 @@
-import { createPlayer } from '@rendering/playerRenderer';
+import { registerAI, clearAllAI } from '@ai/index';
+
+import { GAME_MODES_MAP } from '@config/modes/index';
+import { getConfig, setGameMode } from '@config/activeConfig';
+import type { DeepPartial, GameModeConfig } from '@config/types';
+
+import { gameEventBus } from '@net/gameEvent';
+import { offlineAdapter } from '@net/offlineAdapter';
+import { webSocketAdapter } from '@net/webSocketAdapter';
+import { getAdapter, setAdapter } from '@net/activeAdapter';
+
+import { getLobbyState } from '@ui/lobby/lobbyScreen';
+import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
+
+import { getActiveMap } from '@maps/helpers';
+
+import { stopMenuMusic, playMenuMusic } from '@audio/index';
+
+import { getWallAABBs } from '@simulation/player/collision';
+import { createDefaultWeapon } from '@simulation/combat/weapons';
+import { environment } from '@simulation/environment/environment';
+import { createDefaultGrenades } from '@simulation/combat/grenades';
 import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
 import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
-import { updateActivePlayerVisual } from '@rendering/playerElements';
+
+import { createPlayer } from '@rendering/playerRenderer';
 import { clientRenderer } from '@rendering/clientRenderer';
-import { registerAI, clearAllAI } from '@ai';
-import type { DeepPartial, GameModeConfig } from '@config/types';
-import { getConfig, setGameMode } from '@config/activeConfig';
-import { GAME_MODES_MAP } from '@config/modes/index';
-import { offlineAdapter } from '@net/offlineAdapter';
-import { getAdapter, setAdapter } from '@net/activeAdapter';
-import { webSocketAdapter } from '@net/webSocketAdapter';
-import { getWallAABBs } from '@simulation/player/collision';
-import { gameEventBus } from '@net/gameEvent';
-import { getLobbyState } from '@ui/lobby/lobbyScreen';
-import { createDefaultWeapon } from '@simulation/combat/weapons';
-import { createDefaultGrenades } from '@simulation/combat/grenades';
-import { environment } from '@simulation/environment/environment';
-import { getActiveMap } from '@maps/helpers';
-import { stopMenuMusic, playMenuMusic } from '@audio/index';
-import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
+import { updateActivePlayerVisual } from '@rendering/playerElements';
 import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
 
 const ACTIVE_MAP = getActiveMap();
@@ -70,7 +77,6 @@ export function initMatchSystem() {
 function spawnOfflinePlayers() {
     const config = getConfig();
 
-    console.log(`fnc: spawnOfflinePlayers", config:`, config);
     const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, ACTIVE_MAP.teamSpawns);
     const localTeam = players.find(p => p.id === 1)?.team;
     for (const player of players) {
@@ -79,6 +85,7 @@ function spawnOfflinePlayers() {
             registerAI(player);
         }
     }
+
     setActivePlayer(1);
     updateActivePlayerVisual(null, 1);
     authSim.setPlayers(getAllPlayers());
@@ -139,12 +146,15 @@ export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConf
     const entry = GAME_MODES_MAP.get(modeId);
     if (entry) setGameMode(entry.partial);
     if (overrides) setGameMode(overrides);
+
     stopMenuMusic();
     spawnOfflinePlayers();
     const playerIds = getAllPlayers().map((p) => p.id);
     authSim.initMatch(playerIds);
+
     const events = authSim.startRound();
     gameEventBus.emitAll(events);
+    
     hideMainMenu();
     document.body.style.cursor = 'none';
 }

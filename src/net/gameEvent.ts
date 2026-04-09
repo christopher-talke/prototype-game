@@ -1,38 +1,46 @@
-// -- Game Events: the network protocol between simulation and rendering --
-// Offline mode emits and consumes these locally.
-// Online mode will serialize and send them over WebSocket.
+/**
+ * Defines the structure of game events that are sent from the server to the client, as well as player input events sent from the client to the server. 
+ * Also includes an event bus for subscribing to and emitting these events.
+ * This file serves as a central place to define all the different types of events that can occur in the game, such as player actions, combat events, grenade events, and match events. 
+ * It also defines the structure of player input events that the client sends to the server to indicate player intentions.
+ */
 
 export type GameEvent =
     // Projectiles
     | BulletSpawnEvent
     | BulletRemovedEvent
     | BulletHitEvent
+
     // Player combat
     | PlayerDamagedEvent
     | PlayerKilledEvent
     | PlayerRespawnEvent
+
     // Grenades
     | GrenadeSpawnEvent
     | GrenadeDetonateEvent
     | GrenadeBounceEvent
     | GrenadeRemovedEvent
+
     // Grenade effects
     | ExplosionHitEvent
     | FlashEffectEvent
     | SmokeDeployEvent
+
     // Match / economy
     | KillFeedEvent
     | RoundStartEvent
     | RoundEndEvent
+
     // Reload
     | ReloadStartEvent
     | ReloadCompleteEvent
+
     // Player status
     | PlayerStatusChangedEvent
+
     // Movement
     | FootstepEvent;
-
-// -- Projectile events --
 
 export type BulletSpawnEvent = {
     type: 'BULLET_SPAWN';

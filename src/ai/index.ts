@@ -32,23 +32,21 @@ type AIController = {
     targetLastPos: coordinates | null;
     patrolPauseUntil: number;
     lastFireTime: number;
-    // Stuck detection
     lastPos: coordinates;
     stuckFrames: number;
     unstickUntil: number;
     unstickAngle: number;
-    // Wall-hit tracking: stop firing when bullets keep hitting walls
     wallHitShots: number;
     hasBought: boolean;
-    // LOS throttle: cached enemy scan result
     cachedEnemy: player_info | null;
     cachedEnemyDist: number;
     losFrame: number;
 };
 
 const controllers: AIController[] = [];
+const AI_LOS_INTERVAL = 3;
+
 let aiFrameCounter = 0;
-const AI_LOS_INTERVAL = 3; // only scan LOS every N frames per AI
 
 function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
@@ -117,10 +115,8 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
     const myCy = me.current_position.y + HALF_HIT_BOX;
 
     // Try to buy a better weapon once
-    if (!ai.hasBought) {
-        tryBuyWeapon(ai);
-        tryBuyGrenade(ai);
-    }
+    tryBuyWeapon(ai);
+    tryBuyGrenade(ai);
 
     // Stuck detection
     const movedDist = getDistance(myCx, myCy, ai.lastPos.x + HALF_HIT_BOX, ai.lastPos.y + HALF_HIT_BOX);
@@ -129,15 +125,14 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
     } else {
         ai.stuckFrames = 0;
     }
+
     ai.lastPos.x = me.current_position.x;
     ai.lastPos.y = me.current_position.y;
-
-    // If stuck too long, pick a random direction to unstick
     if (ai.stuckFrames >= STUCK_FRAMES_BEFORE_REROUTE && timestamp > ai.unstickUntil) {
         ai.unstickAngle = Math.random() * Math.PI * 2;
         ai.unstickUntil = timestamp + UNSTICK_DURATION;
         ai.stuckFrames = 0;
-        // Also regenerate patrol waypoints so we don't path into the same wall
+
         if (ai.state === 'patrol') {
             ai.waypoints = generatePatrolPoints();
             ai.waypointIndex = 0;
@@ -157,7 +152,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
     let closestDist = Infinity;
 
     const shouldScanLOS = (aiFrameCounter + ai.losFrame) % AI_LOS_INTERVAL === 0;
-
     if (shouldScanLOS) {
         for (const other of allPlayers) {
             if (other.id === me.id) continue;
@@ -171,7 +165,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
             if (dist > getConfig().ai.detectRange) continue;
 
             const blocked = isLineBlocked(me.current_position.x, me.current_position.y, other.current_position.x, other.current_position.y, environment.segments);
-
             if (!blocked && dist < closestDist) {
                 closestEnemy = other;
                 closestDist = dist;
@@ -179,18 +172,17 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         }
         ai.cachedEnemy = closestEnemy;
         ai.cachedEnemyDist = closestDist;
-    } else {
-        // Use cached result from last LOS scan
+    } 
+    
+    else {
         closestEnemy = ai.cachedEnemy;
         closestDist = ai.cachedEnemyDist;
-        // Validate cached enemy is still alive
         if (closestEnemy && isPlayerDead(closestEnemy)) {
             closestEnemy = null;
             ai.cachedEnemy = null;
         }
     }
 
-    // State transitions
     if (closestEnemy) {
         ai.state = 'chase';
         ai.targetId = closestEnemy.id;
@@ -200,7 +192,9 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         };
         ai.lastSawTarget = timestamp;
         ai.wallHitShots = 0;
-    } else if (ai.state === 'chase') {
+    } 
+    
+    else if (ai.state === 'chase') {
         if (timestamp - ai.lastSawTarget > getConfig().ai.chaseTimeout) {
             ai.state = 'patrol';
             ai.targetId = null;
@@ -208,7 +202,9 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         } else {
             ai.state = 'search';
         }
-    } else if (ai.state === 'search') {
+    } 
+    
+    else if (ai.state === 'search') {
         if (timestamp - ai.lastSawTarget > getConfig().ai.chaseTimeout) {
             ai.state = 'patrol';
             ai.targetId = null;
@@ -216,7 +212,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         }
     }
 
-    // Execute behavior
     switch (ai.state) {
         case 'patrol':
             doPatrol(ai, timestamp);
@@ -373,8 +368,6 @@ function tryAIFire(ai: AIController, timestamp: number) {
         }
     }
 
-    // Send fire input - AuthoritativeSimulation handles fire rate, ammo, recoil
-    // Sound is played by ClientRenderer.onBulletSpawn
     offlineAdapter.sendInput({ type: 'FIRE', playerId: me.id, timestamp });
 }
 

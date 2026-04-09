@@ -154,8 +154,6 @@ export function updateGrenadeAimLine(playerInfo: player_info) {
     const startY = cy + dy * INDICATOR_TIP_OFFSET;
 
     let lineLen = computeGrenadeTravelDistance(def.throwSpeed, chargeFraction);
-
-    // Cap at wall intersections
     for (const seg of environment.segments) {
         const t = raySegmentIntersect(startX, startY, dx, dy, seg.x1, seg.y1, seg.x2, seg.y2);
         if (t !== null && t > 0 && t < lineLen) lineLen = t;

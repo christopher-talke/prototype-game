@@ -1,6 +1,10 @@
 import { environment } from './environment';
 import { registerWallAABB } from '@simulation/player/collision';
 
+/**
+ * Registers the geometry of a wall in the environment, including its axis-aligned bounding box (AABB) for collision detection.
+ * @param wallInfo The information about the wall, including its position and dimensions.
+ */
 export function registerWallGeometry(wallInfo: wall_info) {
     const { x, y, width, height } = wallInfo;
     registerWallAABB(x, y, width, height);

@@ -1,48 +1,57 @@
-// AuthoritativeSimulation: fully authoritative game state with NO DOM dependencies.
-// Consolidates all game logic: movement, weapons, grenades, projectiles, match state, respawns.
-// Can run on client (offline) or server (online).
+/**
+ * AuthoritativeSimulation: server-side simulation of game mechanics and match state, authoritative source of truth for player states and events. 
+ * Does not handle latency compensation or client reconciliation (See WebSocketAdapter for that which uses AuthoritativeSimulation).
+ */
+
+import { HALF_HIT_BOX, PLAYER_HIT_BOX, ROTATION_OFFSET } from '../constants';
+
+import { getConfig } from '@config/activeConfig';
 
 import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@net/gameEvent';
-import { PlayerStatus } from './player/playerData';
-import { GameSimulation } from './gameSimulation';
+
+import { GameSimulation } from '@simulation/gameSimulation';
+import { PlayerStatus } from '@simulation/player/playerData';
+import { collidesWithPlayers, moveWithCollisionPure } from '@simulation/player/collision';
 import { getWeaponDef, createDefaultWeapon } from '@simulation/combat/weapons';
 import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
-import { getConfig } from '@config/activeConfig';
-import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
-import { moveWithCollisionPure } from './player/collision';
 
-// Per-player weapon state tracked by the simulation (no setTimeout)
 type PlayerWeaponState = {
     lastFireTime: number;
     consecutiveShots: number;
-    recoilResetTime: number; // timestamp when consecutive shots reset (0 = no pending reset)
-    reloadStartTime: number; // 0 = not reloading via tick
-    nextShellTime: number; // for shell-by-shell reload (0 = not active)
+    recoilResetTime: number;
+    reloadStartTime: number;
+    nextShellTime: number;
 };
 
-// Per-player respawn tracking
 type PlayerRespawnState = {
-    deathTime: number; // 0 = alive
+    deathTime: number;
 };
 
-// Match state
 type MatchState = {
     active: boolean;
     roundActive: boolean;
     currentRound: number;
     roundStartTime: number;
-    intermissionEndTime: number; // 0 = no pending intermission
+    intermissionEndTime: number;
     matchWinner: number | null;
     teamRoundWins: Record<number, number>;
     roundKills: Record<number, number>;
     playerStates: Map<number, PlayerGameState>;
 };
 
-// Collision AABB
 type AABB = { x: number; y: number; w: number; h: number };
-
-// Bounds limits
 type Limits = { left: number; right: number; top: number; bottom: number };
+
+function findNonOverlappingSpawn(x: number, y: number, excludeId: number, players: readonly player_info[]): { x: number; y: number } {
+    if (!collidesWithPlayers(x, y, excludeId, players)) return { x, y };
+    for (let r = PLAYER_HIT_BOX; r <= PLAYER_HIT_BOX * 10; r += PLAYER_HIT_BOX) {
+        const angle = Math.random() * Math.PI * 2;
+        const nx = x + Math.cos(angle) * r;
+        const ny = y + Math.sin(angle) * r;
+        if (!collidesWithPlayers(nx, ny, excludeId, players)) return { x: nx, y: ny };
+    }
+    return { x, y };
+}
 
 export class AuthoritativeSimulation {
     readonly simulation: GameSimulation;
@@ -50,7 +59,7 @@ export class AuthoritativeSimulation {
     private limits: Limits = { left: 0, right: 3000, top: 0, bottom: 3000 };
     private segments: WallSegment[] = [];
     private players: player_info[] = [];
-    private playerMap = new Map<number, player_info>(); // O(1) lookup for processInput
+    private playerMap = new Map<number, player_info>();
     private teamSpawns: Record<number, coordinates[]> = {};
     patrolPoints: coordinates[] = [];
 
@@ -71,8 +80,6 @@ export class AuthoritativeSimulation {
     constructor() {
         this.simulation = new GameSimulation();
     }
-
-    // -- Setup --
 
     setMap(wallAABBs: AABB[], limits: Limits, segments: WallSegment[], teamSpawns: Record<number, coordinates[]>, patrolPoints: coordinates[]) {
         this.wallAABBs = wallAABBs;
@@ -151,21 +158,15 @@ export class AuthoritativeSimulation {
         return this.weaponStates.get(playerId)?.consecutiveShots ?? 0;
     }
 
-    // -- Collision (delegates to shared pure functions) --
-
     private moveWithCollision(currentX: number, currentY: number, dx: number, dy: number, playerId?: number): { x: number; y: number } {
         return moveWithCollisionPure(currentX, currentY, dx, dy, this.wallAABBs, this.limits, playerId, this.players);
     }
-
-    // -- Status change helper --
 
     private emitStatusChange(player: player_info, newStatus: PlayerStatus): PlayerStatusChangedEvent {
         const prev = player.status;
         player.status = newStatus;
         return { type: 'PLAYER_STATUS_CHANGED', playerId: player.id, status: newStatus, previousStatus: prev };
     }
-
-    // -- Input processing --
 
     processInput(input: PlayerInput, timestamp: number): GameEvent[] {
         const player = this.playerMap.get(input.playerId);
@@ -246,7 +247,6 @@ export class AuthoritativeSimulation {
         const ws = this.weaponStates.get(player.id)!;
         const weaponDef = getWeaponDef(weapon.type);
 
-        // Shell-by-shell reload can be interrupted by firing
         const interruptEvents: GameEvent[] = [];
         if (weapon.reloading) {
             if (weaponDef.shellReloadTime && weapon.ammo > 0) {
@@ -266,12 +266,11 @@ export class AuthoritativeSimulation {
         ws.lastFireTime = timestamp;
         weapon.ammo--;
 
-        // Recoil
         const patternIndex = Math.min(ws.consecutiveShots, weaponDef.recoilPattern.length - 1);
         const recoil = weaponDef.recoilPattern[patternIndex];
         player.current_position.rotation += recoil.y;
         ws.consecutiveShots++;
-        ws.recoilResetTime = 0; // reset pending timer since we're still firing
+        ws.recoilResetTime = 0;
 
         // Calculate bullet direction
         const centerX = player.current_position.x + HALF_HIT_BOX;
@@ -290,7 +289,6 @@ export class AuthoritativeSimulation {
             events.push(...this.simulation.spawnBullet(player.id, centerX, centerY, dx, dy, weaponDef.bulletSpeed, weaponDef.damage, weaponDef.id));
         }
 
-        // Auto-reload on empty
         if (weapon.ammo <= 0) {
             events.push(...this.processReload(player, timestamp));
         }
@@ -314,10 +312,7 @@ export class AuthoritativeSimulation {
             ws.reloadStartTime = timestamp;
         }
 
-        return [
-            { type: 'RELOAD_START', playerId: player.id },
-            this.emitStatusChange(player, PlayerStatus.RELOADING),
-        ];
+        return [ { type: 'RELOAD_START', playerId: player.id }, this.emitStatusChange(player, PlayerStatus.RELOADING) ];
     }
 
     private processSwitchWeapon(player: player_info, index: number): GameEvent[] {
@@ -370,6 +365,7 @@ export class AuthoritativeSimulation {
 
         const events = this.simulation.throwGrenade(type, player.id, cx, cy, dx, dy, speed, timestamp);
         events.push(this.emitStatusChange(player, AuthoritativeSimulation.GRENADE_STATUS_MAP[type]));
+
         return events;
     }
 
@@ -395,6 +391,7 @@ export class AuthoritativeSimulation {
             firing_rate: weaponDef.fireRate,
             reloading: false,
         });
+
         return [];
     }
 
@@ -408,33 +405,38 @@ export class AuthoritativeSimulation {
         return [];
     }
 
-    // -- Buy armor/health (called from HUD, not PlayerInput yet) --
-
     buyArmor(playerId: number): boolean {
         const player = this.players.find((p) => p.id === playerId);
         if (!player) return false;
+
         const config = getConfig();
         if (player.armour >= config.player.maxArmor) return false;
+
         const state = this.match.playerStates.get(playerId);
         if (!state || state.money < config.economy.armorCost) return false;
+
         state.money -= config.economy.armorCost;
         player.armour = config.player.maxArmor;
+
         return true;
     }
 
     buyHealth(playerId: number): boolean {
         const player = this.players.find((p) => p.id === playerId);
         if (!player) return false;
+
         const config = getConfig();
         if (player.health >= config.player.maxHealth) return false;
+
         const state = this.match.playerStates.get(playerId);
         if (!state || state.money < config.economy.healthCost) return false;
+
         state.money -= config.economy.healthCost;
         player.health = config.player.maxHealth;
+
         return true;
     }
 
-    // -- Match management --
 
     initMatch(playerIds: number[]) {
         this.match.playerStates.clear();
@@ -475,15 +477,11 @@ export class AuthoritativeSimulation {
         }
 
         this.resetAllPlayers();
-
-        // Reset money for the new round
         for (const [, state] of this.match.playerStates) {
             state.money = getConfig().economy.startingMoney;
         }
 
         const events: GameEvent[] = [{ type: 'ROUND_START', round: this.match.currentRound }];
-
-        // Emit respawn events for all players so ClientRenderer updates DOM positions
         for (const player of this.players) {
             events.push({
                 type: 'PLAYER_RESPAWN',
@@ -540,10 +538,12 @@ export class AuthoritativeSimulation {
                 extra.push(...this.recordKill(event.killerId, event.targetId));
                 this.notifyPlayerDeath(event.targetId, timestamp);
                 const victim = this.playerMap.get(event.targetId);
+
                 if (victim) extra.push(this.emitStatusChange(victim, PlayerStatus.DEAD));
             }
         }
         if (extra.length > 0) events.push(...extra);
+
         return events;
     }
 
@@ -585,18 +585,16 @@ export class AuthoritativeSimulation {
         return true;
     }
 
-    // -- Tick: advances simulation each frame --
-
     tick(timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
 
-        // Helper: push sub-tick results only when non-empty to avoid spread of empty arrays
         const pushAll = (sub: GameEvent[]) => { if (sub.length > 0) events.push(...sub); };
 
         pushAll(this.simulation.tickProjectiles(this.segments, this.players));
         pushAll(this.simulation.tickGrenades(this.segments, this.players, timestamp));
         pushAll(this.tickReloads(timestamp));
         this.tickRecoilResets(timestamp);
+
         pushAll(this.tickRespawns(timestamp));
         pushAll(this.tickMatchTimer());
         pushAll(this.tickIntermission());
@@ -609,7 +607,7 @@ export class AuthoritativeSimulation {
         for (const player of this.players) {
             const ws = this.weaponStates.get(player.id);
             if (!ws) continue;
-            // Inline active weapon lookup to avoid .find() per player per frame
+
             let weapon: typeof player.weapons[0] | undefined;
             for (let i = 0; i < player.weapons.length; i++) {
                 if (player.weapons[i].active) { weapon = player.weapons[i]; break; }
@@ -617,31 +615,36 @@ export class AuthoritativeSimulation {
             if (!weapon || !weapon.reloading) continue;
 
             const weaponDef = getWeaponDef(weapon.type);
-
             if (weaponDef.shellReloadTime) {
-                // Shell-by-shell reload
+
                 if (ws.nextShellTime > 0 && timestamp >= ws.nextShellTime) {
                     weapon.ammo++;
                     if (weapon.ammo < weapon.maxAmmo) {
                         ws.nextShellTime = timestamp + weaponDef.shellReloadTime;
-                    } else {
+                    } 
+                    
+                    else {
                         weapon.reloading = false;
                         ws.nextShellTime = 0;
+
                         events.push({ type: 'RELOAD_COMPLETE', playerId: player.id, ammo: weapon.ammo });
                         events.push(this.emitStatusChange(player, PlayerStatus.IDLE));
                     }
                 }
-            } else {
-                // Full magazine reload
+            } 
+            
+            else {
                 if (ws.reloadStartTime > 0 && timestamp >= ws.reloadStartTime + weaponDef.reloadTime) {
                     weapon.ammo = weapon.maxAmmo;
                     weapon.reloading = false;
                     ws.reloadStartTime = 0;
+
                     events.push({ type: 'RELOAD_COMPLETE', playerId: player.id, ammo: weapon.ammo });
                     events.push(this.emitStatusChange(player, PlayerStatus.IDLE));
                 }
             }
         }
+
         return events;
     }
 
@@ -654,7 +657,6 @@ export class AuthoritativeSimulation {
         }
     }
 
-    // Called when player stops firing (from input layer)
     notifyStopFiring(playerId: number, timestamp: number) {
         const ws = this.weaponStates.get(playerId);
         if (ws) {
@@ -679,7 +681,6 @@ export class AuthoritativeSimulation {
         return events;
     }
 
-    // Called when a player is killed (to start respawn timer)
     notifyPlayerDeath(playerId: number, timestamp: number) {
         const rs = this.respawnStates.get(playerId);
         if (rs) {
@@ -691,11 +692,12 @@ export class AuthoritativeSimulation {
         const spawnPoints = this.teamSpawns[player.team] ?? Object.values(this.teamSpawns).flat();
         const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
 
+        const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players);
         player.health = getConfig().player.maxHealth;
         player.armour = getConfig().player.startingArmor;
         player.dead = false;
-        player.current_position.x = spawn.x;
-        player.current_position.y = spawn.y;
+        player.current_position.x = pos.x;
+        player.current_position.y = pos.y;
         player.weapons = [createDefaultWeapon()];
         player.grenades = createDefaultGrenades();
 
@@ -703,8 +705,8 @@ export class AuthoritativeSimulation {
             {
                 type: 'PLAYER_RESPAWN',
                 playerId: player.id,
-                x: spawn.x,
-                y: spawn.y,
+                x: pos.x,
+                y: pos.y,
                 rotation: player.current_position.rotation,
             },
             this.emitStatusChange(player, PlayerStatus.IDLE),
@@ -774,16 +776,16 @@ export class AuthoritativeSimulation {
             const spawn = spawns[teamCounters[player.team] % spawns.length];
             teamCounters[player.team]++;
 
+            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players);
             player.health = getConfig().player.maxHealth;
             player.armour = getConfig().player.startingArmor;
             player.dead = false;
             player.status = PlayerStatus.IDLE;
-            player.current_position.x = spawn.x;
-            player.current_position.y = spawn.y;
+            player.current_position.x = pos.x;
+            player.current_position.y = pos.y;
             player.weapons = [createDefaultWeapon()];
             player.grenades = createDefaultGrenades();
 
-            // Reset weapon state
             const ws = this.weaponStates.get(player.id);
             if (ws) {
                 ws.lastFireTime = 0;
@@ -793,7 +795,6 @@ export class AuthoritativeSimulation {
                 ws.nextShellTime = 0;
             }
 
-            // Reset respawn state
             const rs = this.respawnStates.get(player.id);
             if (rs) rs.deathTime = 0;
         }
