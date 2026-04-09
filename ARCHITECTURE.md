@@ -26,7 +26,7 @@ src/
   rendering/     All DOM output.
   net/           Event bus, transport adapters, wire protocol.
   ui/            Screens and menus (not in-game rendering).
-  aI/            Bot behavior.
+  ai/            Bot behavior.
   audio/         Sound system.
   combat/        Weapon, grenade, and damage definitions.
   config/        Game balance and mode definitions.
