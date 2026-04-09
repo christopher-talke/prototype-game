@@ -1,4 +1,4 @@
-import { PlayerStatus } from "./Player/player";
+import { PlayerStatus } from "./simulation/player/playerData";
 
 declare global {
     type GameMode = 'ffa' | 'tdm';

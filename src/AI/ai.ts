@@ -1,15 +1,16 @@
-import { getAngle } from '../Utilities/getAngle';
-import { getDistance } from '../Utilities/getDistance';
-import { isLineBlocked } from '../Player/Raycast/raycast';
-import { environment } from '../Environment/environment';
-import { isPlayerDead } from '../Combat/damage';
-import { getActiveWeapon } from '../Combat/shooting';
-import { getWeaponDef, isWeaponAllowed } from '../Combat/weapons';
+import { getAngle } from '../utils/getAngle';
+import { getDistance } from '../utils/getDistance';
+import { normalizeAngle } from '@utils/normalizeAngle';
+import { isLineBlocked } from '@simulation/detection/raycast';
+import { environment } from '@simulation/environment/environment';
+import { isPlayerDead } from '@simulation/combat/damage';
+import { getActiveWeapon } from '@simulation/combat/shooting';
+import { getWeaponDef, isWeaponAllowed } from '@simulation/combat/weapons';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
-import { getConfig } from '../Config/activeConfig';
-import { getActiveMap } from '../Maps/helpers';
-import { offlineAdapter } from '../Net/OfflineAdapter';
-import { getGrenadeDef, GRENADE_DEFS, isGrenadeAllowed } from '../Combat/grenades';
+import { getConfig } from '@config/activeConfig';
+import { getActiveMap } from '@maps/helpers';
+import { offlineAdapter } from '@net/OfflineAdapter';
+import { getGrenadeDef, isGrenadeAllowed } from '@simulation/combat/grenades';
 
 const STUCK_THRESHOLD = 0.5;
 const STUCK_FRAMES_BEFORE_REROUTE = 15;
@@ -435,11 +436,4 @@ function tryBuyWeapon(ai: AIController) {
             return;
         }
     }
-}
-
-function normalizeAngle(a: number): number {
-    a = a % 360;
-    if (a > 180) a -= 360;
-    if (a <= -180) a += 360;
-    return a;
 }

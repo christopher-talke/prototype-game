@@ -1,6 +1,6 @@
-import '../Player/Raycast/fogOfWar.css';
-import { environment } from '../Environment/environment';
-import { app } from '../Globals/App';
+import './fogOfWar.css';
+import { environment } from '@simulation/environment/environment';
+import { app } from '../app';
 
 export function drawFogOfWar() {
     const el = window.document.createElement('div');

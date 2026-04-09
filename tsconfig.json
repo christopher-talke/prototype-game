@@ -5,7 +5,7 @@
         "module": "ESNext",
         "lib": ["ESNext", "DOM", "WebWorker"],
         "ignoreDeprecations": "6.0",
-        "moduleResolution": "Node", 
+        "moduleResolution": "Node",
         "strict": true,
         "resolveJsonModule": true,
         "isolatedModules": true,
@@ -14,7 +14,18 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noImplicitReturns": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "baseUrl": ".",
+        "paths": {
+            "@simulation/*": ["src/simulation/*"],
+            "@rendering/*": ["src/rendering/*"],
+            "@net/*": ["src/net/*"],
+            "@ui/*": ["src/ui/*"],
+            "@audio/*": ["src/audio/*"],
+            "@config/*": ["src/config/*"],
+            "@maps/*": ["src/maps/*"],
+            "@utils/*": ["src/utils/*"]
+        }
     },
     "include": ["src"]
 }

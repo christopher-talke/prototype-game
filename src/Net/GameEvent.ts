@@ -28,7 +28,9 @@ export type GameEvent =
     | ReloadStartEvent
     | ReloadCompleteEvent
     // Player status
-    | PlayerStatusChangedEvent;
+    | PlayerStatusChangedEvent
+    // Movement
+    | FootstepEvent;
 
 // -- Projectile events --
 
@@ -185,13 +187,21 @@ export type ReloadCompleteEvent = {
 
 // -- Player status events --
 
-import { PlayerStatus } from '../Player/player';
+import { PlayerStatus } from '@simulation/player/playerData';
 
 export type PlayerStatusChangedEvent = {
     type: 'PLAYER_STATUS_CHANGED';
     playerId: number;
     status: PlayerStatus;
     previousStatus: PlayerStatus;
+};
+
+// -- Movement events --
+
+export type FootstepEvent = {
+    type: 'FOOTSTEP';
+    playerId: number;
+    timestamp: number;
 };
 
 // -- Player input (what the client sends to the server) --

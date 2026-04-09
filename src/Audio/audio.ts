@@ -1,5 +1,5 @@
-import { SETTINGS } from '../Globals/App';
-import { ACTIVE_PLAYER, getPlayerInfo } from '../Globals/Players';
+import { SETTINGS } from '../app';
+import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { HALF_HIT_BOX } from '../constants';
 
 const MAX_HEARING_DISTANCE = 1500;

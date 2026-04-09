@@ -1,3 +1,21 @@
+## Refactor Progress
+
+- [x] P0: Path aliases (tsconfig paths + vite.config.ts) and camelCase naming convention
+- [x] P1: Decompose game loop (interactivity.ts -> gameLoop.ts + inputController.ts + renderPipeline.ts)
+- [x] P2: Split player creation (player.ts -> playerData.ts + playerRenderer.ts)
+- [x] P3: Split player registry (Players.ts -> playerRegistry.ts + rendering/globals.ts)
+- [x] P4: Split smoke (smoke.ts -> smokeData.ts + smokeRenderer.ts)
+- [x] P5: Split visibility/detection pipeline (lineOfSight.ts + detection.ts)
+- [x] P6: Split raycast (raycast.ts -> detection/raycast.ts + raycastRenderer.ts)
+- [x] P7: Move GameSimulation + AuthoritativeSimulation to simulation/
+- [x] P8: Consolidate collision duplication
+- [x] P9: Split wall creation (wall.ts -> wallData.ts + wallRenderer.ts)
+- [x] P10: Fix OfflineAdapter footstep audio leak
+- [x] P11: Fix match.ts rendering leaks (cursor)
+- [x] P12: Deduplicate normalizeAngle
+- [x] P13: Move UI screens to ui/
+- [x] P14: Document rotation client prediction
+
 ## Output
 
 - Return code first. Explanation after, only if non-obvious.

@@ -1,20 +1,21 @@
 import './style.css';
 
-import { SETTINGS } from './Globals/App';
-import { drawFogOfWar } from './Rendering/FogOfWar';
-import { drawCollisionOverlay } from './Environment/generateCollisionMap';
-import { environment, generateEnvironment } from './Environment/environment';
-import { createWall } from './Environment/Wall/wall';
-import { initHUD } from './HUD/hud';
-import { getActiveMap } from './Maps/helpers';
-import { resumeAudioContext, playMenuMusic } from './Audio/audio';
-import { loadAllSounds } from './Audio/soundMap';
-import { initProjectilePool } from './Combat/ProjectilePool';
-import { clientRenderer } from './Net/ClientRenderer';
-import { showMainMenu } from './MainMenu/MainMenu';
-import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from './Loading/LoadingScreen';
-import { initInteractivity } from './Player/interactivity';
-import { initMatchSystem, launchMatch } from './Match/match';
+import { SETTINGS } from './app';
+import { drawFogOfWar } from '@rendering/fogOfWar';
+import { drawCollisionOverlay } from '@simulation/environment/generateCollisionMap';
+import { environment, generateEnvironment } from '@simulation/environment/environment';
+import { registerWallGeometry } from '@simulation/environment/wallData';
+import { renderWall } from '@rendering/wallRenderer';
+import { initHUD } from './rendering/hud/hud';
+import { getActiveMap } from '@maps/helpers';
+import { resumeAudioContext, playMenuMusic } from '@audio/audio';
+import { loadAllSounds } from '@audio/soundMap';
+import { initProjectilePool } from '@simulation/combat/projectilePool';
+import { clientRenderer } from '@net/ClientRenderer';
+import { showMainMenu } from '@ui/mainMenu/mainMenu';
+import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/loading/loadingScreen';
+import { initGameLoop } from '@simulation/gameLoop';
+import { initMatchSystem, launchMatch } from '@simulation/match/match';
 
 import { getGPUTier } from '@pmndrs/detect-gpu';
 import { getConfig, setGameMode } from './Config/activeConfig';
@@ -66,7 +67,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setLoadingProgress(30, 'building walls');
     for (const wall of ACTIVE_MAP.walls) {
-        createWall(wall);
+        registerWallGeometry(wall);
+        renderWall(wall);
     }
     await nextFrame();
 
@@ -75,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     setLoadingProgress(45, 'initializing input');
-    initInteractivity();
+    initGameLoop();
     await nextFrame();
 
     setLoadingProgress(60, 'initializing hud');

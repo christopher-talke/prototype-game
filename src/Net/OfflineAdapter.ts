@@ -4,8 +4,7 @@
 import type { NetAdapter } from './NetAdapter';
 import type { PlayerInput, EventHandler } from './GameEvent';
 import { gameEventBus } from './GameEvent';
-import { AuthoritativeSimulation } from './AuthoritativeSimulation';
-import { playFootstep } from '../Audio/audio';
+import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation';
 
 class OfflineAdapter implements NetAdapter {
     readonly mode = 'offline' as const;
@@ -22,15 +21,16 @@ class OfflineAdapter implements NetAdapter {
         const prevX = player.current_position.x;
         const prevY = player.current_position.y;
 
-        const events = this.authSim.processInput(input, performance.now());
-        gameEventBus.emitAll(events);
+        const now = performance.now();
+        const events = this.authSim.processInput(input, now);
 
-        // Play footstep sound on movement (client-side audio effect)
         if (input.type === 'MOVE') {
             if (player.current_position.x !== prevX || player.current_position.y !== prevY) {
-                playFootstep(player, performance.now());
+                events.push({ type: 'FOOTSTEP', playerId: player.id, timestamp: now });
             }
         }
+
+        gameEventBus.emitAll(events);
     }
 
     tick(_segments: WallSegment[], _players: player_info[], timestamp: number): void {

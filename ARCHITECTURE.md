@@ -16,93 +16,128 @@ If you want to add a weapon, grenade, game mode, or network feature, this tells 
 | Add a new HUD element           | `src/HUD/hud.ts`                           |
 | Add a new sound                 | `src/Audio/soundMap.ts`                    |
 | Add a new game event            | `src/Net/GameEvent.ts`                     |
-| Change simulation logic         | `src/Net/AuthoritativeSimulation.ts`       |
-| Change projectile/grenade physics | `src/Net/GameSimulation.ts`              |
+| Change simulation logic         | `src/simulation/authoritativeSimulation.ts` |
+| Change projectile/grenade physics | `src/simulation/gameSimulation.ts`        |
 | Add rendering for a new event   | `src/Net/ClientRenderer.ts`               |
-| Change AI behavior              | `src/AI/ai.ts`                             |
+| Change AI behavior              | `src/ai/ai.ts`                             |
 | Change server multiplayer logic  | `server/GameRoom.ts`                      |
 | Change client multiplayer logic  | `src/Net/WebSocketAdapter.ts`             |
-| Change fog of war / line of sight | `src/Player/Raycast/`, `src/Player/lineOfSight.ts` |
+| Change fog of war / raycasting  | `src/simulation/detection/raycast.ts` (geometry), `src/rendering/raycastRenderer.ts` (DOM) |
+| Change visibility / detection   | `src/simulation/player/visibility.ts` (logic), `src/rendering/visibilityRenderer.ts` (DOM) |
+
+---
+
+## Layer Rules
+
+The codebase enforces three strict layers. The rendering layer is designed to be replaceable with WebGL.
+
+```
+simulation/  --> may NOT import from rendering/ or ui/
+rendering/   --> may import from `simulation/` and `net/gameEvent.ts` (subscribe)
+net/         --> may import from `simulation/`, but may NOT import from `rendering/`
+ui/          --> may import from anything except simulation internals
+```
 
 ---
 
 ## Directory Structure
 
 ```
-server/              WebSocket multiplayer server
-  ws-server.ts         Entry point, room routing
-  GameRoom.ts          Room lifecycle, tick loop, player management
+server/                  WebSocket multiplayer server
+  ws-server.ts             Entry point, room routing
+  GameRoom.ts              Room lifecycle, tick loop, player management
 
 src/
-  main.ts              Boot sequence, match lifecycle, menu wiring
-  constants.ts         FOV, hit box sizes, rotation offset
+  main.ts                  Boot sequence, match lifecycle, menu wiring
+  constants.ts             FOV, hit box sizes, rotation offset
 
-  AI/                  Bot behavior
-    ai.ts                State machine: patrol -> chase -> search
+  simulation/              Zero DOM. Game state, physics, rules.
+    gameLoop.ts              rAF loop, input collection, tick orchestration
+    inputController.ts       Keyboard/mouse listeners, grenade charge, movement input
+    gameSimulation.ts        Pure projectile/grenade physics
+    authoritativeSimulation.ts  Full state machine: input, match/round, economy, respawns
+    player/
+      playerData.ts            generatePlayers, PlayerStatus, HELD_DIRECTIONS
+      playerRegistry.ts        PLAYERS, PLAYERS_MAP, ACTIVE_PLAYER, lookups
+      collision.ts             moveWithCollision (single consolidated implementation)
+      visibility.ts            lineOfSight() pure computation, isFacingTarget()
+    combat/
+      smokeData.ts             SmokeData[], isSmoked(), expiry logic
+    detection/
+      detection.ts             detectOtherPlayers -> DetectionEntry[] (no DOM)
+      raycast.ts               2D raycasting geometry, polygon computation
+    environment/
+      wallData.ts              registerWallGeometry, addWallToCollisions
 
-  Audio/               Sound system
-    audio.ts             AudioContext, spatial panning, gain hierarchy
-    soundMap.ts          Sound ID -> file mappings, preload cache
+  rendering/               All DOM output. Replaceable with WebGL.
+    renderPipeline.ts        Per-frame update dispatcher (camera, vis, raycast, hud, etc.)
+    playerRenderer.ts        Player div, health bars, nametags, positioning
+    playerElements.ts        DOM element registries (player, health bar, nametag elements)
+    wallRenderer.ts          Wall div creation
+    visibilityRenderer.ts    applyVisibility, last-known markers, debug LOS
+    raycastRenderer.ts       Fog-of-war clip-path, FOV lines, adaptive quality modal
+    smokeRenderer.ts         Smoke cloud DOM, fading lifecycle
 
-  Combat/              Weapons, grenades, projectiles, damage
-    weapons.ts           WEAPON_DEFS (damage, fire rate, recoil, etc.)
-    grenades.ts          GRENADE_DEFS (fuse, radius, shrapnel, etc.)
-    shooting.ts          Fire state tracking (mousedown/up)
-    projectiles.ts       Legacy bullet spawn helper (unused in adapter path)
-    grenadeProjectiles.ts  Grenade throw entry point
-    damage.ts            Damage application logic
-    smoke.ts             Smoke cloud lifecycle
-    ProjectilePool.ts    DOM element pool for bullet rendering (512 elements)
+  Net/                     Event bus + transport adapters
+    GameEvent.ts             Event/Input type definitions + EventBus
+    ClientRenderer.ts        Subscribes to event bus, drives DOM + audio side effects
+    NetAdapter.ts            Adapter interface
+    OfflineAdapter.ts        Local simulation wrapper
+    WebSocketAdapter.ts      WebSocket client, prediction, reconciliation
+    activeAdapter.ts         Module-level get/set for current adapter
+    Protocol.ts              Wire protocol types
 
-  Config/              Game balance and mode definitions
-    types.ts             GameModeConfig interface (all tuning knobs)
-    defaults.ts          BASE_DEFAULTS for all config values
-    activeConfig.ts      Runtime config getter, mode merging
-    modes/index.ts       Game mode registry (TDM, Snipers, Low Gravity, etc.)
+  ui/                      Screens and menus (not in-game rendering)
+    mainMenu/                Main menu, mode select, customize, how-to-play
+    loading/                 Loading screen with progress bar
+    settings/                Settings menu (controls, audio, game) + keybinds
+    lobby/                   Online multiplayer lobby
+    gameCustomizer/          Game configuration UI (tabbed: match, economy, weapons, etc.)
 
-  Environment/         Map rendering and collision geometry
-    environment.ts       Collision grid, viewport limits, wall segments
-    Wall/wall.ts         Wall DOM creation
+  AI/                      Bot behavior
+    ai.ts                    State machine: patrol -> chase -> search
 
-  Globals/             Shared mutable state
-    Players.ts           PLAYERS array, PLAYERS_MAP, ACTIVE_PLAYER
+  Audio/                   Sound system
+    audio.ts                 AudioContext, spatial panning, gain hierarchy
+    soundMap.ts              Sound ID -> file mappings, preload cache
 
-  HUD/                 All UI (health, ammo, buy menu, kill feed, scoreboard)
-    hud.ts               Element creation and event-driven updates
+  Combat/                  Weapons, grenades, projectiles, damage
+    weapons.ts               WEAPON_DEFS (damage, fire rate, recoil, etc.)
+    grenades.ts              GRENADE_DEFS (fuse, radius, shrapnel, etc.)
+    shooting.ts              Fire state tracking (mousedown/up)
+    damage.ts                isPlayerDead check
+    ProjectilePool.ts        DOM element pool for bullet rendering
 
-  Loading/             Loading screen
-  MainMenu/            Main menu screen
+  Config/                  Game balance and mode definitions
+    types.ts                 GameModeConfig interface
+    defaults.ts              BASE_DEFAULTS for all config values
+    activeConfig.ts          Runtime config getter, mode merging
+    modes/index.ts           Game mode registry (TDM, Snipers, Low Gravity, etc.)
 
-  Maps/                Map data
-    arena.ts             Arena map: walls, spawns, patrol points
-    helpers.ts           getActiveMap() / setActiveMap()
+  Environment/             Map geometry and collision data
+    environment.ts           Collision grid, viewport limits, wall segments
 
-  Net/                 Networking, simulation, rendering bridge
-    GameEvent.ts         Event type union + EventBus (pub-sub)
-    GameSimulation.ts    Pure physics: bullet/grenade tick, collision, shrapnel
-    AuthoritativeSimulation.ts  Full game state: input processing, match/round
-                                lifecycle, economy, respawns, recoil
-    ClientRenderer.ts    Subscribes to GameEvent bus, drives all DOM + audio
-    NetAdapter.ts        Interface shared by offline and online adapters
-    OfflineAdapter.ts    Wraps AuthoritativeSimulation for local play
-    WebSocketAdapter.ts  WebSocket client, prediction, reconciliation
-    activeAdapter.ts     Module-level get/set for current adapter
-    Protocol.ts          Message types for client <-> server
-    LobbyScreen.ts       Lobby UI and state
+  HUD/                     In-game UI (health, ammo, buy menu, kill feed, scoreboard)
+    hud.ts                   Element creation and event-driven updates
 
-  Player/              Player entity, input, perception
-    player.ts            Player DOM creation, health bars
-    interactivity.ts     Input listeners, game loop (requestAnimationFrame)
-    collision.ts         AABB player-wall and player-player collision
-    lineOfSight.ts       Team visibility, last-known-position markers
-    detection.ts         Player detection helpers
-    Raycast/
-      raycast.ts         2D raycasting against wall segments
-      fogOfWar.ts        CSS clip-path polygon from raycast results
-      rayGeometry.ts     Segment math helpers
+  Maps/                    Map data
+    arena.ts                 Arena map: walls, spawns, patrol points
+    helpers.ts               getActiveMap() / setActiveMap()
 
-  Settings/            Keybind config and settings menu
-  Utilities/           Math helpers (angle, distance, random, etc.)
+  Match/                   Match lifecycle
+    match.ts                 initMatchSystem, launchMatch, returnToMenu
+
+  Player/                  Remaining player utilities (to be further split)
+    aimline.ts               ADS aim line rendering
+    Raycast/rayGeometry.ts   Ray-segment intersection math
+
+  Rendering/               Legacy rendering utilities (to be consolidated into rendering/)
+    Camera.ts                Camera positioning + scrollTo
+    cssTransform.ts          CSS transform string builder
+    FogOfWar.ts              FOW element creation
+
+  Utilities/               Math helpers (angle, distance, random, etc.)
+  utils/                   Shared pure utilities (normalizeAngle)
 ```
 
 ---
@@ -119,8 +154,8 @@ Everything starts in `main.ts` on `DOMContentLoaded`:
 3. drawFogOfWar()                Initialize FOV overlay
 4. initProjectilePool()          Pre-allocate 512 bullet DOM elements
 5. clientRenderer.init()         Subscribe to gameEventBus
-6. Create wall DOM elements      From ACTIVE_MAP.walls
-7. initInteractivity()           Keyboard/mouse listeners + game loop
+6. Create wall elements          registerWallGeometry() + renderWall() per wall
+7. initGameLoop()                Input listeners + requestAnimationFrame loop
 8. initHUD()                     Build UI elements
 9. loadAllSounds()               Pre-cache all audio buffers
 10. authSim.setMap(...)          Pass wall geometry to simulation
@@ -144,21 +179,25 @@ For online matches, the flow is different: the server runs `beginGame()` which s
 
 ### Game Loop (60 fps)
 
-`interactivity.ts` runs via `requestAnimationFrame`:
+`simulation/gameLoop.ts` runs via `requestAnimationFrame`:
 
 ```
 Each frame:
   1. Read input state (WASD keys held, mouse fire state)
   2. If round active + player alive:
-     - adapter.sendInput(MOVE)                                          Movement direction
-     - adapter.sendInput(FIRE)                                          If mouse held
-  3. adapter.tick(timestamp)                                            Advance simulation
+     - adapter.sendInput(MOVE)             Movement direction
+     - adapter.sendInput(FIRE)             If mouse held
+  3. adapter.tick(timestamp)               Advance simulation
      - Ticks projectiles, grenades, reloads, respawns, match timer
      - Returns GameEvent[] -> emitted to bus
-  4. clientRenderer.updateVisuals()                                     Sync DOM positions for bullets,
-                                                                        grenades, remote players
-  5. updateAllAI()                                                      (offline only) Run bot logic
-  6. Update camera position                                             Center viewport on active player
+  4. updateRenderPipeline()                Per-frame visual updates:
+     - clientRenderer.updateVisuals()        Sync DOM positions
+     - Camera update                         Center viewport on player
+     - detectOtherPlayers() -> results       Compute visibility (pure)
+     - Apply visibility to DOM               visibilityRenderer
+     - Raycast / FOV                         raycastRenderer
+     - Aim line, HUD, smoke clouds
+  5. updateAllAI()                         (offline only) Run bot logic
 ```
 
 ---
@@ -214,7 +253,7 @@ AuthoritativeSimulation
   -> DOM / audio side effects
 ```
 
-Event types (defined in `GameEvent.ts`):
+Event types (defined in `Net/GameEvent.ts`):
 
 | Event              | Trigger                      | Renderer Effect                     |
 |--------------------|------------------------------|--------------------------------------|
@@ -236,8 +275,9 @@ Event types (defined in `GameEvent.ts`):
 | ROUND_END          | Round over                   | Show banner, update scoreboard       |
 | RELOAD_START       | Player starts reloading      | Reload sound                         |
 | RELOAD_COMPLETE    | Reload finished              | Update ammo count                    |
+| FOOTSTEP           | Player moved                 | Footstep sound                       |
 
-To add a new event: define its type in `GameEvent.ts`, emit it from `AuthoritativeSimulation`, and handle it in `ClientRenderer`.
+To add a new event: define its type in `Net/GameEvent.ts`, emit it from `AuthoritativeSimulation`, and handle it in `ClientRenderer`.
 
 ---
 
@@ -272,7 +312,7 @@ To add a new event: define its type in `GameEvent.ts`, emit it from `Authoritati
 
 1. **Define it** in `src/Combat/grenades.ts` (add to `GRENADE_DEFS`).
 2. **Add the type** to the `GrenadeType` union in `src/global.d.ts`.
-3. **Handle detonation** in `GameSimulation.detonateGrenade()` -- add a case for the new type's effect.
+3. **Handle detonation** in `src/simulation/gameSimulation.ts` `detonateGrenade()` -- add a case for the new type's effect.
 4. **Add rendering** in `ClientRenderer` if it has a unique visual effect.
 5. **Add a sound** in `soundMap.ts`.
 
@@ -353,7 +393,10 @@ They spawn dead and enter the game at the next respawn or round start.
  Keyboard/Mouse
        |
        v
- interactivity.ts  (polls input each frame)
+ inputController.ts  (event listeners, grenade charge)
+       |
+       v
+ gameLoop.ts  (collects input each frame)
        |
        v
  adapter.sendInput(PlayerInput)
@@ -381,4 +424,15 @@ GameEvent[]               WebSocket messages
       |             |
       v             v
   DOM updates   Audio playback
+
+ Per-frame rendering (not event-driven):
+   gameLoop.ts -> renderPipeline.ts
+                    |
+       +------------+------------+
+       |            |            |
+       v            v            v
+    Camera    Raycasting    Visibility
+       |            |            |
+       v            v            v
+   scrollTo    clip-path    show/hide
 ```

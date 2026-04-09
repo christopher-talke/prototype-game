@@ -26,6 +26,9 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
     devDependencies:
+      '@types/node':
+        specifier: ^25.5.2
+        version: 25.5.2
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
@@ -37,7 +40,7 @@ importers:
         version: 4.9.5
       vite:
         specifier: '>=5.4.21'
-        version: 8.0.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(esbuild@0.27.7)(tsx@4.21.0)
+        version: 8.0.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@25.5.2)(esbuild@0.27.7)(tsx@4.21.0)
 
 packages:
 
@@ -319,6 +322,9 @@ packages:
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
 
+  '@types/node@25.5.2':
+    resolution: {integrity: sha512-tO4ZIRKNC+MDWV4qKVZe3Ql/woTnmHDr5JD8UI5hn2pwBrHEwOEMZK7WlNb5RKB6EoJ02gwmQS9OrjuFnZYdpg==}
+
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
@@ -468,6 +474,9 @@ packages:
     resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
     engines: {node: '>=4.2.0'}
     hasBin: true
+
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
   vite@8.0.4:
     resolution: {integrity: sha512-baBr4jUVSLJ0RPyZ2nK0zS2+W8hNHbM4hEzfvllukmRPVS3xDG5ATTNtbRXrKIOE2b8/FsPWJAOnuIxcs7g3cw==}
@@ -693,6 +702,10 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@types/node@25.5.2':
+    dependencies:
+      undici-types: 7.18.2
+
   detect-libc@2.1.2: {}
 
   esbuild@0.27.7:
@@ -843,7 +856,9 @@ snapshots:
 
   typescript@4.9.5: {}
 
-  vite@8.0.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(esbuild@0.27.7)(tsx@4.21.0):
+  undici-types@7.18.2: {}
+
+  vite@8.0.4(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@25.5.2)(esbuild@0.27.7)(tsx@4.21.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -851,6 +866,7 @@ snapshots:
       rolldown: 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
       tinyglobby: 0.2.15
     optionalDependencies:
+      '@types/node': 25.5.2
       esbuild: 0.27.7
       fsevents: 2.3.3
       tsx: 4.21.0

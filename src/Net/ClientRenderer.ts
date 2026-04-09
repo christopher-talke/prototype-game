@@ -1,25 +1,28 @@
 // ClientRenderer: subscribes to GameEvent stream and handles all DOM/audio side effects.
 // No state mutation happens here -- only visual/audio reactions to events.
 
-import '../Combat/combat.css';
-import '../Combat/grenade.css';
+import '@simulation/combat/combat.css';
+import '@simulation/combat/grenade.css';
 import { gameEventBus, type GameEvent } from './GameEvent';
-import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent } from './GameEvent';
-import { acquireProjectile, releaseProjectile } from '../Combat/ProjectilePool';
-import { ACTIVE_PLAYER, getAllPlayers, getPlayerElement, getPlayerInfo, getHealthBarElement, getNametagElement, clearPlayerData } from '../Globals/Players';
-import { updateHealthBar, positionHealthBar, positionNametag } from '../Player/player';
-import { PlayerStatus } from '../Player/player';
-import { removeLastKnownForPlayer } from '../Player/lineOfSight';
-import { playSoundAtPlayer, playSound } from '../Audio/audio';
-import { getWeaponSoundId, getWeaponReloadSoundId } from '../Audio/soundMap';
-import { getActiveWeapon } from '../Combat/shooting';
-import { getWeaponDef } from '../Combat/weapons';
-import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '../HUD/hud';
-import { spawnSmoke } from '../Combat/smoke';
-import { app } from '../Globals/App';
-import { getConfig } from '../Config/activeConfig';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from './GameEvent';
+import { acquireProjectile, releaseProjectile } from '@simulation/combat/projectilePool';
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
+import { clearPlayerRegistry } from '@simulation/player/playerRegistry';
+import { getPlayerElement, getHealthBarElement, getNametagElement, clearPlayerElements } from '@rendering/playerElements';
+import { updateHealthBar, positionHealthBar, positionNametag } from '@rendering/playerRenderer';
+import { PlayerStatus } from '@simulation/player/playerData';
+import { removeLastKnownForPlayer } from '@rendering/visibilityRenderer';
+import { playSoundAtPlayer, playSound, playFootstep } from '@audio/audio';
+import { getWeaponSoundId, getWeaponReloadSoundId } from '@audio/soundMap';
+import { getActiveWeapon } from '@simulation/combat/shooting';
+import { getWeaponDef } from '@simulation/combat/weapons';
+import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '../rendering/hud/hud';
+import { addSmokeData } from '@simulation/combat/smokeData';
+import { spawnSmokeCloud } from '@rendering/smokeRenderer';
+import { app } from '../app';
+import { getConfig } from '@config/activeConfig';
 import { getAdapter } from './activeAdapter';
-import { cssTransform } from '../Rendering/cssTransform';
+import { cssTransform } from '../rendering/cssTransform';
 import { HALF_HIT_BOX } from '../constants';
 
 class ClientRendererImpl {
@@ -97,6 +100,9 @@ class ClientRendererImpl {
                 break;
             case 'PLAYER_STATUS_CHANGED':
                 this.onPlayerStatusChanged(event);
+                break;
+            case 'FOOTSTEP':
+                this.onFootstep(event);
                 break;
         }
     }
@@ -316,7 +322,8 @@ class ClientRendererImpl {
 
     private onSmokeDeploy(event: SmokeDeployEvent) {
         playSound('smoke_deploy', { x: event.x, y: event.y });
-        spawnSmoke(event.x, event.y, event.radius, event.duration);
+        addSmokeData(event.x, event.y, event.radius, event.duration);
+        spawnSmokeCloud(event.x, event.y, event.radius, event.duration);
     }
 
     // -- Reload --
@@ -402,6 +409,13 @@ class ClientRendererImpl {
         this.statusLabels.set(event.playerId, { el: label, timer });
     }
 
+    // -- Footstep --
+
+    private onFootstep(event: FootstepEvent) {
+        const player = getPlayerInfo(event.playerId);
+        if (player) playFootstep(player, event.timestamp);
+    }
+
     // -- Helpers --
 
     private showHealthBarTemporarily(playerId: number) {
@@ -459,7 +473,8 @@ class ClientRendererImpl {
             if (nt) nt.remove();
             this.removeStatusLabel(playerId);
         }
-        clearPlayerData();
+        clearPlayerRegistry();
+        clearPlayerElements();
         this.lastPlayerTransform.clear();
         this.lastWeaponType.clear();
     }
