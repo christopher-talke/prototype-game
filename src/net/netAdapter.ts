@@ -1,7 +1,7 @@
 // NetAdapter: abstraction layer between game input and simulation.
 // Offline mode processes inputs locally. Online mode sends them to a server.
 
-import type { GameEvent, PlayerInput } from './GameEvent';
+import type { GameEvent, PlayerInput } from './gameEvent';
 
 export interface NetAdapter {
     mode: 'offline' | 'online';

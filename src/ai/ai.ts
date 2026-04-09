@@ -9,7 +9,7 @@ import { getWeaponDef, isWeaponAllowed } from '@simulation/combat/weapons';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { getConfig } from '@config/activeConfig';
 import { getActiveMap } from '@maps/helpers';
-import { offlineAdapter } from '@net/OfflineAdapter';
+import { offlineAdapter } from '@net/offlineAdapter';
 import { getGrenadeDef, isGrenadeAllowed } from '@simulation/combat/grenades';
 
 const STUCK_THRESHOLD = 0.5;
@@ -297,7 +297,7 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
     }
 
     // Try to throw a grenade if we have one and are close enough
-    if (dist < 300) {
+    if (dist < 450) {
         tryAiThrowGrenade(ai, target);
     }
 }
@@ -379,35 +379,28 @@ function tryAIFire(ai: AIController, timestamp: number) {
 
 function tryAiThrowGrenade(ai: AIController, enemy: player_info) {
     const me = ai.player;
+    const aimDx = enemy.current_position.x - me.current_position.x;
+    const aimDy = enemy.current_position.y - me.current_position.y;
 
-    if (Math.random() < 0.5 && me.grenades['FLASH'] > 0) {
-        if (isGrenadeAllowed('FLASH')) return;
-        offlineAdapter.sendInput({ 
-            type: 'THROW_GRENADE', 
-            playerId: me.id, 
-            grenadeType: 'FLASH', 
-            chargePercent: 1.0, 
-            aimDx: enemy.current_position.x - me.current_position.x, 
-            aimDy: enemy.current_position.y - me.current_position.y 
+    const candidates: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE'];
+
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    const ordered = [pick, ...candidates.filter((c) => c !== pick)];
+
+    for (const type of ordered) {
+        if (me.grenades[type] <= 0) continue;
+        if (!isGrenadeAllowed(type)) continue;
+        offlineAdapter.sendInput({
+            type: 'THROW_GRENADE',
+            playerId: me.id,
+            grenadeType: type,
+            chargePercent: 0.7 + Math.random() * 0.3,
+            aimDx,
+            aimDy,
         });
         return;
     }
-
-    else if (me.grenades['FRAG'] > 0) {
-        if (isGrenadeAllowed('FRAG')) return;
-        offlineAdapter.sendInput({ 
-            type: 'THROW_GRENADE', 
-            playerId: me.id, 
-            grenadeType: 'FRAG', 
-            chargePercent: 1.0, 
-            aimDx: enemy.current_position.x - me.current_position.x, 
-            aimDy: enemy.current_position.y - me.current_position.y 
-        });
-        return;
-    }
-
-
-};
+}
 
 function tryBuyGrenade(ai: AIController) {
     const state = offlineAdapter.authSim.getPlayerState(ai.player.id);

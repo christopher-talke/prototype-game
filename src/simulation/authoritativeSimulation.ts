@@ -2,11 +2,11 @@
 // Consolidates all game logic: movement, weapons, grenades, projectiles, match state, respawns.
 // Can run on client (offline) or server (online).
 
-import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@net/GameEvent';
+import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@net/gameEvent';
 import { PlayerStatus } from './player/playerData';
 import { GameSimulation } from './gameSimulation';
 import { getWeaponDef, createDefaultWeapon } from '@simulation/combat/weapons';
-import { getGrenadeDef } from '@simulation/combat/grenades';
+import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
 import { getConfig } from '@config/activeConfig';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { moveWithCollisionPure } from './player/collision';
@@ -697,7 +697,7 @@ export class AuthoritativeSimulation {
         player.current_position.x = spawn.x;
         player.current_position.y = spawn.y;
         player.weapons = [createDefaultWeapon()];
-        player.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
+        player.grenades = createDefaultGrenades();
 
         return [
             {
@@ -781,7 +781,7 @@ export class AuthoritativeSimulation {
             player.current_position.x = spawn.x;
             player.current_position.y = spawn.y;
             player.weapons = [createDefaultWeapon()];
-            player.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
+            player.grenades = createDefaultGrenades();
 
             // Reset weapon state
             const ws = this.weaponStates.get(player.id);

@@ -304,7 +304,8 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
         el.querySelectorAll<HTMLElement>('[data-wgroup="starting"]').forEach((chip) => {
             chip.addEventListener('click', () => {
                 if (isReadonly || chip.classList.contains('disabled')) return;
-                chip.classList.toggle('checked');
+                el!.querySelectorAll<HTMLElement>('[data-wgroup="starting"]').forEach((c) => c.classList.remove('checked'));
+                chip.classList.add('checked');
                 opts.onChange?.(getValue());
             });
         });

@@ -1,9 +1,9 @@
 // OfflineAdapter: runs the simulation locally with no network.
 // Thin wrapper around AuthoritativeSimulation.
 
-import type { NetAdapter } from './NetAdapter';
-import type { PlayerInput, EventHandler } from './GameEvent';
-import { gameEventBus } from './GameEvent';
+import type { NetAdapter } from './netAdapter';
+import type { PlayerInput, EventHandler } from './gameEvent';
+import { gameEventBus } from './gameEvent';
 import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation';
 
 class OfflineAdapter implements NetAdapter {

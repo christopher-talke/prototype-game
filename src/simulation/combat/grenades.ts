@@ -57,3 +57,13 @@ export function isGrenadeAllowed(type: GrenadeType): boolean {
     const allowed = getConfig().grenades.allowedGrenades;
     return allowed === 'ALL' || allowed.includes(type);
 }
+
+export function createDefaultGrenades(): Record<GrenadeType, number> {
+    const starting = getConfig().grenades.startingGrenades;
+    return {
+        FRAG: starting.FRAG ?? 0,
+        FLASH: starting.FLASH ?? 0,
+        SMOKE: starting.SMOKE ?? 0,
+        C4: starting.C4 ?? 0,
+    };
+}

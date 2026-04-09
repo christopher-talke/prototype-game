@@ -1,6 +1,7 @@
-import { angleToRadians } from '../utils/angleToRadians';
 import { ROTATION_OFFSET } from '../constants';
 import { SETTINGS } from '../app';
+
+import { angleToRadians } from '@utils/angleToRadians';
 import { detectOtherPlayers } from '@simulation/detection/detection';
 import { getPlayerElement } from '@rendering/playerElements';
 import { applyVisibility, updateLastKnown, debugLineOfSight } from '@rendering/visibilityRenderer';
@@ -9,12 +10,12 @@ import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
 import { updateSmokeClouds } from '@rendering/smokeRenderer';
 import { removeExpiredSmoke } from '@simulation/combat/smokeData';
-import { clientRenderer } from '@net/ClientRenderer';
-import { updateAimLine } from './aimLineRenderer';
-import { setCameraTarget, setCameraWeaponOffset, updateCamera } from './Camera';
-import { updateHUD } from './hud/hud';
-import { offlineAdapter } from '@net/OfflineAdapter';
-import type { NetAdapter } from '@net/NetAdapter';
+import { clientRenderer } from '@rendering/clientRenderer';
+import { updateAimLine, updateGrenadeAimLine } from '@rendering/aimLineRenderer';
+import { setCameraTarget, setCameraWeaponOffset, updateCamera } from '@rendering/camera';
+import { updateHUD } from '@rendering/hud';
+import { offlineAdapter } from '@net/offlineAdapter';
+import type { NetAdapter } from '@net/netAdapter';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -61,6 +62,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     // Aim line
     const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;
     updateAimLine(player, shots);
+    updateGrenadeAimLine(player);
 
     // HUD
     updateHUD(player, adapter.getMatchTimeRemaining());

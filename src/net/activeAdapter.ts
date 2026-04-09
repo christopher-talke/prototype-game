@@ -1,5 +1,5 @@
-import type { NetAdapter } from './NetAdapter';
-import { offlineAdapter } from './OfflineAdapter';
+import type { NetAdapter } from './netAdapter';
+import { offlineAdapter } from './offlineAdapter';
 
 let current: NetAdapter = offlineAdapter;
 

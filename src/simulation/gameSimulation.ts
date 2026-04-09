@@ -1,10 +1,10 @@
 // GameSimulation: authoritative game state with NO DOM dependencies.
 // All methods return GameEvent arrays. Callers (or the renderer) handle visuals/audio.
 
-import type { GameEvent } from '@net/GameEvent';
+import type { GameEvent } from '@net/gameEvent';
 import { raySegmentIntersect, isLineBlocked } from './detection/rayGeometry';
 import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
-import { getGrenadeDef } from '@simulation/combat/grenades';
+import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
 import { getActiveMap } from '@maps/helpers';
 import { createDefaultWeapon } from '@simulation/combat/weapons';
 import { getConfig } from '@config/activeConfig';
@@ -110,7 +110,7 @@ export class GameSimulation {
         target.current_position.y = spawn.y;
 
         target.weapons = [createDefaultWeapon()];
-        target.grenades = { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 };
+        target.grenades = createDefaultGrenades();
 
         return [
             {

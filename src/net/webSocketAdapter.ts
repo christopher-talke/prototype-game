@@ -1,7 +1,7 @@
-import type { NetAdapter } from './NetAdapter';
-import type { EventHandler, GameEvent, PlayerInput } from './GameEvent';
-import type { ClientMessage, ServerMessage, PlayerSnapshot } from './Protocol';
-import { gameEventBus } from './GameEvent';
+import type { NetAdapter } from './netAdapter';
+import type { EventHandler, GameEvent, PlayerInput } from './gameEvent';
+import type { ClientMessage, ServerMessage, PlayerSnapshot } from './protocol';
+import { gameEventBus } from './gameEvent';
 import { getPlayerInfo, getAllPlayers } from '@simulation/player/playerRegistry';
 import { getPlayerElement } from '@rendering/playerElements';
 import { getConfig } from '../Config/activeConfig';

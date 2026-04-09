@@ -18,6 +18,8 @@ let fovLineLeft: HTMLElement | null = null;
 let fovLineRight: HTMLElement | null = null;
 
 function ensureFOVLineElements() {
+    if (app === undefined) return;
+
     if (fovLineLeft) return;
     fovLineLeft = document.createElement('div');
     fovLineLeft.classList.add('fov-line');

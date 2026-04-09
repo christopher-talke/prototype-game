@@ -2,23 +2,24 @@ import { createPlayer } from '@rendering/playerRenderer';
 import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
 import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
 import { updateActivePlayerVisual } from '@rendering/playerElements';
-import { clientRenderer } from '@net/ClientRenderer';
+import { clientRenderer } from '@rendering/clientRenderer';
 import { registerAI, clearAllAI } from '../../ai/ai';
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { getConfig, setGameMode } from '@config/activeConfig';
 import { GAME_MODES_MAP } from '@config/modes/index';
-import { offlineAdapter } from '@net/OfflineAdapter';
+import { offlineAdapter } from '@net/offlineAdapter';
 import { getAdapter, setAdapter } from '@net/activeAdapter';
-import { webSocketAdapter } from '@net/WebSocketAdapter';
+import { webSocketAdapter } from '@net/webSocketAdapter';
 import { getWallAABBs } from '@simulation/player/collision';
-import { gameEventBus } from '@net/GameEvent';
+import { gameEventBus } from '@net/gameEvent';
 import { getLobbyState } from '@ui/lobby/lobbyScreen';
 import { createDefaultWeapon } from '@simulation/combat/weapons';
+import { createDefaultGrenades } from '@simulation/combat/grenades';
 import { environment } from '@simulation/environment/environment';
 import { getActiveMap } from '@maps/helpers';
 import { stopMenuMusic, playMenuMusic } from '@audio/audio';
 import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
-import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud/hud';
+import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
 
 const ACTIVE_MAP = getActiveMap();
 const authSim = offlineAdapter.authSim;
@@ -123,7 +124,7 @@ function spawnOnlinePlayers() {
             armour: 0,
             dead: false,
             weapons: [createDefaultWeapon()],
-            grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
+            grenades: createDefaultGrenades(),
         };
         createPlayer(info, lp.id === localId, localTeam);
     }

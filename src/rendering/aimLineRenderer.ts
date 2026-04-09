@@ -1,16 +1,22 @@
-import './aimline.css';
+import '@rendering/css/aimline.css';
 import { app } from '../app';
 import { HALF_HIT_BOX, ROTATION_OFFSET, MAP_OFFSET } from '../constants';
 import { angleToRadians } from '../utils/angleToRadians';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
+import { getGrenadeDef } from '@simulation/combat/grenades';
 import { raySegmentIntersect } from '@simulation/detection/rayGeometry';
 import { environment } from '@simulation/environment/environment';
+import { getGrenadeChargePercent, getSelectedGrenadeType } from '@simulation/inputController';
+import { getConfig } from '@config/activeConfig';
 
 let adsActive = false;
+
 let aimLineEl: HTMLElement | null = null;
 let aimConeLeft: HTMLElement | null = null;
 let aimConeRight: HTMLElement | null = null;
+let grenadeAimEl: HTMLElement | null = null;
+
 let mouseClientX = 0;
 let mouseClientY = 0;
 
@@ -88,6 +94,8 @@ export function updateAimLine(playerInfo: player_info, shots: number) {
 }
 
 function createAimLineElements() {
+    if (!app) return;
+
     aimLineEl = document.createElement('div');
     aimLineEl.classList.add('aim-line', 'aim-center');
     app.appendChild(aimLineEl);
@@ -105,4 +113,63 @@ function hideAimLine() {
     if (aimLineEl) aimLineEl.style.display = 'none';
     if (aimConeLeft) aimConeLeft.style.display = 'none';
     if (aimConeRight) aimConeRight.style.display = 'none';
+}
+
+function computeGrenadeTravelDistance(throwSpeed: number, chargeFraction: number): number {
+    const friction = getConfig().physics.grenadeFriction;
+    const minSpeed = 0.3;
+    let speed = throwSpeed * chargeFraction;
+    let dist = 0;
+    while (speed > minSpeed) {
+        dist += speed;
+        speed *= friction;
+    }
+    return dist;
+}
+
+export function updateGrenadeAimLine(playerInfo: player_info) {
+    const chargePercent = getGrenadeChargePercent();
+    if (chargePercent <= 0) { hideGrenadeAimLine(); return; }
+
+    if (app && !grenadeAimEl) {
+        grenadeAimEl = document.createElement('div');
+        grenadeAimEl.classList.add('aim-line', 'aim-grenade');
+        app.appendChild(grenadeAimEl);
+    }
+
+    const type = getSelectedGrenadeType();
+    const def = getGrenadeDef(type);
+
+    const minFraction = getConfig().grenades.minThrowFraction;
+    const chargeFraction = minFraction + (1 - minFraction) * chargePercent;
+
+    const cx = playerInfo.current_position.x + HALF_HIT_BOX;
+    const cy = playerInfo.current_position.y + HALF_HIT_BOX;
+    const aimAngle = playerInfo.current_position.rotation - ROTATION_OFFSET;
+    const rad = angleToRadians(aimAngle);
+    const dx = Math.cos(rad);
+    const dy = Math.sin(rad);
+
+    const startX = cx + dx * INDICATOR_TIP_OFFSET;
+    const startY = cy + dy * INDICATOR_TIP_OFFSET;
+
+    let lineLen = computeGrenadeTravelDistance(def.throwSpeed, chargeFraction);
+
+    // Cap at wall intersections
+    for (const seg of environment.segments) {
+        const t = raySegmentIntersect(startX, startY, dx, dy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (t !== null && t > 0 && t < lineLen) lineLen = t;
+    }
+
+    if (grenadeAimEl) {
+        grenadeAimEl.style.display = 'block';
+        grenadeAimEl.style.left = `${startX}px`;
+        grenadeAimEl.style.top = `${startY}px`;
+        grenadeAimEl.style.width = `${lineLen}px`;
+        grenadeAimEl.style.transform = `rotate(${aimAngle}deg)`;
+    }
+}
+
+function hideGrenadeAimLine() {
+    if (grenadeAimEl) grenadeAimEl.style.display = 'none';
 }

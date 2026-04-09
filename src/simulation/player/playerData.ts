@@ -1,4 +1,5 @@
 import { createDefaultWeapon } from '@simulation/combat/weapons';
+import { createDefaultGrenades } from '@simulation/combat/grenades';
 
 export const PlayerStatus = {
     RELOADING: 'RELOADING',
@@ -50,7 +51,7 @@ export function generatePlayers(num: number, teams: number, teamSpawns: Record<n
             team,
             dead: false,
             weapons: [createDefaultWeapon()],
-            grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
+            grenades: createDefaultGrenades(),
         };
 
         players.push(player);

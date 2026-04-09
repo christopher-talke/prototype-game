@@ -1,23 +1,22 @@
 import './style.css';
 
-import { SETTINGS } from './app';
 import { drawFogOfWar } from '@rendering/fogOfWar';
-import { environment, generateEnvironment } from '@simulation/environment/environment';
+import { generateEnvironment } from '@simulation/environment/environment';
 import { registerWallGeometry } from '@simulation/environment/wallData';
 import { renderWall } from '@rendering/wallRenderer';
-import { initHUD } from './rendering/hud/hud';
+import { initHUD } from '@rendering/hud';
 import { getActiveMap } from '@maps/helpers';
 import { resumeAudioContext, playMenuMusic } from '@audio/audio';
 import { loadAllSounds } from '@audio/soundMap';
 import { initProjectilePool } from '@simulation/combat/projectilePool';
-import { clientRenderer } from '@net/ClientRenderer';
+import { clientRenderer } from '@rendering/clientRenderer';
 import { showMainMenu } from '@ui/mainMenu/mainMenu';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/loading/loadingScreen';
 import { initGameLoop } from '@simulation/gameLoop';
 import { initMatchSystem, launchMatch } from '@simulation/match/match';
+import { getConfig, setGameMode } from '@config/activeConfig';
 
 import { getGPUTier } from '@pmndrs/detect-gpu';
-import { getConfig, setGameMode } from './Config/activeConfig';
 
 const ACTIVE_MAP = getActiveMap();
 

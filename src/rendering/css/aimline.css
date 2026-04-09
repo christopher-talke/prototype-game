@@ -14,3 +14,7 @@
 .aim-line.aim-cone {
     border-top: 1px solid rgba(255, 204, 0, 0.4);
 }
+
+.aim-line.aim-grenade {
+    border-top: 2px dashed rgba(255, 100, 50, 0.85);
+}

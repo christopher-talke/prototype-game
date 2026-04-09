@@ -1,8 +1,10 @@
-import './fogOfWar.css';
-import { environment } from '@simulation/environment/environment';
+import '@rendering/css/fogOfWar.css';
 import { app } from '../app';
+import { environment } from '@simulation/environment/environment';
 
 export function drawFogOfWar() {
+    if (app === undefined) return; 
+
     const el = window.document.createElement('div');
     el.id = `fog-of-war`;
     el.style.width = environment.limits.right + 'px';

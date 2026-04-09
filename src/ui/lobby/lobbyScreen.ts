@@ -1,6 +1,6 @@
 import './lobby.css';
 import type { GameModeConfig, DeepPartial } from '@config/types';
-import type { LobbyPlayer } from '../../Net/Protocol';
+import type { LobbyPlayer } from '../../net/protocol';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
 
 type LobbyStateView = {

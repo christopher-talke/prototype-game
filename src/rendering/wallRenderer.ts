@@ -1,10 +1,12 @@
-import '../simulation/environment/wall/wall.css';
+import '@rendering/css/wall.css';
 
 import { app } from '../app';
-import { getRandomNumber } from '../utils/getRandomNumber';
-import { cssTransform } from './cssTransform';
+import { getRandomNumber } from '@utils/getRandomNumber';
+import { cssTransform } from '@rendering/cssTransform';
 
 export function renderWall(wallInfo: wall_info) {
+    if (app === undefined) return;
+
     const newWallEntity = window.document.createElement('div');
     const newWallIdentifier = getRandomNumber(1000, 9999);
 

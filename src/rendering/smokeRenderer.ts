@@ -14,6 +14,8 @@ const FADE_DURATION = 2000;
 const activeClouds: SmokeCloud[] = [];
 
 export function spawnSmokeCloud(x: number, y: number, radius: number, duration: number) {
+    if (app === undefined) return;
+
     const now = performance.now();
     const size = radius * 2;
     const el = document.createElement('div');

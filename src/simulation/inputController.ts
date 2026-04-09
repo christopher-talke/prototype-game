@@ -5,7 +5,7 @@ import { HELD_DIRECTIONS, directions } from './player/playerData';
 import { toggleSettings, isSettingsOpen, closeSettings } from '@ui/settings/settings';
 import { getActionForKey } from '@ui/settings/keybinds';
 import { getAdapter } from '@net/activeAdapter';
-import { toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '../rendering/hud/hud';
+import { toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '@rendering/hud';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getIsFiring } from '@simulation/combat/shooting';
 import { setMouseWorldPosition, getMouseWorldPosition } from '../utils/mouseWorldPosition';
@@ -14,17 +14,31 @@ import { getConfig } from '@config/activeConfig';
 // Grenade selection
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
+let grenadeChargeStart = 0;
+let grenadeCharging = false;
 
 export function getSelectedGrenadeType(): GrenadeType {
     return GRENADE_ORDER[selectedGrenadeIndex];
 }
 
 function cycleGrenade(delta: number) {
-    selectedGrenadeIndex = (((selectedGrenadeIndex + delta) % GRENADE_ORDER.length) + GRENADE_ORDER.length) % GRENADE_ORDER.length;
-}
+    const player = getActivePlayerInfo();
+    if (!player) return;
 
-let grenadeChargeStart = 0;
-let grenadeCharging = false;
+    for (let i = 0; i < GRENADE_ORDER.length; i++) {
+
+        // Cycle through grenade types in the order of GRENADE_ORDER, starting from the current selection, and find the next one that the player has.
+        // Grenades that the player doesn't have are skipped. If the player has no grenades, this does nothing.
+        const next = (((selectedGrenadeIndex + delta * (i + 1)) % GRENADE_ORDER.length) + GRENADE_ORDER.length) % GRENADE_ORDER.length;
+        if (player.grenades[GRENADE_ORDER[next]] > 0) {
+            selectedGrenadeIndex = next;
+            return;
+        }
+    }
+
+    // Default to index 0 if no grenades found, which will show the "no grenades" indicator in the UI.
+    selectedGrenadeIndex = 0;
+}
 
 export function getGrenadeChargePercent(): number {
     if (!grenadeCharging) return 0;
@@ -101,8 +115,7 @@ export function initInputController() {
             const centerY = activePlayer.current_position.y + HALF_HIT_BOX + MAP_OFFSET;
 
             const newRotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + ROTATION_OFFSET;
-            // Client prediction: apply rotation immediately for responsiveness.
-            // The sim also processes ROTATE inputs, so both sides converge.
+
             activePlayer.current_position.rotation = newRotation;
             getAdapter().sendInput({ type: 'ROTATE', playerId: activePlayer.id, rotation: newRotation });
         }

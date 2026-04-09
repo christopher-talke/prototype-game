@@ -1,10 +1,13 @@
 // ClientRenderer: subscribes to GameEvent stream and handles all DOM/audio side effects.
 // No state mutation happens here -- only visual/audio reactions to events.
 
-import '@simulation/combat/combat.css';
-import '@simulation/combat/grenade.css';
-import { gameEventBus, type GameEvent } from './GameEvent';
-import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from './GameEvent';
+import { app } from '../app';
+import { HALF_HIT_BOX } from '../constants';
+import '@rendering/css/combat.css';
+import '@rendering/css/grenade.css';
+
+import { gameEventBus, type GameEvent } from '../net/gameEvent';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from '../net/gameEvent';
 import { acquireProjectile, releaseProjectile } from '@simulation/combat/projectilePool';
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerRegistry } from '@simulation/player/playerRegistry';
@@ -16,14 +19,12 @@ import { playSoundAtPlayer, playSound, playFootstep } from '@audio/audio';
 import { getWeaponSoundId, getWeaponReloadSoundId } from '@audio/soundMap';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
-import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '../rendering/hud/hud';
+import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '@rendering/hud';
 import { addSmokeData } from '@simulation/combat/smokeData';
 import { spawnSmokeCloud } from '@rendering/smokeRenderer';
-import { app } from '../app';
 import { getConfig } from '@config/activeConfig';
-import { getAdapter } from './activeAdapter';
-import { cssTransform } from '../rendering/cssTransform';
-import { HALF_HIT_BOX } from '../constants';
+import { getAdapter } from '@net/activeAdapter';
+import { cssTransform } from '@rendering/cssTransform';
 
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
@@ -224,6 +225,8 @@ class ClientRendererImpl {
     }
 
     private onPlayerKilled(event: PlayerKilledEvent) {
+        if (app === undefined) return;
+
         const target = getPlayerInfo(event.targetId);
         if (!target) return;
 
@@ -265,6 +268,8 @@ class ClientRendererImpl {
     // -- Grenade rendering --
 
     private onGrenadeSpawn(event: GrenadeSpawnEvent) {
+        if (app === undefined) return;
+
         const el = document.createElement('div');
         el.classList.add('grenade', `grenade-${event.grenadeType}`);
         if (event.isC4) el.classList.add('placed');
@@ -381,6 +386,8 @@ class ClientRendererImpl {
     }
 
     private onPlayerStatusChanged(event: PlayerStatusChangedEvent) {
+        if (app === undefined) return;
+
         this.removeStatusLabel(event.playerId);
 
         const displayText = ClientRendererImpl.STATUS_DISPLAY[event.status];
@@ -450,6 +457,8 @@ class ClientRendererImpl {
     }
 
     private spawnExplosionRing(x: number, y: number, radius: number, isC4: boolean) {
+        if (app === undefined) return;
+
         const ring = document.createElement('div');
         ring.classList.add('explosion-ring');
         if (isC4) ring.classList.add('c4');

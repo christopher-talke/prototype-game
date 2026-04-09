@@ -6,6 +6,8 @@ const poolElements: HTMLElement[] = [];
 const freeStack: number[] = [];
 
 function allocateElements(count: number) {
+    if (app === undefined) return;
+
     const start = poolElements.length;
     for (let i = 0; i < count; i++) {
         const el = document.createElement('div');

@@ -13,7 +13,7 @@ const DEFAULT_BINDS: KeybindEntry[] = [
     { action: 'weapon1', label: 'Weapon 1', key: '1' },
     { action: 'weapon2', label: 'Weapon 2', key: '2' },
     { action: 'weapon3', label: 'Weapon 3', key: '3' },
-    { action: 'grenade', label: 'Throw Grenade', key: 'g' },
+    { action: 'grenade', label: 'Throw Grenade', key: 'f' },
     { action: 'buyMenu', label: 'Buy Menu', key: 'b' },
     { action: 'leaderboard', label: 'Leaderboard', key: 'Tab' },
     { action: 'settings', label: 'Settings', key: 'l' },

@@ -1,4 +1,4 @@
-import type { GameEvent, PlayerInput } from './GameEvent';
+import type { GameEvent, PlayerInput } from './gameEvent';
 import type { GameModeConfig, DeepPartial } from '../Config/types';
 
 export type MapJSON = {

@@ -1,14 +1,16 @@
-import './player.css';
-import { ACTIVE_PLAYER, addPlayer } from '@simulation/player/playerRegistry';
-import { registerPlayerElement, registerHealthBarElement, getHealthBarElement, registerNametagElement } from '@rendering/playerElements';
+import '@rendering/css/player.css';
 import { app } from '../app';
 import { HALF_HIT_BOX } from '../constants';
-import { cssTransform } from './cssTransform';
+import { ACTIVE_PLAYER, addPlayer } from '@simulation/player/playerRegistry';
+import { registerPlayerElement, registerHealthBarElement, getHealthBarElement, registerNametagElement } from '@rendering/playerElements';
+import { cssTransform } from '@rendering/cssTransform';
 
 // Cached child references to avoid querySelector per updateHealthBar call
 const healthBarChildren = new Map<number, { bar: HTMLElement; armor: HTMLElement }>();
 
 export function createPlayer(playerInfo: player_info, controllable: boolean = false, localTeam?: number) {
+    if (app === undefined) return null;
+
     const newPlayerEntity = window.document.createElement('div');
     const newPlayerIdentifier = playerInfo.id;
 

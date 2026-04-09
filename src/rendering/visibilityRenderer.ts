@@ -1,8 +1,8 @@
-import { getAngle } from '../utils/getAngle';
-import { getDistance } from '../utils/getDistance';
 import { app } from '../app';
 import { HALF_HIT_BOX } from '../constants';
-import { cssTransform } from './cssTransform';
+import { getAngle } from '@utils/getAngle';
+import { getDistance } from '@utils/getDistance';
+import { cssTransform } from '@rendering/cssTransform';
 import { isFacingTarget, type LOSResult } from '@simulation/player/visibility';
 
 const lastKnownElements = new Map<string, HTMLElement>();
@@ -33,6 +33,8 @@ export function updateLastKnown(result: LOSResult, targetPlayerInfo: player_info
 }
 
 function showLastKnown(key: string, targetPlayerInfo: player_info) {
+    if (app === undefined) return;
+
     const prevTimer = lastKnownTimers.get(key);
     if (prevTimer) clearTimeout(prevTimer);
 
@@ -81,6 +83,8 @@ export function removeLastKnownForPlayer(targetId: number) {
 }
 
 export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info, sourcePlayerInfo: player_info, targetPlayerEl?: HTMLElement) {
+    if (app === undefined) return;
+
     const facing = isFacingTarget(sourcePlayerInfo, targetPlayerInfo);
     const canSee = !blocked && facing;
 
