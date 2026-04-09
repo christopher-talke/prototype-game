@@ -301,12 +301,10 @@ export class GameSimulation {
                 continue;
             }
 
-            // Move with friction
             if (g.speed > MIN_GRENADE_SPEED) {
                 const newX = g.x + g.dx * g.speed;
                 const newY = g.y + g.dy * g.speed;
 
-                // Wall bounce
                 let bounced = false;
                 for (const seg of segments) {
                     const t = raySegmentIntersect(g.x, g.y, g.dx, g.dy, seg.x1, seg.y1, seg.x2, seg.y2);
@@ -340,7 +338,6 @@ export class GameSimulation {
                 if (g.speed <= MIN_GRENADE_SPEED) g.speed = 0;
             }
 
-            // Fuse check (not C4)
             const def = getGrenadeDef(g.type);
             if (g.type !== 'C4' && def.fuseTime > 0) {
                 if (timestamp - g.spawnTime >= def.fuseTime) {
@@ -348,7 +345,6 @@ export class GameSimulation {
                 }
             }
 
-            // Bounds clamp
             g.x = Math.max(0, Math.min(MAP_SIZE, g.x));
             g.y = Math.max(0, Math.min(MAP_SIZE, g.y));
         }

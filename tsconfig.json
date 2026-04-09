@@ -17,6 +17,7 @@
         "skipLibCheck": true,
         "baseUrl": ".",
         "paths": {
+            "@ai/*": ["src/ai/*"],
             "@simulation/*": ["src/simulation/*"],
             "@rendering/*": ["src/rendering/*"],
             "@net/*": ["src/net/*"],

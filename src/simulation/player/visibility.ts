@@ -1,4 +1,4 @@
-import { getAngle } from '../../utils/getAngle';
+import { getAngle } from '@utils/getAngle';
 import { FOV, ROTATION_OFFSET } from '../../constants';
 import { ACTIVE_PLAYER } from './playerRegistry';
 import { normalizeAngle } from '@utils/normalizeAngle';

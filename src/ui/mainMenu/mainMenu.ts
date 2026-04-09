@@ -2,7 +2,7 @@ import './menu.css';
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { GAME_MODES } from '@config/modes/index';
 import { toggleSettings } from '@ui/settings/settings';
-import { webSocketAdapter } from '../../net/webSocketAdapter';
+import { webSocketAdapter } from '@net/webSocketAdapter';
 import { showLobbyScreen, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
 

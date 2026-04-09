@@ -1,6 +1,6 @@
-import { ACTIVE_PLAYER, getPlayerInfo } from './player/playerRegistry';
-import { getAngle } from '../utils/getAngle';
 import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET } from '../constants';
+import { ACTIVE_PLAYER, getPlayerInfo } from './player/playerRegistry';
+import { getAngle } from '@utils/getAngle';
 import { HELD_DIRECTIONS, directions } from './player/playerData';
 import { toggleSettings, isSettingsOpen, closeSettings } from '@ui/settings/settings';
 import { getActionForKey } from '@ui/settings/keybinds';
@@ -8,7 +8,7 @@ import { getAdapter } from '@net/activeAdapter';
 import { toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '@rendering/hud';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getIsFiring } from '@simulation/combat/shooting';
-import { setMouseWorldPosition, getMouseWorldPosition } from '../utils/mouseWorldPosition';
+import { setMouseWorldPosition, getMouseWorldPosition } from '@utils/mouseWorldPosition';
 import { getConfig } from '@config/activeConfig';
 
 // Grenade selection

@@ -1,4 +1,5 @@
 import { PLAYER_HIT_BOX } from '../../constants';
+import { environment } from '@simulation/environment/environment';
 
 type AABB = { x: number; y: number; w: number; h: number };
 type Limits = { left: number; right: number; top: number; bottom: number };
@@ -78,7 +79,6 @@ export function moveWithCollisionPure(
 
 // -- Convenience wrapper using module singleton (for WebSocketAdapter client prediction) --
 
-import { environment } from '../environment/environment';
 
 export function moveWithCollision(
     currentX: number, currentY: number,

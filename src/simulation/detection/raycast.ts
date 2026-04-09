@@ -1,8 +1,8 @@
 import { environment } from '@simulation/environment/environment';
-import { getAngle } from '../../utils/getAngle';
+import { getAngle } from '@utils/getAngle';
 import { HALF_HIT_BOX, FOV, CORNER_RAY_OFFSET_DEGREES } from '../../constants';
 import { isSmoked } from '@simulation/combat/smokeData';
-import { raySegmentIntersect, isLineBlocked as _geoLineBlocked } from './rayGeometry';
+import { raySegmentIntersect, isLineBlocked as _geoLineBlocked } from '@simulation/detection/rayGeometry';
 import { normalizeAngle } from '@utils/normalizeAngle';
 
 export enum RaycastTypes {

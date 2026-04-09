@@ -4,7 +4,7 @@ import { environment } from '@simulation/environment/environment';
 import { initShooting } from '@simulation/combat/shooting';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getAdapter } from '@net/activeAdapter';
-import { updateAllAI } from '../ai/ai';
+import { updateAllAI } from '@ai/index';
 import { initADS } from '@rendering/aimLineRenderer';
 import { isPauseOpen } from '@rendering/hud';
 import { initInputController, getMovementInput, isFiringInput, isMenuOpen } from './inputController';

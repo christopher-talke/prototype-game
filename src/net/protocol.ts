@@ -1,5 +1,5 @@
-import type { GameEvent, PlayerInput } from './gameEvent';
-import type { GameModeConfig, DeepPartial } from '../Config/types';
+import type { GameEvent, PlayerInput } from '@net/gameEvent';
+import type { GameModeConfig, DeepPartial } from '@config/types';
 
 export type MapJSON = {
     version?: 1;

@@ -6,7 +6,7 @@ import { registerWallGeometry } from '@simulation/environment/wallData';
 import { renderWall } from '@rendering/wallRenderer';
 import { initHUD } from '@rendering/hud';
 import { getActiveMap } from '@maps/helpers';
-import { resumeAudioContext, playMenuMusic } from '@audio/audio';
+import { resumeAudioContext, playMenuMusic } from '@audio/index';
 import { loadAllSounds } from '@audio/soundMap';
 import { initProjectilePool } from '@simulation/combat/projectilePool';
 import { clientRenderer } from '@rendering/clientRenderer';

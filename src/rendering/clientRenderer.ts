@@ -6,8 +6,8 @@ import { HALF_HIT_BOX } from '../constants';
 import '@rendering/css/combat.css';
 import '@rendering/css/grenade.css';
 
-import { gameEventBus, type GameEvent } from '../net/gameEvent';
-import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from '../net/gameEvent';
+import { gameEventBus, type GameEvent } from '@net/gameEvent';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from '@net/gameEvent';
 import { acquireProjectile, releaseProjectile } from '@simulation/combat/projectilePool';
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerRegistry } from '@simulation/player/playerRegistry';
@@ -15,7 +15,7 @@ import { getPlayerElement, getHealthBarElement, getNametagElement, clearPlayerEl
 import { updateHealthBar, positionHealthBar, positionNametag } from '@rendering/playerRenderer';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { removeLastKnownForPlayer } from '@rendering/visibilityRenderer';
-import { playSoundAtPlayer, playSound, playFootstep } from '@audio/audio';
+import { playSoundAtPlayer, playSound, playFootstep } from '@audio/index';
 import { getWeaponSoundId, getWeaponReloadSoundId } from '@audio/soundMap';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';

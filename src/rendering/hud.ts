@@ -9,7 +9,7 @@ import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/
 import { GRENADE_DEFS } from '@simulation/combat/grenades';
 import { getSelectedGrenadeType } from '@simulation/inputController';
 import { getKeyForAction, getKeyDisplayName } from '@ui/settings/keybinds';
-import { playSound } from '@audio/audio';
+import { playSound } from '@audio/index';
 import { getConfig } from '@config/activeConfig';
 import { cssTransform } from '@rendering/cssTransform';
 

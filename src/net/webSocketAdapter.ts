@@ -1,12 +1,12 @@
-import type { NetAdapter } from './netAdapter';
-import type { EventHandler, GameEvent, PlayerInput } from './gameEvent';
-import type { ClientMessage, ServerMessage, PlayerSnapshot } from './protocol';
+import type { NetAdapter } from '@net/netAdapter';
+import type { EventHandler, GameEvent, PlayerInput } from '@net/gameEvent';
+import type { ClientMessage, ServerMessage, PlayerSnapshot } from '@net/protocol';
 import { gameEventBus } from './gameEvent';
 import { getPlayerInfo, getAllPlayers } from '@simulation/player/playerRegistry';
 import { getPlayerElement } from '@rendering/playerElements';
-import { getConfig } from '../Config/activeConfig';
+import { getConfig } from '@config/activeConfig';
 import { setLocalPlayerId, updateLobbyState, showCountdown, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
-import type { DeepPartial, GameModeConfig } from '../Config/types';
+import type { DeepPartial, GameModeConfig } from '@config/types';
 import { moveWithCollision } from '@simulation/player/collision';
 
 type PendingInput = { seq: number; input: PlayerInput };

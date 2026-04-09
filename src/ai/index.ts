@@ -1,12 +1,13 @@
-import { getAngle } from '../utils/getAngle';
-import { getDistance } from '../utils/getDistance';
+import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
+
+import { getAngle } from '@utils/getAngle';
+import { getDistance } from '@utils/getDistance';
 import { normalizeAngle } from '@utils/normalizeAngle';
 import { isLineBlocked } from '@simulation/detection/raycast';
 import { environment } from '@simulation/environment/environment';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef, isWeaponAllowed } from '@simulation/combat/weapons';
-import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { getConfig } from '@config/activeConfig';
 import { getActiveMap } from '@maps/helpers';
 import { offlineAdapter } from '@net/offlineAdapter';
@@ -379,8 +380,11 @@ function tryAIFire(ai: AIController, timestamp: number) {
 
 function tryAiThrowGrenade(ai: AIController, enemy: player_info) {
     const me = ai.player;
-    const aimDx = enemy.current_position.x - me.current_position.x;
-    const aimDy = enemy.current_position.y - me.current_position.y;
+    const tdx = enemy.current_position.x - me.current_position.x;
+    const tdy = enemy.current_position.y - me.current_position.y;
+    const dist = Math.sqrt(tdx * tdx + tdy * tdy);
+    const aimDx = dist > 0 ? tdx / dist : 0;
+    const aimDy = dist > 0 ? tdy / dist : 0;
 
     const candidates: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE'];
 

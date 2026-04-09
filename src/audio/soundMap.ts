@@ -1,4 +1,4 @@
-import { loadSound } from './audio';
+import { loadSound } from '.';
 
 // Weapon shoot sounds - keyed by weapon ID
 const WEAPON_SOUNDS: Record<string, string> = {

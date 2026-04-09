@@ -4,6 +4,7 @@ import path from 'path';
 export default defineConfig({
     resolve: {
         alias: {
+            '@ai': path.resolve(__dirname, 'src/ai'),
             '@simulation': path.resolve(__dirname, 'src/simulation'),
             '@rendering': path.resolve(__dirname, 'src/rendering'),
             '@net': path.resolve(__dirname, 'src/net'),

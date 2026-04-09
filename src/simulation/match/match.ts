@@ -3,7 +3,7 @@ import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
 import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
 import { updateActivePlayerVisual } from '@rendering/playerElements';
 import { clientRenderer } from '@rendering/clientRenderer';
-import { registerAI, clearAllAI } from '../../ai/ai';
+import { registerAI, clearAllAI } from '@ai';
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { getConfig, setGameMode } from '@config/activeConfig';
 import { GAME_MODES_MAP } from '@config/modes/index';
@@ -17,7 +17,7 @@ import { createDefaultWeapon } from '@simulation/combat/weapons';
 import { createDefaultGrenades } from '@simulation/combat/grenades';
 import { environment } from '@simulation/environment/environment';
 import { getActiveMap } from '@maps/helpers';
-import { stopMenuMusic, playMenuMusic } from '@audio/audio';
+import { stopMenuMusic, playMenuMusic } from '@audio/index';
 import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
 import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
 

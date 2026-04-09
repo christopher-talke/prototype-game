@@ -1,7 +1,7 @@
 import './settings.css';
 import { SETTINGS } from '../../app';
-import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '../../Audio/audio';
-import { removeElements } from '../../utils/removeElements';
+import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '@audio/index';
+import { removeElements } from '@utils/removeElements';
 import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from './keybinds';
 
 let settingsEl: HTMLElement | null = null;

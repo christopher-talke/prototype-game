@@ -1,7 +1,7 @@
 import '@rendering/css/aimline.css';
 import { app } from '../app';
 import { HALF_HIT_BOX, ROTATION_OFFSET, MAP_OFFSET } from '../constants';
-import { angleToRadians } from '../utils/angleToRadians';
+import { angleToRadians } from '@utils/angleToRadians';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
 import { getGrenadeDef } from '@simulation/combat/grenades';
