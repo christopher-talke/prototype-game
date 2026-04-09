@@ -1,5 +1,3 @@
-import { generateCollisionMap } from './generateCollisionMap';
-
 export const environment = {
     limits: {
         left: 0,
@@ -9,31 +7,22 @@ export const environment = {
     },
     segments: [],
     corners: [],
-    collisions: {},
 } as Environment;
 
 export function generateEnvironment() {
-    environment.collisions = generateCollisionMap(environment);
-    environment.corners = [];
+    const { left, right, top, bottom } = environment.limits;
+
     environment.segments = [
-        // Environment boundaries
-        { x1: environment.limits.left, y1: environment.limits.top, x2: environment.limits.right, y2: environment.limits.top },
-        { x1: environment.limits.right, y1: environment.limits.top, x2: environment.limits.right, y2: environment.limits.bottom },
-        { x1: environment.limits.right, y1: environment.limits.bottom, x2: environment.limits.left, y2: environment.limits.bottom },
-        { x1: environment.limits.left, y1: environment.limits.bottom, x2: environment.limits.left, y2: environment.limits.top },
+        { x1: left, y1: top, x2: right, y2: top },
+        { x1: right, y1: top, x2: right, y2: bottom },
+        { x1: right, y1: bottom, x2: left, y2: bottom },
+        { x1: left, y1: bottom, x2: left, y2: top },
     ];
 
-    // Extract corners from collision map (legacy, used until Phase 3 removes collision map)
-    const cornerSet = new Set<string>();
-    Object.entries(environment.collisions).forEach(([coord, collision]) => {
-        if (collision.isCorner) {
-            cornerSet.add(coord);
-        }
-    });
-    cornerSet.forEach((coord) => {
-        const [x, y] = coord.split(',');
-        environment.corners.push({ x: Number(x), y: Number(y) });
-    });
-
-    return;
+    environment.corners = [
+        { x: left, y: top },
+        { x: right, y: top },
+        { x: right, y: bottom },
+        { x: left, y: bottom },
+    ];
 }

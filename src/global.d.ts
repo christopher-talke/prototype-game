@@ -180,19 +180,6 @@ declare global {
         };
         segments: WallSegment[];
         corners: Corner[];
-        collisions: CollisionMap;
-    };
-
-    interface CollisionMap {
-        [key: string]: Collision;
-    }
-
-    type Collision = {
-        type: string;
-        entity: boolean;
-        ray: boolean;
-        projectile: boolean;
-        isCorner: boolean;
     };
 
     type raycast_config = {

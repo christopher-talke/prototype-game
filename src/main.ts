@@ -2,7 +2,6 @@ import './style.css';
 
 import { SETTINGS } from './app';
 import { drawFogOfWar } from '@rendering/fogOfWar';
-import { drawCollisionOverlay } from '@simulation/environment/generateCollisionMap';
 import { environment, generateEnvironment } from '@simulation/environment/environment';
 import { registerWallGeometry } from '@simulation/environment/wallData';
 import { renderWall } from '@rendering/wallRenderer';
@@ -71,10 +70,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderWall(wall);
     }
     await nextFrame();
-
-    if (SETTINGS.debug) {
-        drawCollisionOverlay(environment);
-    }
 
     setLoadingProgress(45, 'initializing input');
     initGameLoop();
