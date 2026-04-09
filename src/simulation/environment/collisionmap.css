@@ -1,0 +1,9 @@
+#collission-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#collission-overlay rect {
+    fill: rgb(255, 0, 0);
+}
