@@ -1,7 +1,7 @@
 // @ts-nocheck
-import { AuthoritativeSimulation } from '../src/simulation/authoritativeSimulation.ts';
-import { Arena } from '../src/Maps/arena.ts';
-import { BASE_DEFAULTS } from '../src/Config/defaults.ts';
+import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation.ts';
+import { Arena } from '@maps/arena.ts';
+import { BASE_DEFAULTS } from '@config/defaults.ts';
 import { createDefaultWeapon } from '@simulation/combat/weapons.ts';
 
 type Connection = {

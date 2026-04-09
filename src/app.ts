@@ -1,6 +1,6 @@
 import { MAP_OFFSET } from './constants';
 
-export const app = document.getElementById('app') as HTMLElement;
+export const app = typeof document !== 'undefined' ? document.getElementById('app') as HTMLElement : undefined;
 export { MAP_OFFSET };
 export const SETTINGS: GameSettings = {
     debug: false,

@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { WebSocketServer } from 'ws';
-import { GameRoom } from './GameRoom.ts';
+import { GameRoom } from './gameRoom.ts';
 
 const wss = new WebSocketServer({ port: 8080 });
 const rooms = new Map<string, GameRoom>();

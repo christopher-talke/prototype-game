@@ -1,5 +1,3 @@
-import './collisionmap.css';
-
 import { app } from '../../app';
 
 export function generateCollisionMap(environment: Environment): CollisionMap {

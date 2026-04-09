@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { GameRoom } from './GameRoom.ts';
+import { GameRoom } from './gameRoom.ts';
 
 export class GameRoomDO {
     constructor(_state: unknown, _env: unknown) {
