@@ -20,29 +20,44 @@ import { getWallAABBs } from '@simulation/player/collision';
 import { createDefaultWeapon } from '@simulation/combat/weapons';
 import { environment } from '@simulation/environment/environment';
 import { createDefaultGrenades } from '@simulation/combat/grenades';
+import { registerWallGeometry, clearAllWallData } from '@simulation/environment/wallData';
 import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
 import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
 
 import { createPlayer } from '@rendering/playerRenderer';
+import { renderWall } from '@rendering/wallRenderer';
 import { clientRenderer } from '@rendering/clientRenderer';
 import { updateActivePlayerVisual } from '@rendering/playerElements';
 import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
 
-const ACTIVE_MAP = getActiveMap();
 const authSim = offlineAdapter.authSim;
 
-export function initMatchSystem() {
+function loadMapWalls() {
+    clearAllWallData();
+    const map = getActiveMap();
+    for (const wall of map.walls) {
+        registerWallGeometry(wall);
+        renderWall(wall);
+    }
+}
+
+function syncMapToSim() {
+    const map = getActiveMap();
     authSim.setMap(
         [...getWallAABBs()],
         { ...environment.limits },
         [...environment.segments],
-        ACTIVE_MAP.teamSpawns,
-        ACTIVE_MAP.patrolPoints,
+        map.teamSpawns,
+        map.patrolPoints,
     );
+}
 
+export function initMatchSystem() {
     setOnReturnToMenuCallback(returnToMenu);
 
     webSocketAdapter.onGameStart = () => {
+        loadMapWalls();
+        syncMapToSim();
         spawnOnlinePlayers();
         const localId = webSocketAdapter.getLocalPlayerId();
         if (localId) {
@@ -52,7 +67,6 @@ export function initMatchSystem() {
         }
         setAdapter(webSocketAdapter);
         stopMenuMusic();
-
     };
 
     webSocketAdapter.onPlayerJoined = (snapshot) => {
@@ -77,7 +91,7 @@ export function initMatchSystem() {
 function spawnOfflinePlayers() {
     const config = getConfig();
 
-    const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, ACTIVE_MAP.teamSpawns);
+    const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, getActiveMap().teamSpawns);
     const localTeam = players.find(p => p.id === 1)?.team;
     for (const player of players) {
         createPlayer(player, player.id === 1, localTeam);
@@ -119,7 +133,7 @@ function spawnOnlinePlayers() {
     if (!lobby) return;
     const localTeam = lobby.players.find(lp => lp.id === localId)?.team;
     for (const lp of lobby.players) {
-        const spawns = ACTIVE_MAP.teamSpawns[lp.team] ?? Object.values(ACTIVE_MAP.teamSpawns).flat();
+        const spawns = getActiveMap().teamSpawns[lp.team] ?? Object.values(getActiveMap().teamSpawns).flat();
         const spawn = spawns[0];
         const info: player_info = {
             id: lp.id,
@@ -147,6 +161,9 @@ export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConf
     if (entry) setGameMode(entry.partial);
     if (overrides) setGameMode(overrides);
 
+    loadMapWalls();
+    syncMapToSim();
+
     stopMenuMusic();
     spawnOfflinePlayers();
     const playerIds = getAllPlayers().map((p) => p.id);
@@ -167,8 +184,11 @@ function returnToMenu() {
 
     authSim.endMatch();
     destroyAllPlayers();
+    clearAllWallData();
 
     webSocketAdapter.onGameStart = () => {
+        loadMapWalls();
+        syncMapToSim();
         spawnOnlinePlayers();
         const localId = webSocketAdapter.getLocalPlayerId();
         if (localId) {
@@ -178,7 +198,6 @@ function returnToMenu() {
         }
         setAdapter(webSocketAdapter);
         stopMenuMusic();
-
     };
 
     hideMatchEndOverlay();

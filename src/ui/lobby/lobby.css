@@ -144,8 +144,12 @@
 .lobby-room {
     width: 100%;
     max-width: 700px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
     padding: 0 24px;
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 .lobby-header {
@@ -266,6 +270,49 @@
 }
 
 /* ---- Config section ---- */
+.lobby-map-picker {
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-surface-02);
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.lobby-map-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lobby-map-btn {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-dim);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.lobby-map-btn:hover:not(:disabled) {
+    background: var(--color-cyan-06);
+    border-color: var(--color-cyan-50);
+    color: var(--color-cyan);
+}
+
+.lobby-map-btn.selected {
+    background: var(--color-cyan-06);
+    border-color: rgba(0, 229, 255, 0.6);
+    color: var(--color-cyan);
+}
+
+.lobby-map-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
 .lobby-config {
     border: 1px solid var(--color-border-subtle);
     background: var(--color-surface-02);

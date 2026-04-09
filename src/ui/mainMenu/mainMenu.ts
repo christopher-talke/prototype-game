@@ -1,20 +1,25 @@
 import './menu.css';
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { GAME_MODES } from '@config/modes/index';
+import { MAP_LIST, setActiveMap } from '@maps/helpers';
 import { toggleSettings } from '@ui/settings/settings';
 import { webSocketAdapter } from '@net/webSocketAdapter';
 import { showLobbyScreen, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
+import { hideCrosshair, showCrosshair } from '@rendering/hud';
 
-type Screen = 'main' | 'mode-select' | 'customize' | 'how-to-play';
+type Screen = 'main' | 'map-select' | 'mode-select' | 'customize' | 'how-to-play';
 
 let menuEl: HTMLElement | null = null;
+let selectedMapId = 'arena';
 let selectedModeId = 'tdm';
 let onPlayCallback: ((modeId: string, overrides?: DeepPartial<GameModeConfig>) => void) | null = null;
 let settingsClosedHandler: (() => void) | null = null;
 let customizer: GameCustomizerInstance | null = null;
 
 export function showMainMenu(onPlay: (modeId: string) => void) {
+    hideCrosshair();
+
     onPlayCallback = onPlay;
     menuEl = document.createElement('div');
     menuEl.id = 'main-menu';
@@ -28,6 +33,8 @@ export function showMainMenu(onPlay: (modeId: string) => void) {
 }
 
 export function hideMainMenu() {
+    showCrosshair();
+
     if (!menuEl) return;
     if (customizer) {
         customizer.unmount();
@@ -60,7 +67,7 @@ function wireEvents() {
     if (!menuEl) return;
 
     // Main screen
-    menuEl.querySelector('#btn-offline')?.addEventListener('click', () => showScreen('mode-select'));
+    menuEl.querySelector('#btn-offline')?.addEventListener('click', () => showScreen('map-select'));
     menuEl.querySelector('#btn-online')?.addEventListener('click', () => {
         hideMainMenu();
         showLobbyScreen({
@@ -78,6 +85,7 @@ function wireEvents() {
             onReadyChange: (ready) => webSocketAdapter.sendReady(ready),
             onMovePlayer: (playerId, team) => webSocketAdapter.sendMovePlayer(playerId, team),
             onSetConfig: (config) => webSocketAdapter.sendSetConfig(config),
+            onSetMap: (mapName) => webSocketAdapter.sendSetMap(mapName),
             onStartGame: () => webSocketAdapter.sendStartGame(),
         });
     });
@@ -91,6 +99,18 @@ function wireEvents() {
     settingsClosedHandler = () => menuEl?.classList.remove('is-subscreen');
     document.addEventListener('settings-closed', settingsClosedHandler);
     menuEl.querySelector('#btn-howto')?.addEventListener('click', () => showScreen('how-to-play'));
+
+    // Map select
+    menuEl.querySelectorAll<HTMLElement>('.map-card').forEach((card) => {
+        card.addEventListener('click', () => {
+            selectedMapId = card.dataset.mapId ?? 'arena';
+            setActiveMap(selectedMapId);
+            menuEl?.querySelectorAll('.map-card').forEach((c) => c.classList.remove('selected'));
+            card.classList.add('selected');
+        });
+    });
+    menuEl.querySelector('#btn-next-map')?.addEventListener('click', () => showScreen('mode-select'));
+    menuEl.querySelector('#btn-back-map')?.addEventListener('click', () => showScreen('main'));
 
     // Mode select
     menuEl.querySelectorAll<HTMLElement>('.mode-card').forEach((card) => {
@@ -119,7 +139,7 @@ function wireEvents() {
         }
         showScreen('customize');
     });
-    menuEl.querySelector('#btn-back-mode')?.addEventListener('click', () => showScreen('main'));
+    menuEl.querySelector('#btn-back-mode')?.addEventListener('click', () => showScreen('map-select'));
 
     // Customize screen
     menuEl.querySelector('#btn-back-customize')?.addEventListener('click', () => {
@@ -148,6 +168,7 @@ function buildHTML(): string {
         </div>
         <div class="menu-panels">
             ${buildMainScreen()}
+            ${buildMapSelectScreen()}
             ${buildModeSelectScreen()}
             ${buildCustomizeScreen()}
             ${buildHowToPlayScreen()}
@@ -178,6 +199,28 @@ function buildMainScreen(): string {
             <button id="btn-howto" class="menu-btn">
                 How to Play
             </button>
+        </div>
+    `;
+}
+
+function buildMapSelectScreen(): string {
+    const cards = MAP_LIST.map(
+        (map) => `
+        <button class="map-card${map.id === selectedMapId ? ' selected' : ''}" data-map-id="${map.id}">
+            <div class="map-card-name">${map.name}</div>
+            <div class="map-card-desc">${map.description}</div>
+        </button>
+    `,
+    ).join('');
+
+    return `
+        <div id="screen-map-select" class="menu-panel">
+            <div class="menu-section-title">Select Map</div>
+            <div class="map-grid">${cards}</div>
+            <div class="menu-btn-row">
+                <button id="btn-back-map" class="menu-btn">Back</button>
+                <button id="btn-next-map" class="menu-btn primary">Next</button>
+            </div>
         </div>
     `;
 }

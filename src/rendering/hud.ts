@@ -60,6 +60,8 @@ export function isPauseOpen(): boolean {
 }
 
 export function openPause() {
+    hideCrosshair();
+
     paused = true;
     pauseOverlay = document.getElementById('hud-pause');
     pauseOverlay?.classList.add('active');
@@ -67,6 +69,8 @@ export function openPause() {
 }
 
 export function closePause() {
+    showCrosshair();
+
     paused = false;
     pauseOverlay?.classList.remove('active');
     document.body.style.cursor = 'none';
@@ -384,11 +388,12 @@ export function closeBuyMenu() {
 
 function renderBuyMenu(playerInfo: player_info) {
     const state = getAdapter().getPlayerState(playerInfo.id);
+    const currentConfig = getConfig();
     if (!state) return;
 
     buyMenuGrid.innerHTML = '';
-    const disableHealth = getConfig().economy.disableHealth;
-    const disableArmor = getConfig().economy.disableArmor;
+    const disableHealth = currentConfig.economy.disableHealth;
+    const disableArmor = currentConfig.economy.disableArmor;
 
     const healthAndArmourHeader = document.createElement('div');
     healthAndArmourHeader.classList.add('buymenu-section-header');
@@ -401,9 +406,9 @@ function renderBuyMenu(playerInfo: player_info) {
     if (!disableHealth) {
         const item = document.createElement('div');
         item.classList.add('buymenu-item');
-        if (state.money < getConfig().economy.healthCost) item.classList.add('too-expensive');
+        if (state.money < currentConfig.economy.healthCost) item.classList.add('too-expensive');
 
-        item.innerHTML = `<div class="buymenu-item-name">Health</div><div class="buymenu-item-price">$${getConfig().economy.healthCost}</div>`;
+        item.innerHTML = `<div class="buymenu-item-name">Health</div><div class="buymenu-item-price">$${currentConfig.economy.healthCost}</div>`;
         item.addEventListener('click', () => {
             if (state.money >= getConfig().economy.healthCost) {
                 getAdapter().sendInput({ type: 'BUY_HEALTH', playerId: playerInfo.id });
@@ -417,11 +422,11 @@ function renderBuyMenu(playerInfo: player_info) {
     if (!disableArmor) {
         const item = document.createElement('div');
         item.classList.add('buymenu-item');
-        if (state.money < getConfig().economy.armorCost) item.classList.add('too-expensive');
+        if (state.money < currentConfig.economy.armorCost) item.classList.add('too-expensive');
 
-        item.innerHTML = `<div class="buymenu-item-name">Armor</div><div class="buymenu-item-price">$${getConfig().economy.armorCost}</div>`;
+        item.innerHTML = `<div class="buymenu-item-name">Armor</div><div class="buymenu-item-price">$${currentConfig.economy.armorCost}</div>`;
         item.addEventListener('click', () => {
-            if (state.money >= getConfig().economy.armorCost) {
+            if (state.money >= currentConfig.economy.armorCost) {
                 getAdapter().sendInput({ type: 'BUY_ARMOR', playerId: playerInfo.id });
                 renderBuyMenu(playerInfo);
             }
@@ -469,18 +474,24 @@ function renderBuyMenu(playerInfo: player_info) {
     Object.values(GRENADE_DEFS).forEach((gDef) => {
         const item = document.createElement('div');
         item.classList.add('buymenu-item');
-        const owned = playerInfo.grenades[gDef.id] >= 1;
-        if (state.money < gDef.price || owned) {
+
+        if (state.money < gDef.price) {
+            item.classList.add('too-expensive');
+        }
+
+        const maximumAllowed = currentConfig.grenades.allowedGrenades === 'ALL' ? currentConfig.grenades.maximumAllowed : currentConfig.grenades.allowedGrenades.includes(gDef.id) ? currentConfig.grenades.maximumAllowed : 0;
+        const currentCount = playerInfo.grenades[gDef.id] || 0;
+        if (currentCount >= maximumAllowed) {
             item.classList.add('too-expensive');
         }
 
         item.innerHTML = `
-            <div class="buymenu-item-name">${gDef.name}${owned ? ' (owned)' : ''}</div>
+            <div class="buymenu-item-name">${gDef.name}</div>
             <div class="buymenu-item-price">$${gDef.price}</div>
         `;
 
         item.addEventListener('click', () => {
-            if (!owned && state.money >= gDef.price) {
+            if (currentCount < maximumAllowed && state.money >= gDef.price) {
                 getAdapter().sendInput({ type: 'BUY_GRENADE', playerId: playerInfo.id, grenadeType: gDef.id });
                 renderBuyMenu(playerInfo);
             }
@@ -509,6 +520,14 @@ export function showDamageIndicator(angleDeg: number, playerRotation: number) {
 
 export function updateCrosshairPosition(x: number, y: number) {
     crosshair.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%))`;
+}
+
+export function hideCrosshair() {
+    crosshair.style.display = 'none';
+}
+
+export function showCrosshair() {
+    crosshair.style.display = 'block';
 }
 
 let hitMarkerTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -585,7 +604,7 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Record<number,
     const scoreText = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
     sub.innerHTML = `Team ${winningTeam} wins!<br /><br />${scoreText}`;
 
-    roundBanner.classList.remove('active');
+    roundBanner.classList.remove('active', 'won', 'lost');
     void roundBanner.offsetWidth;
     roundBanner.classList.add('active');
 
@@ -620,6 +639,8 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Record<number, numbe
 
     const winsArr = Object.entries(teamWins).map(([t, w]) => [Number(t), w] as [number, number]).sort((a, b) => a[0] - b[0]);
     scoreEl.innerHTML = winsArr.map(([t, w]) => `Team ${t}: ${w}`).join('<br />');
+
+    matchEndOverlay.classList.remove('won', 'lost');
 
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         matchEndOverlay.classList.add('won');

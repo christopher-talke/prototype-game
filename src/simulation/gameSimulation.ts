@@ -9,7 +9,6 @@ import { raySegmentIntersect, isLineBlocked } from './detection/rayGeometry';
 import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
 import { getGrenadeDef } from '@simulation/combat/grenades';
 import { getConfig } from '@config/activeConfig';
-import { getPlayerInfo } from './player/playerRegistry';
 
 type SimProjectile = {
     id: number;
@@ -45,10 +44,11 @@ export class GameSimulation {
     private nextProjectileId = 0;
     private nextGrenadeId = 0;
 
-    applyDamage(target: player_info, rawDamage: number, attackerId: number): GameEvent[] {
+    applyDamage(target: player_info, rawDamage: number, attackerId: number, players: player_info[]): GameEvent[] {
         if (target.dead) return [];
 
-        const isFriendly = target.team === getPlayerInfo(attackerId)?.team;
+        const attacker = players.find(p => p.id === attackerId);
+        const isFriendly = attacker !== undefined && target.team === attacker.team;
         const friendlyFireEnabled = getConfig().match.friendlyFire;
         if (!friendlyFireEnabled && isFriendly) return [];
 
@@ -145,7 +145,7 @@ export class GameSimulation {
                     // This is intentional to account for high bullet speeds and low tick rates (Added this to fix a bug with snipers, but should help with general latency).
                     if (distSq < HALF_HIT_BOX * HALF_HIT_BOX) {
                         const wasAlive = !player.dead;
-                        const dmgEvents = this.applyDamage(player, p.damage, p.ownerId);
+                        const dmgEvents = this.applyDamage(player, p.damage, p.ownerId, players);
                         events.push(...dmgEvents);
                         const isKill = wasAlive && player.dead;
 
@@ -338,7 +338,7 @@ export class GameSimulation {
             const damage = Math.round(def.damage * falloff);
 
             const wasAlive = !player.dead;
-            const dmgEvents = this.applyDamage(player, damage, g.ownerId);
+            const dmgEvents = this.applyDamage(player, damage, g.ownerId, allPlayers);
             events.push(...dmgEvents);
             const isKill = wasAlive && player.dead;
 

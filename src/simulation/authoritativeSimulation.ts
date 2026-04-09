@@ -11,7 +11,7 @@ import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@net/game
 
 import { GameSimulation } from '@simulation/gameSimulation';
 import { PlayerStatus } from '@simulation/player/playerData';
-import { collidesWithPlayers, moveWithCollisionPure } from '@simulation/player/collision';
+import { collidesWithPlayers, collidesWithWalls, moveWithCollisionPure } from '@simulation/player/collision';
 import { getWeaponDef, createDefaultWeapon } from '@simulation/combat/weapons';
 import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
 
@@ -42,13 +42,13 @@ type MatchState = {
 type AABB = { x: number; y: number; w: number; h: number };
 type Limits = { left: number; right: number; top: number; bottom: number };
 
-function findNonOverlappingSpawn(x: number, y: number, excludeId: number, players: readonly player_info[]): { x: number; y: number } {
-    if (!collidesWithPlayers(x, y, excludeId, players)) return { x, y };
+function findNonOverlappingSpawn(x: number, y: number, excludeId: number, players: readonly player_info[], walls: readonly AABB[]): { x: number; y: number } {
+    if (!collidesWithPlayers(x, y, excludeId, players) && !collidesWithWalls(x, y, walls)) return { x, y };
     for (let r = PLAYER_HIT_BOX; r <= PLAYER_HIT_BOX * 10; r += PLAYER_HIT_BOX) {
         const angle = Math.random() * Math.PI * 2;
         const nx = x + Math.cos(angle) * r;
         const ny = y + Math.sin(angle) * r;
-        if (!collidesWithPlayers(nx, ny, excludeId, players)) return { x: nx, y: ny };
+        if (!collidesWithPlayers(nx, ny, excludeId, players) && !collidesWithWalls(nx, ny, walls)) return { x: nx, y: ny };
     }
     return { x, y };
 }
@@ -397,7 +397,7 @@ export class AuthoritativeSimulation {
 
     private processBuyGrenade(player: player_info, type: GrenadeType): GameEvent[] {
         const def = getGrenadeDef(type);
-        if (player.grenades[type] >= 1) return [];
+        if (player.grenades[type] >= getConfig().grenades.maximumAllowed) return [];
         const state = this.match.playerStates.get(player.id);
         if (!state || state.money < def.price) return [];
         state.money -= def.price;
@@ -596,6 +596,7 @@ export class AuthoritativeSimulation {
         this.tickRecoilResets(timestamp);
 
         pushAll(this.tickRespawns(timestamp));
+        pushAll(this.tickOOBCheck());
         pushAll(this.tickMatchTimer());
         pushAll(this.tickIntermission());
 
@@ -681,6 +682,23 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    private tickOOBCheck(): GameEvent[] {
+        const events: GameEvent[] = [];
+        const { left, right, top, bottom } = this.limits;
+        for (const player of this.players) {
+            if (player.dead) continue;
+            const { x, y } = player.current_position;
+            if (x >= left && x <= right && y >= top && y <= bottom) continue;
+            const spawnPoints = this.teamSpawns[player.team] ?? Object.values(this.teamSpawns).flat();
+            const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
+            player.current_position.x = pos.x;
+            player.current_position.y = pos.y;
+            events.push({ type: 'PLAYER_RESPAWN', playerId: player.id, x: pos.x, y: pos.y, rotation: player.current_position.rotation });
+        }
+        return events;
+    }
+
     notifyPlayerDeath(playerId: number, timestamp: number) {
         const rs = this.respawnStates.get(playerId);
         if (rs) {
@@ -692,7 +710,7 @@ export class AuthoritativeSimulation {
         const spawnPoints = this.teamSpawns[player.team] ?? Object.values(this.teamSpawns).flat();
         const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
 
-        const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players);
+        const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
         player.health = getConfig().player.maxHealth;
         player.armour = getConfig().player.startingArmor;
         player.dead = false;
@@ -776,7 +794,7 @@ export class AuthoritativeSimulation {
             const spawn = spawns[teamCounters[player.team] % spawns.length];
             teamCounters[player.team]++;
 
-            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players);
+            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
             player.health = getConfig().player.maxHealth;
             player.armour = getConfig().player.startingArmor;
             player.dead = false;

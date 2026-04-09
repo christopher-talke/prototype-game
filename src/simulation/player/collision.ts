@@ -11,6 +11,10 @@ export function registerWallAABB(x: number, y: number, w: number, h: number) {
     wallAABBs.push({ x, y, w, h });
 }
 
+export function clearWallAABBs() {
+    wallAABBs.length = 0;
+}
+
 export function getWallAABBs(): readonly AABB[] {
     return wallAABBs;
 }

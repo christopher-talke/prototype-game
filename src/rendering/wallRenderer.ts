@@ -4,6 +4,11 @@ import { app } from '../app';
 import { getRandomNumber } from '@utils/getRandomNumber';
 import { cssTransform } from '@rendering/cssTransform';
 
+export function clearRenderedWalls() {
+    if (app === undefined) return;
+    app.querySelectorAll('.wall').forEach((el) => el.remove());
+}
+
 export function renderWall(wallInfo: wall_info) {
     if (app === undefined) return;
 

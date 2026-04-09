@@ -1,7 +1,9 @@
 import './lobby.css';
 import type { GameModeConfig, DeepPartial } from '@config/types';
 import type { LobbyPlayer } from '@net/protocol';
+import { MAP_LIST } from '@maps/helpers';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
+import { hideCrosshair, showCrosshair } from '@rendering/hud';
 
 type LobbyStateView = {
     host: number;
@@ -19,6 +21,7 @@ type LobbyCallbacks = {
     onReadyChange: (ready: boolean) => void;
     onMovePlayer: (playerId: number, team: number) => void;
     onSetConfig: (config: DeepPartial<GameModeConfig>) => void;
+    onSetMap: (mapName: string) => void;
     onStartGame: () => void;
 };
 
@@ -31,6 +34,7 @@ let phase: 'connect' | 'room' = 'connect';
 let connecting = false;
 let connectError = '';
 let lobbyCustomizer: GameCustomizerInstance | null = null;
+let lobbyBaseModeId = 'tdm';
 
 export function getLobbyState(): LobbyStateView | null {
     return currentState;
@@ -39,6 +43,9 @@ export function getLobbyState(): LobbyStateView | null {
 // ---- Public API ----
 
 export function showLobbyScreen(cb: LobbyCallbacks) {
+    hideCrosshair();
+    document.body.style.cursor = 'auto';
+
     callbacks = cb;
     selfId = -1;
     ready = false;
@@ -46,6 +53,7 @@ export function showLobbyScreen(cb: LobbyCallbacks) {
     phase = 'connect';
     connecting = false;
     connectError = '';
+    lobbyBaseModeId = 'tdm';
 
     if (!rootEl) {
         rootEl = document.createElement('div');
@@ -58,6 +66,9 @@ export function showLobbyScreen(cb: LobbyCallbacks) {
 }
 
 export function hideLobbyScreen() {
+    showCrosshair();
+    document.body.style.cursor = 'none';
+
     if (!rootEl) return;
     if (lobbyCustomizer) {
         lobbyCustomizer.unmount();
@@ -193,6 +204,17 @@ function renderRoom() {
                 </div>
             </div>
 
+            <div class="lobby-map-picker">
+                <div class="lobby-config-title">Map</div>
+                <div class="lobby-map-list">
+                    ${MAP_LIST.map((m) => `
+                        <button class="lobby-map-btn${m.id === state.mapName ? ' selected' : ''}" data-map-id="${m.id}" ${!isHost ? 'disabled' : ''}>
+                            ${m.name}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+
             <div class="lobby-config">
                 <div class="lobby-config-title">Match Config</div>
                 <div id="lobby-customizer-mount"></div>
@@ -218,10 +240,23 @@ function renderRoom() {
             readonly: !isHost,
             showAISection: false,
             compact: true,
+            baseModeId: lobbyBaseModeId,
         });
         lobbyCustomizer.mount();
         lobbyCustomizer.applyConfig(state.config);
+        custMount.addEventListener('change', (e) => {
+            const target = e.target as HTMLElement;
+            if (target.id === 'gc-mode-dropdown') {
+                lobbyBaseModeId = (target as HTMLSelectElement).value;
+            }
+        });
     }
+
+    rootEl.querySelectorAll<HTMLButtonElement>('.lobby-map-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            callbacks?.onSetMap(btn.dataset.mapId ?? 'arena');
+        });
+    });
 
     rootEl.querySelectorAll<HTMLButtonElement>('[data-action="swap"]').forEach((btn) => {
         btn.addEventListener('click', () => {

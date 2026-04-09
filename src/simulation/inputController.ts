@@ -146,6 +146,7 @@ export function initInputController() {
             const aimDy = dist > 0 ? tdy / dist : 0;
 
             getAdapter().sendInput({ type: 'THROW_GRENADE', playerId: activePlayer.id, grenadeType: type, chargePercent, aimDx, aimDy });
+            cycleGrenade(1);
         }
     });
 

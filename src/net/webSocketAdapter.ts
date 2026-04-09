@@ -6,6 +6,7 @@ import { getPlayerInfo, getAllPlayers } from '@simulation/player/playerRegistry'
 import { getPlayerElement } from '@rendering/playerElements';
 import { getConfig } from '@config/activeConfig';
 import { setLocalPlayerId, updateLobbyState, showCountdown, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
+import { setActiveMap } from '@maps/helpers';
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { moveWithCollisionPure, getWallAABBs } from '@simulation/player/collision';
 import { environment } from '@simulation/environment/environment';
@@ -294,6 +295,10 @@ class WebSocketAdapter implements NetAdapter {
         this.send({ v: 1, t: 'set_config', config });
     }
 
+    sendSetMap(mapName: string): void {
+        this.send({ v: 1, t: 'set_map', mapName });
+    }
+
     sendStartGame(): void {
         this.send({ v: 1, t: 'start_game' });
     }
@@ -365,6 +370,7 @@ class WebSocketAdapter implements NetAdapter {
                 }
                 break;
             case 'lobby_state':
+                setActiveMap(msg.mapName);
                 updateLobbyState({
                     host: msg.host,
                     players: msg.players,

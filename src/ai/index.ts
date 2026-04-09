@@ -41,6 +41,7 @@ type AIController = {
     cachedEnemy: player_info | null;
     cachedEnemyDist: number;
     losFrame: number;
+    threwGrenadeRecently: number
 };
 
 const controllers: AIController[] = [];
@@ -98,6 +99,7 @@ export function registerAI(player: player_info) {
         cachedEnemy: null,
         cachedEnemyDist: Infinity,
         losFrame: controllers.length % AI_LOS_INTERVAL,
+        threwGrenadeRecently: 0,
     });
 }
 
@@ -293,8 +295,10 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
     }
 
     // Try to throw a grenade if we have one and are close enough
-    if (dist < 450) {
+    // Only throw if we haven't thrown one recently to avoid spamming
+    if (dist < 450 && ai.threwGrenadeRecently < timestamp - 5000) {
         tryAiThrowGrenade(ai, target);
+        ai.threwGrenadeRecently = timestamp;
     }
 }
 
@@ -387,6 +391,7 @@ function tryAiThrowGrenade(ai: AIController, enemy: player_info) {
     for (const type of ordered) {
         if (me.grenades[type] <= 0) continue;
         if (!isGrenadeAllowed(type)) continue;
+
         offlineAdapter.sendInput({
             type: 'THROW_GRENADE',
             playerId: me.id,
@@ -405,6 +410,11 @@ function tryBuyGrenade(ai: AIController) {
 
     for (const grenadeType of ['FRAG', 'FLASH', 'SMOKE'] as GrenadeType[]) {
         if (!isGrenadeAllowed(grenadeType)) continue;
+
+        const currentCount = ai.player.grenades[grenadeType] || 0;
+        const maxAllowed = getConfig().grenades.allowedGrenades === 'ALL' ? Infinity : getConfig().grenades.allowedGrenades.includes(grenadeType) ? 1 : 0;
+        if (currentCount >= maxAllowed) continue;
+
         const def = getGrenadeDef(grenadeType);
         if (state.money >= def.price) {
             offlineAdapter.sendInput({ type: 'BUY_GRENADE', playerId: ai.player.id, grenadeType });

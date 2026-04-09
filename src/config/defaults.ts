@@ -50,6 +50,7 @@ export const BASE_DEFAULTS: GameModeConfig = {
         startingGrenades: {},
         chargeTime: 1000,
         minThrowFraction: 0.2,
+        maximumAllowed: 3,
     },
 
     ai: {

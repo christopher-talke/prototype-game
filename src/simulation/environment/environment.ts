@@ -30,3 +30,7 @@ export function generateEnvironment() {
         { x: left, y: bottom },
     ];
 }
+
+export function clearWallGeometry() {
+    generateEnvironment();
+}

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation.ts';
 import { Arena } from '@maps/arena.ts';
+import { Shipment } from '@maps/shipment.ts';
 import { BASE_DEFAULTS } from '@config/defaults.ts';
 import { createDefaultWeapon } from '@simulation/combat/weapons.ts';
 
@@ -29,7 +30,7 @@ export class GameRoom {
     private hostConnId: string | null = null;
     private phase: Phase = 'lobby';
     private config = { ...BASE_DEFAULTS };
-    private mapName = 'Arena';
+    private mapName = 'arena';
     private countdownTimer: ReturnType<typeof setInterval> | null = null;
     private pendingEvents: any[] = [];
 
@@ -176,6 +177,16 @@ export class GameRoom {
                 }
                 break;
 
+            case 'set_map':
+                if (this.phase === 'lobby' && conn.id === this.hostConnId && msg.mapName) {
+                    const valid = ['arena', 'shipment'];
+                    if (valid.includes(msg.mapName)) {
+                        this.mapName = msg.mapName;
+                        this.broadcastLobbyState();
+                    }
+                }
+                break;
+
             case 'start_game':
                 console.log('[SERVER] start_game received. phase:', this.phase, 'isHost:', conn.id === this.hostConnId);
                 if (this.phase === 'lobby' && conn.id === this.hostConnId) {
@@ -286,14 +297,20 @@ export class GameRoom {
         }, 1000);
     }
 
+    private getMapData() {
+        return this.mapName === 'shipment' ? Shipment : Arena;
+    }
+
     private beginGame(): void {
         console.log('[SERVER] beginGame called, players:', this.players.size);
         this.phase = 'playing';
 
+        const mapData = this.getMapData();
+
         // Build sim players from lobby state
         const simPlayers: player_info[] = [];
         for (const p of this.players.values()) {
-            const spawns = Arena.teamSpawns[p.team] ?? Arena.teamSpawns[1];
+            const spawns = mapData.teamSpawns[p.team] ?? mapData.teamSpawns[1];
             const spawn = spawns[(p.id - 1) % spawns.length];
             simPlayers.push({
                 id: p.id,
@@ -309,16 +326,16 @@ export class GameRoom {
         }
 
         this.sim.setMap(
-            Arena.walls.map((w) => ({ x: w.x, y: w.y, w: w.width, h: w.height })),
+            mapData.walls.map((w) => ({ x: w.x, y: w.y, w: w.width, h: w.height })),
             { left: 0, right: 3000, top: 0, bottom: 3000 },
-            Arena.walls.flatMap((w) => [
+            mapData.walls.flatMap((w) => [
                 { x1: w.x, y1: w.y, x2: w.x + w.width, y2: w.y },
                 { x1: w.x + w.width, y1: w.y, x2: w.x + w.width, y2: w.y + w.height },
                 { x1: w.x + w.width, y1: w.y + w.height, x2: w.x, y2: w.y + w.height },
                 { x1: w.x, y1: w.y + w.height, x2: w.x, y2: w.y },
             ]),
-            Arena.teamSpawns,
-            Arena.patrolPoints,
+            mapData.teamSpawns,
+            mapData.patrolPoints,
         );
         this.sim.setPlayers(simPlayers);
         this.sim.initMatch(simPlayers.map((p) => p.id));

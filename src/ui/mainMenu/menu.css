@@ -143,6 +143,60 @@
     margin-bottom: 16px;
 }
 
+/* ---- Map cards ---- */
+.map-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.map-card {
+    padding: 16px;
+    background: var(--color-surface-02);
+    border: 1px solid var(--color-border-subtle);
+    cursor: pointer;
+    transition:
+        background var(--transition-fast),
+        border-color var(--transition-fast);
+    box-sizing: border-box;
+    text-align: left;
+    font-family: var(--font-ui);
+    color: #fff;
+}
+
+.map-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.map-card.selected {
+    background: var(--color-cyan-06);
+    border-color: rgba(0, 229, 255, 0.6);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.1);
+}
+
+.map-card-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+
+.map-card.selected .map-card-name {
+    color: var(--color-cyan);
+}
+
+.map-card-desc {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.5;
+}
+
 /* ---- Mode cards ---- */
 .mode-grid {
     width: 100%;

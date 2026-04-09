@@ -2,10 +2,7 @@ import './style.css';
 
 import { drawFogOfWar } from '@rendering/fogOfWar';
 import { generateEnvironment } from '@simulation/environment/environment';
-import { registerWallGeometry } from '@simulation/environment/wallData';
-import { renderWall } from '@rendering/wallRenderer';
 import { initHUD } from '@rendering/hud';
-import { getActiveMap } from '@maps/helpers';
 import { resumeAudioContext, playMenuMusic } from '@audio/index';
 import { loadAllSounds } from '@audio/soundMap';
 import { initProjectilePool } from '@simulation/combat/projectilePool';
@@ -17,8 +14,6 @@ import { initMatchSystem, launchMatch } from '@simulation/match/match';
 import { getConfig, setGameMode } from '@config/activeConfig';
 
 import { getGPUTier } from '@pmndrs/detect-gpu';
-
-const ACTIVE_MAP = getActiveMap();
 
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -63,11 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initProjectilePool();
     clientRenderer.init();
 
-    setLoadingProgress(30, 'building walls');
-    for (const wall of ACTIVE_MAP.walls) {
-        registerWallGeometry(wall);
-        renderWall(wall);
-    }
+    setLoadingProgress(30, 'initializing renderer');
     await nextFrame();
 
     setLoadingProgress(45, 'initializing input');

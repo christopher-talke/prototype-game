@@ -49,6 +49,7 @@ export interface GameModeConfig {
     };
 
     grenades: {
+        maximumAllowed: number;
         allowedGrenades: GrenadeType[] | 'ALL';
         startingGrenades: Partial<Record<GrenadeType, number>>;
         chargeTime: number;
