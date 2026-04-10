@@ -36,7 +36,7 @@ const ROTATION_THRESHOLD = 0.5;
 
 // Pre-allocated reusable buffers
 const rayPathBuffer: RayPoint[] = [];
-let polyStringParts: string[] = [];
+const vertexBuffer: coordinates[] = [];
 
 const _filteredSegments: WallSegment[] = [];
 
@@ -118,9 +118,9 @@ const MAX_CORNER_DIST_SQ = 1500 * 1500;
  * Computes the raycast polygon for a given player (absolute hell on earth, sorry).
  * @param playerInfo The player information.
  * @param config The raycast configuration.
- * @returns A CSS polygon() path string, or null if the frame can be skipped.
+ * @returns Vertex buffer and count, or null if the frame can be skipped.
  */
-export function computeRaycastPolygon(playerInfo: player_info, config: raycast_config): string | null {
+export function computeRaycastPolygon(playerInfo: player_info, config: raycast_config): { vertices: coordinates[]; count: number } | null {
     const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
     const centerY = playerInfo.current_position.y + HALF_HIT_BOX;
     const rotation = playerInfo.current_position.rotation;
@@ -234,22 +234,19 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
         }
     }
 
-    // Construct the CSS polygon() string from the raycast hits. 
-    // The first and last points are the player's position, and the middle points are the ray hits sorted by angle.
-    // We basically just join up all the points from left to right to create the vision polygon, which the CSS clip-path then uses to mask the fog of war.
+    // Fill the vertex buffer: center, lowerHit, sorted ray hits, upperHit, center
     const totalPoints = rayCount + 4;
-    if (polyStringParts.length < totalPoints) polyStringParts = new Array(totalPoints);
-    polyStringParts[0] = `${Math.round(centerX)}px ${Math.round(centerY)}px`;
-    polyStringParts[1] = `${Math.round(_lowerHit.x)}px ${Math.round(_lowerHit.y)}px`;
+    while (vertexBuffer.length < totalPoints) vertexBuffer.push({ x: 0, y: 0 });
+    vertexBuffer[0].x = centerX;          vertexBuffer[0].y = centerY;
+    vertexBuffer[1].x = _lowerHit.x;      vertexBuffer[1].y = _lowerHit.y;
     for (let i = 0; i < rayCount; i++) {
-        polyStringParts[i + 2] = `${Math.round(rayPathBuffer[i].x)}px ${Math.round(rayPathBuffer[i].y)}px`;
+        vertexBuffer[i + 2].x = rayPathBuffer[i].x;
+        vertexBuffer[i + 2].y = rayPathBuffer[i].y;
     }
-    polyStringParts[rayCount + 2] = `${Math.round(_upperHit.x)}px ${Math.round(_upperHit.y)}px`;
-    polyStringParts[rayCount + 3] = `${Math.round(centerX)}px ${Math.round(centerY)}px`;
+    vertexBuffer[rayCount + 2].x = _upperHit.x;  vertexBuffer[rayCount + 2].y = _upperHit.y;
+    vertexBuffer[rayCount + 3].x = centerX;       vertexBuffer[rayCount + 3].y = centerY;
 
-    // Return a nice CSS polygon string that the renderer can use directly
-    // e.g. "polygon(100px 100px, 150px 80px, 200px 120px, 250px 100px, 300px 150px)"
-    return 'polygon(' + polyStringParts.slice(0, totalPoints).join(',') + ')';
+    return { vertices: vertexBuffer, count: totalPoints };
 }
 
 /**

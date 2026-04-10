@@ -34,7 +34,7 @@ Ticker.shared.add((ticker) => {
     }
 });
 
-export function onPixiGrenadeSpawn(grenadeId: number, grenadeType: GrenadeType, x: number, y: number, isC4: boolean) {
+export function onPixiGrenadeSpawn(grenadeId: number, grenadeType: GrenadeType, x: number, y: number, _isC4: boolean) {
     const color = GRENADE_COLORS[grenadeType] ?? 0xffffff;
     const g = new Graphics();
     g.circle(0, 0, GRENADE_RADIUS).fill({ color, alpha: 0.9 });
@@ -45,7 +45,7 @@ export function onPixiGrenadeSpawn(grenadeId: number, grenadeType: GrenadeType, 
     grenadeGraphics.set(grenadeId, g);
 }
 
-export function onPixiGrenadeDetonate(grenadeId: number, grenadeType: GrenadeType, x: number, y: number, radius: number) {
+export function onPixiGrenadeDetonate(_grenadeId: number, grenadeType: GrenadeType, x: number, y: number, radius: number) {
     if (grenadeType !== 'FRAG' && grenadeType !== 'C4') return;
 
     const isC4 = grenadeType === 'C4';

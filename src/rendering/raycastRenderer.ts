@@ -2,15 +2,22 @@ import { app, SETTINGS } from '../app';
 import { computeRaycastPolygon, computeFOVCone } from '@simulation/detection/raycast';
 
 let _fogOfWarEl: HTMLElement | null = null;
+let polyStringParts: string[] = [];
 
-function applyFogOfWarClipPath(polygonPath: string) {
+function applyFogOfWarClipPath(vertices: coordinates[], count: number) {
     if (!_fogOfWarEl) _fogOfWarEl = document.getElementById('fog-of-war');
-    if (_fogOfWarEl) _fogOfWarEl.style.clipPath = polygonPath;
+    if (!_fogOfWarEl) return;
+    if (polyStringParts.length < count) polyStringParts = new Array(count);
+    for (let i = 0; i < count; i++) {
+        polyStringParts[i] = `${Math.round(vertices[i].x)}px ${Math.round(vertices[i].y)}px`;
+    }
+    _fogOfWarEl.style.clipPath = 'polygon(' + polyStringParts.slice(0, count).join(',') + ')';
 }
 
-export function generateRayCast(playerInfo: player_info, config: raycast_config) {
-    const polygon = computeRaycastPolygon(playerInfo, config);
-    if (polygon) applyFogOfWarClipPath(polygon);
+export function generateRayCast(playerInfo: player_info, config: raycast_config): { vertices: coordinates[]; count: number } | null {
+    const result = computeRaycastPolygon(playerInfo, config);
+    if (result) applyFogOfWarClipPath(result.vertices, result.count);
+    return result;
 }
 
 // FOV cone lines

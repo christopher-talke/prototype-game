@@ -19,6 +19,7 @@ import type { NetAdapter } from '@net/netAdapter';
 import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from '@rendering/pixi/pixiCamera';
 import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 import { applyPixiVisibility } from '@rendering/pixi/pixiPlayerRenderer';
+import { updatePixiFogOfWar, hidePixiFog, updatePixiFOVCone, hidePixiFOVCone } from '@rendering/pixi/pixiFogOfWar';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -65,16 +66,24 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     }
 
     if (SETTINGS.raycast.type === 'MAIN_THREAD') {
-        generateRayCast(player, { type: RaycastTypes.CORNERS });
+        const rayResult = generateRayCast(player, { type: RaycastTypes.CORNERS });
+        if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
+        hidePixiFOVCone();
         tickAdaptiveQuality(timestamp);
     } else if (SETTINGS.raycast.type === 'SPRAY') {
-        generateRayCast(player, { type: RaycastTypes.SPRAY });
+        const rayResult = generateRayCast(player, { type: RaycastTypes.SPRAY });
+        if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
+        hidePixiFOVCone();
     } else {
         generateFOVCone(player);
         if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');
         _cachedFogEl?.classList.add('d-none');
+        if (SETTINGS.renderer === 'pixi') {
+            hidePixiFog();
+            updatePixiFOVCone(player);
+        }
     }
 
     const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;

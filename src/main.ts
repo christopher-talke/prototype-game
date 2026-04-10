@@ -1,7 +1,7 @@
 import './style.css';
 
 import { drawFogOfWar } from '@rendering/fogOfWar';
-import { generateEnvironment } from '@simulation/environment/environment';
+import { generateEnvironment, environment } from '@simulation/environment/environment';
 import { initHUD } from '@rendering/hud';
 import { resumeAudioContext, playMenuMusic } from '@audio/index';
 import { loadAllSounds } from '@audio/soundMap';
@@ -15,6 +15,7 @@ import { SETTINGS } from './app';
 import { initPixiApp } from '@rendering/pixi/pixiApp';
 import { initPixiProjectilePool } from '@rendering/pixi/pixiProjectilePool';
 import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
+import { initPixiFogOfWar } from '@rendering/pixi/pixiFogOfWar';
 
 // TODO: restore before production: import { getConfig, setGameMode } from '@config/activeConfig';
 // TODO: restore before production: import { getGPUTier } from '@pmndrs/detect-gpu';
@@ -48,6 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (SETTINGS.renderer === 'pixi') {
         await initPixiApp();
         initPixiProjectilePool();
+        initPixiFogOfWar(environment.limits.right, environment.limits.bottom);
     }
     await nextFrame();
 
