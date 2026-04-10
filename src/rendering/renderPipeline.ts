@@ -18,7 +18,7 @@ import { offlineAdapter } from '@net/offlineAdapter';
 import type { NetAdapter } from '@net/netAdapter';
 import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from '@rendering/pixi/pixiCamera';
 import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
-import { applyPixiVisibility } from '@rendering/pixi/pixiPlayerRenderer';
+import { applyPixiVisibility, updatePixiLastKnown } from '@rendering/pixi/pixiPlayerRenderer';
 import { updatePixiFogOfWar, hidePixiFog, updatePixiFOVCone, hidePixiFOVCone } from '@rendering/pixi/pixiFogOfWar';
 import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/pixi/pixiAimLineRenderer';
 import { updatePixiSmokeClouds } from '@rendering/pixi/pixiSmokeRenderer';
@@ -57,6 +57,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     for (const entry of detections) {
         if (SETTINGS.renderer === 'pixi') {
             applyPixiVisibility(entry.result, entry.targetId);
+            updatePixiLastKnown(entry.result, entry.targetPlayer, entry.sourcePlayer);
         } else {
             const targetEl = getPlayerElement(entry.targetId);
             if (SETTINGS.debug) {

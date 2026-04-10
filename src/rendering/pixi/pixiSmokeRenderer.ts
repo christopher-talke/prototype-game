@@ -1,4 +1,4 @@
-import { Graphics } from 'pixi.js';
+import { BlurFilter, Graphics } from 'pixi.js';
 import { smokeLayer } from './pixiSceneGraph';
 
 const FADE_DURATION = 2000;
@@ -14,9 +14,15 @@ const activeClouds: PixiSmoke[] = [];
 export function spawnPixiSmokeCloud(x: number, y: number, radius: number, duration: number) {
     const now = performance.now();
     const g = new Graphics();
-    g.circle(0, 0, radius).fill({ color: 0x888899, alpha: 0.65 });
+    // Outer diffuse ring
+    g.circle(0, 0, radius).fill({ color: 0x6e7a8a, alpha: 0.3 });
+    // Inner denser core
+    g.circle(0, 0, radius * 0.65).fill({ color: 0x8899aa, alpha: 0.45 });
+    // Bright center
+    g.circle(0, 0, radius * 0.3).fill({ color: 0xaabbcc, alpha: 0.5 });
     g.x = x;
     g.y = y;
+    g.filters = [new BlurFilter({ strength: 12, quality: 2 })];
     smokeLayer.addChild(g);
     activeClouds.push({ g, expiresAt: now + duration, fadeStart: now + duration - FADE_DURATION });
 }

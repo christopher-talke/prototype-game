@@ -65,6 +65,13 @@ class PixiClientRendererImpl {
             }
         }
         updatePixiGrenadePositions(adapter.getGrenades());
+        for (const [playerId, entry] of this.statusLabels) {
+            const player = getPlayerInfo(playerId);
+            if (player) {
+                entry.text.x = player.current_position.x + HALF_HIT_BOX;
+                entry.text.y = player.current_position.y - 52;
+            }
+        }
     }
 
     clearPlayers() {
