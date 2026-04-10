@@ -1,4 +1,6 @@
-import { Container } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
+
+let backgroundRect: Graphics | null = null;
 
 // World container -- camera transform applied here
 export let worldContainer: Container;
@@ -27,6 +29,8 @@ export function createSceneGraph(stage: Container) {
     stage.addChild(worldContainer);
 
     backgroundLayer = addLayer('backgroundLayer');
+    backgroundRect = new Graphics();
+    backgroundLayer.addChild(backgroundRect);
     wallLayer = addLayer('wallLayer');
     lastKnownLayer = addLayer('lastKnownLayer');
     corpseLayer = addLayer('corpseLayer');
@@ -42,6 +46,12 @@ export function createSceneGraph(stage: Container) {
     explosionLayer = addLayer('explosionLayer');
     damageNumberLayer = addLayer('damageNumberLayer');
     fogOfWarLayer = addLayer('fogOfWarLayer');
+}
+
+export function setWorldBounds(width: number, height: number) {
+    if (!backgroundRect) return;
+    backgroundRect.clear();
+    backgroundRect.rect(0, 0, width, height).fill(0x0f0f1a);
 }
 
 function addLayer(label: string): Container {

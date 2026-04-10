@@ -16,6 +16,7 @@ import { setCameraTarget, setCameraWeaponOffset, updateCamera } from '@rendering
 import { updateHUD } from '@rendering/hud';
 import { offlineAdapter } from '@net/offlineAdapter';
 import type { NetAdapter } from '@net/netAdapter';
+import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from '@rendering/pixi/pixiCamera';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -28,9 +29,19 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     const weapon = getActiveWeapon(player);
     const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
     const cameraOffsetDist = weaponDef ? weaponDef.cameraOffset : 0;
-    setCameraTarget(player.current_position.x, player.current_position.y);
-    setCameraWeaponOffset(cameraOffsetDist, angleToRadians(player.current_position.rotation - ROTATION_OFFSET));
-    updateCamera(window.visualViewport!.width, window.visualViewport!.height);
+    const facingRad = angleToRadians(player.current_position.rotation - ROTATION_OFFSET);
+    const vpWidth = window.visualViewport!.width;
+    const vpHeight = window.visualViewport!.height;
+
+    if (SETTINGS.renderer === 'pixi') {
+        setPixiCameraTarget(player.current_position.x, player.current_position.y);
+        setPixiCameraWeaponOffset(cameraOffsetDist, facingRad);
+        updatePixiCamera(vpWidth, vpHeight);
+    } else {
+        setCameraTarget(player.current_position.x, player.current_position.y);
+        setCameraWeaponOffset(cameraOffsetDist, facingRad);
+        updateCamera(vpWidth, vpHeight);
+    }
 
     const detections = detectOtherPlayers(player.id);
     for (const entry of detections) {

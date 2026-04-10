@@ -29,6 +29,9 @@ import { renderWall } from '@rendering/wallRenderer';
 import { clientRenderer } from '@rendering/clientRenderer';
 import { updateActivePlayerVisual } from '@rendering/playerElements';
 import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
+import { SETTINGS } from '../../app';
+import { renderPixiWalls, clearPixiWalls } from '@rendering/pixi/pixiWallRenderer';
+import { setWorldBounds } from '@rendering/pixi/pixiSceneGraph';
 
 const authSim = offlineAdapter.authSim;
 
@@ -37,7 +40,13 @@ function loadMapWalls() {
     const map = getActiveMap();
     for (const wall of map.walls) {
         registerWallGeometry(wall);
-        renderWall(wall);
+        if (SETTINGS.renderer === 'dom') renderWall(wall);
+    }
+    if (SETTINGS.renderer === 'pixi') {
+        const w = environment.limits.right;
+        const h = environment.limits.bottom;
+        setWorldBounds(w, h);
+        renderPixiWalls(map.walls);
     }
 }
 
@@ -185,6 +194,7 @@ function returnToMenu() {
     authSim.endMatch();
     destroyAllPlayers();
     clearAllWallData();
+    if (SETTINGS.renderer === 'pixi') clearPixiWalls();
 
     webSocketAdapter.onGameStart = () => {
         loadMapWalls();
