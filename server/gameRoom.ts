@@ -90,8 +90,8 @@ export class GameRoom {
                 mapData: {
                     version: 1,
                     name: this.mapName,
-                    width: 3000,
-                    height: 3000,
+                    width: this.getMapData().bounds?.width ?? 3000,
+                    height: this.getMapData().bounds?.height ?? 3000,
                     teamSpawns: Arena.teamSpawns,
                     patrolPoints: Arena.patrolPoints,
                     walls: Arena.walls.map((w) => ({ x: w.x, y: w.y, width: w.width, height: w.height, type: w.type })),
@@ -126,8 +126,8 @@ export class GameRoom {
             mapData: {
                 version: 1,
                 name: this.mapName,
-                width: 3000,
-                height: 3000,
+                width: this.getMapData().bounds?.width ?? 3000,
+                height: this.getMapData().bounds?.height ?? 3000,
                 teamSpawns: Arena.teamSpawns,
                 patrolPoints: Arena.patrolPoints,
                 walls: Arena.walls.map((w) => ({ x: w.x, y: w.y, width: w.width, height: w.height, type: w.type })),
@@ -327,7 +327,7 @@ export class GameRoom {
 
         this.sim.setMap(
             mapData.walls.map((w) => ({ x: w.x, y: w.y, w: w.width, h: w.height })),
-            { left: 0, right: 3000, top: 0, bottom: 3000 },
+            { left: 0, right: mapData.bounds?.width ?? 3000, top: 0, bottom: mapData.bounds?.height ?? 3000 },
             mapData.walls.flatMap((w) => [
                 { x1: w.x, y1: w.y, x2: w.x + w.width, y2: w.y },
                 { x1: w.x + w.width, y1: w.y, x2: w.x + w.width, y2: w.y + w.height },

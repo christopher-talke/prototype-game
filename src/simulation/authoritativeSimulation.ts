@@ -84,6 +84,7 @@ export class AuthoritativeSimulation {
     setMap(wallAABBs: AABB[], limits: Limits, segments: WallSegment[], teamSpawns: Record<number, coordinates[]>, patrolPoints: coordinates[]) {
         this.wallAABBs = wallAABBs;
         this.limits = limits;
+        this.simulation.setLimits(limits);
         this.segments = segments;
         this.teamSpawns = teamSpawns;
         this.patrolPoints = patrolPoints;

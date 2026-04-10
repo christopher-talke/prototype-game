@@ -194,7 +194,7 @@ class WebSocketAdapter implements NetAdapter {
         for (const [id, b] of this._localBullets) {
             b.x += b.dx * b.speed;
             b.y += b.dy * b.speed;
-            if (b.x < 0 || b.x > 3000 || b.y < 0 || b.y > 3000) {
+            if (b.x < 0 || b.x > environment.limits.right || b.y < 0 || b.y > environment.limits.bottom) {
                 this._localBullets.delete(id);
             }
         }

@@ -31,6 +31,12 @@ export function generateEnvironment() {
     ];
 }
 
+export function setEnvironmentLimits(width: number, height: number) {
+    environment.limits.right = width;
+    environment.limits.bottom = height;
+    generateEnvironment();
+}
+
 export function clearWallGeometry() {
     generateEnvironment();
 }

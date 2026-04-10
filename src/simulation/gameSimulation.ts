@@ -6,7 +6,7 @@
 
 import type { GameEvent } from '@net/gameEvent';
 import { raySegmentIntersect, isLineBlocked } from './detection/rayGeometry';
-import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
+import { HALF_HIT_BOX } from '../constants';
 import { getGrenadeDef } from '@simulation/combat/grenades';
 import { getConfig } from '@config/activeConfig';
 
@@ -36,9 +36,16 @@ type SimGrenade = {
     detonated: boolean;
 };
 
+type Limits = { left: number; right: number; top: number; bottom: number };
+
 const MIN_GRENADE_SPEED = 0.3;
 
 export class GameSimulation {
+    private limits: Limits = { left: 0, right: 3000, top: 0, bottom: 3000 };
+
+    setLimits(limits: Limits) {
+        this.limits = limits;
+    }
     private projectiles: SimProjectile[] = [];
     private grenadesList: SimGrenade[] = [];
     private nextProjectileId = 0;
@@ -170,7 +177,7 @@ export class GameSimulation {
                 }
             }
 
-            if (p.alive && (newX < 0 || newX > MAP_SIZE || newY < 0 || newY > MAP_SIZE)) {
+            if (p.alive && (newX < 0 || newX > this.limits.right || newY < 0 || newY > this.limits.bottom)) {
                 p.alive = false;
                 events.push({ type: 'BULLET_REMOVED', bulletId: p.id });
             }
@@ -270,8 +277,8 @@ export class GameSimulation {
                 }
             }
 
-            g.x = Math.max(0, Math.min(MAP_SIZE, g.x));
-            g.y = Math.max(0, Math.min(MAP_SIZE, g.y));
+            g.x = Math.max(0, Math.min(this.limits.right, g.x));
+            g.y = Math.max(0, Math.min(this.limits.bottom, g.y));
         }
 
         return events;

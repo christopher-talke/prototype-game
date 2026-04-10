@@ -142,6 +142,7 @@ declare global {
     };
 
     type MapData = {
+        bounds?: { width: number; height: number };
         teamSpawns: Record<number, coordinates[]>;
         patrolPoints: coordinates[];
         walls: wall_info[];

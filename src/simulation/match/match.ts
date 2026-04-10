@@ -18,7 +18,7 @@ import { stopMenuMusic, playMenuMusic } from '@audio/index';
 
 import { getWallAABBs } from '@simulation/player/collision';
 import { createDefaultWeapon } from '@simulation/combat/weapons';
-import { environment } from '@simulation/environment/environment';
+import { environment, setEnvironmentLimits } from '@simulation/environment/environment';
 import { createDefaultGrenades } from '@simulation/combat/grenades';
 import { registerWallGeometry, clearAllWallData } from '@simulation/environment/wallData';
 import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
@@ -37,8 +37,9 @@ import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 const authSim = offlineAdapter.authSim;
 
 function loadMapWalls() {
-    clearAllWallData();
     const map = getActiveMap();
+    setEnvironmentLimits(map.bounds?.width ?? 3000, map.bounds?.height ?? 3000);
+    clearAllWallData();
     for (const wall of map.walls) {
         registerWallGeometry(wall);
         if (SETTINGS.renderer === 'dom') renderWall(wall);
