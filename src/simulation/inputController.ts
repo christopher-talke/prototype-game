@@ -1,4 +1,4 @@
-import { HALF_HIT_BOX, MAP_OFFSET, ROTATION_OFFSET } from '../constants';
+import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { ACTIVE_PLAYER, getPlayerInfo } from './player/playerRegistry';
 import { getAngle } from '@utils/getAngle';
 import { HELD_DIRECTIONS, directions } from './player/playerData';
@@ -10,6 +10,7 @@ import { isPlayerDead } from '@simulation/combat/damage';
 import { getIsFiring } from '@simulation/combat/shooting';
 import { setMouseWorldPosition, getMouseWorldPosition } from '@utils/mouseWorldPosition';
 import { getConfig } from '@config/activeConfig';
+import { screenToWorld } from '@rendering/coordConvert';
 
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
@@ -105,15 +106,13 @@ export function initInputController() {
         updateCrosshairPosition(e.clientX, e.clientY);
         const activePlayer = getActivePlayerInfo();
         if (activePlayer) {
-            const currentMouseX = e.pageX;
-            const currentMouseY = e.pageY;
+            const mouseWorld = screenToWorld(e.clientX, e.clientY);
+            setMouseWorldPosition(mouseWorld.x, mouseWorld.y);
 
-            setMouseWorldPosition(currentMouseX - MAP_OFFSET, currentMouseY - MAP_OFFSET);
+            const centerX = activePlayer.current_position.x + HALF_HIT_BOX;
+            const centerY = activePlayer.current_position.y + HALF_HIT_BOX;
 
-            const centerX = activePlayer.current_position.x + HALF_HIT_BOX + MAP_OFFSET;
-            const centerY = activePlayer.current_position.y + HALF_HIT_BOX + MAP_OFFSET;
-
-            const newRotation = getAngle(centerX, centerY, currentMouseX, currentMouseY) + ROTATION_OFFSET;
+            const newRotation = getAngle(centerX, centerY, mouseWorld.x, mouseWorld.y) + ROTATION_OFFSET;
 
             activePlayer.current_position.rotation = newRotation;
             getAdapter().sendInput({ type: 'ROTATE', playerId: activePlayer.id, rotation: newRotation });
