@@ -40,6 +40,7 @@ function loadMapWalls() {
     const map = getActiveMap();
     setEnvironmentLimits(map.bounds?.width ?? 3000, map.bounds?.height ?? 3000);
     clearAllWallData();
+    clearPixiWalls();
     for (const wall of map.walls) {
         registerWallGeometry(wall);
         if (SETTINGS.renderer === 'dom') renderWall(wall);

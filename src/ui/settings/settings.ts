@@ -1,5 +1,6 @@
 import './settings.css';
-import { SETTINGS, saveRendererSetting } from '../../app';
+import { SETTINGS } from '../../app';
+import { switchRenderer } from '@rendering/rendererSwitch';
 import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '@audio/index';
 import { removeElements } from '@utils/removeElements';
 import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from './keybinds';
@@ -201,7 +202,6 @@ function buildGameTab() {
                 <option value="dom" ${SETTINGS.renderer === 'dom' ? 'selected' : ''}>DOM (Classic)</option>
                 <option value="pixi" ${SETTINGS.renderer === 'pixi' ? 'selected' : ''}>WebGL (PixiJS)</option>
             </select>
-            <span class="settings-hint">Requires match restart</span>
         </div>
     `;
 
@@ -229,7 +229,6 @@ function buildGameTab() {
 
     panel.querySelector('#opt-renderer')!.addEventListener('change', (e) => {
         const val = (e.target as HTMLSelectElement).value as RendererType;
-        SETTINGS.renderer = val;
-        saveRendererSetting(val);
+        switchRenderer(val);
     });
 }

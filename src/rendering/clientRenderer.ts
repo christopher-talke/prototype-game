@@ -471,6 +471,28 @@ class ClientRendererImpl {
         setTimeout(() => ring.remove(), 600);
     }
 
+    teardownVisuals() {
+        if (app) {
+            app.querySelectorAll('.wall, .player, .player-health-wrap, .player-nametag, .grenade, .projectile, .corpse-marker, .aim-line, .last-known-position, .player-status-label, .damage-number, .explosion-ring, .smoke-cloud').forEach(el => el.remove());
+        }
+        for (const [, entry] of this.bulletElements) releaseProjectile(entry.poolIndex);
+        this.bulletElements.clear();
+        for (const [, el] of this.grenadeElements) el.remove();
+        this.grenadeElements.clear();
+        for (const { el, timer } of this.corpseMarkers) {
+            clearTimeout(timer);
+            el.remove();
+        }
+        this.corpseMarkers.length = 0;
+        for (const [, timer] of this.healthBarTimers) clearTimeout(timer);
+        this.healthBarTimers.clear();
+        for (const [id] of this.statusLabels) this.removeStatusLabel(id);
+        this.lastPlayerTransform.clear();
+        this.lastWeaponType.clear();
+        this.detonatedGrenades.clear();
+        clearPlayerElements();
+    }
+
     // Remove all player and health bar DOM elements, then clear player data.
     clearPlayers() {
         for (const playerId of getAllPlayers().map(p => p.id)) {

@@ -37,6 +37,15 @@ body {
     contain: layout style;
 }
 
+body.renderer-pixi {
+    min-width: 100vw;
+    min-height: 100vh;
+}
+
+body.renderer-pixi #app {
+    display: none;
+}
+
 .d-none {
     display: none;
 }

@@ -12,23 +12,17 @@ import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/lo
 import { initGameLoop } from '@simulation/gameLoop';
 import { initMatchSystem, launchMatch } from '@simulation/match/match';
 import { SETTINGS } from './app';
-import { initPixiApp } from '@rendering/pixi/pixiApp';
+import { initPixiApp, hidePixiCanvas } from '@rendering/pixi/pixiApp';
 import { initPixiProjectilePool } from '@rendering/pixi/pixiProjectilePool';
 import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 import { initPixiFogOfWar } from '@rendering/pixi/pixiFogOfWar';
 import { initPixiAimLine } from '@rendering/pixi/pixiAimLineRenderer';
-
-// TODO: restore before production: import { getConfig, setGameMode } from '@config/activeConfig';
-// TODO: restore before production: import { getGPUTier } from '@pmndrs/detect-gpu';
 
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-
-    // TODO: restore GPU check before production
-    // const gpuTier = await getGPUTier();
 
     showLoadingScreen();
     await nextFrame();
@@ -47,11 +41,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     pixiClientRenderer.init();
 
     setLoadingProgress(30, 'initializing renderer');
-    if (SETTINGS.renderer === 'pixi') {
-        await initPixiApp();
-        initPixiProjectilePool();
-        initPixiFogOfWar();
-        initPixiAimLine();
+    await initPixiApp();
+    initPixiProjectilePool();
+    initPixiFogOfWar();
+    initPixiAimLine();
+    if (SETTINGS.renderer === 'dom') {
+        hidePixiCanvas();
+    } else {
+        document.body.classList.add('renderer-pixi');
     }
     await nextFrame();
 

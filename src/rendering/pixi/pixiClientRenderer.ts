@@ -2,8 +2,9 @@ import { SETTINGS } from '../../app';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent } from '@net/gameEvent';
 import { getAdapter } from '@net/activeAdapter';
-import { ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
+import { ACTIVE_PLAYER, clearPlayerRegistry } from '@simulation/player/playerRegistry';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
+import { clearPlayerElements } from '@rendering/playerElements';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { HALF_HIT_BOX } from '../../constants';
 import { Text, Ticker } from 'pixi.js';
@@ -74,7 +75,7 @@ class PixiClientRendererImpl {
         }
     }
 
-    clearPlayers() {
+    teardownVisuals() {
         clearPixiPlayers();
         for (const [, entry] of this.bulletGraphics) releasePixiProjectile(entry.poolIndex);
         this.bulletGraphics.clear();
@@ -85,6 +86,14 @@ class PixiClientRendererImpl {
             entry.text.destroy();
         }
         this.statusLabels.clear();
+        for (const dn of this.activeDamageNumbers) dn.text.destroy();
+        this.activeDamageNumbers.length = 0;
+    }
+
+    clearPlayers() {
+        this.teardownVisuals();
+        clearPlayerRegistry();
+        clearPlayerElements();
     }
 
     private handleEvent(event: GameEvent) {

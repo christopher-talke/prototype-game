@@ -6,7 +6,10 @@ export { MAP_OFFSET };
 const RENDERER_STORAGE_KEY = 'sightline-renderer';
 
 function loadRendererSetting(): RendererType {
-    // TODO: restore localStorage lookup before production
+    try {
+        const stored = localStorage.getItem(RENDERER_STORAGE_KEY);
+        if (stored === 'dom' || stored === 'pixi') return stored;
+    } catch { /* ignore */ }
     return 'pixi';
 }
 
