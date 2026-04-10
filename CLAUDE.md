@@ -43,3 +43,11 @@
 
 ## Recent Changes
 
+- **PixiJS migration Phase 0-2** (branch `feature/pixi-renderer`): PixiJS v8 renderer running alongside DOM renderer. `SETTINGS.renderer = 'pixi'` is hardcoded during development (localStorage key `sightline-renderer`). Both renderers coexist - pixi mode is guarded by `SETTINGS.renderer === 'pixi'` checks throughout.
+- **Phase 1 - Walls + Camera**: `pixiApp.ts`, `pixiSceneGraph.ts` (16 layer containers), `pixiCamera.ts` (worldContainer transform, lerped aim offset), `pixiWallRenderer.ts` (Graphics per wall, `cacheAsTexture(true)`). Camera wired into `renderPipeline.ts`.
+- **Phase 2 - Players**: `pixiPlayerRenderer.ts` (circle body, direction indicator, same-team flash square, health/armor bars, corpse markers, hit flash via tint, `applyPixiVisibility`). `pixiClientRenderer.ts` subscribes to gameEventBus for player events. `playerRenderer.ts:createPlayer` routes to `createPixiPlayer` in pixi mode.
+- **fix - game loop**: `gameLoop.ts` gated the entire loop on `playerEl` existing. In pixi mode no DOM element is registered, so movement was silently blocked. Fixed: `SETTINGS.renderer === 'pixi' || playerEl`.
+- **fix - rotation**: `inputController.ts` used `pageX - MAP_OFFSET` (DOM body-space) for rotation angle. In pixi mode there is no scroll so this drifts. Fixed: replaced with `screenToWorld(e.clientX, e.clientY)` from `coordConvert.ts`, which dispatches to `pixiScreenToWorld(clientX, clientY)` = `clientX + cameraX` in pixi mode.
+- **Phase 3 - Projectiles + Grenades + Explosions**: `pixiProjectilePool.ts` (64-initial/512-max Graphics pool, tint-based weapon differentiation: sniper=white/2x, shrapnel=orange/0.67x, default=yellow/1x). `pixiGrenadeRenderer.ts` (per-grenade Graphics circle in `grenadeLayer`, explosion ring via Ticker scale 0.1->1 + alpha 1->0 over 500ms in `explosionLayer`). `pixiClientRenderer.ts` extended: BULLET_SPAWN/REMOVED/GRENADE_SPAWN/DETONATE/REMOVED handlers, `updateVisuals()` syncs positions, `clearPlayers()` also clears bullets/grenades. `main.ts` calls `initPixiProjectilePool()` after `initPixiApp()`.
+- **Next - Phase 4**: Fog of war - refactor `computeRaycastPolygon()` to return vertices, RenderTexture mask in PixiJS. See plan file.
+

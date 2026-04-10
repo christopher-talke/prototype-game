@@ -12,7 +12,7 @@ export async function initPixiApp(): Promise<Application> {
         resolution: window.devicePixelRatio,
         autoDensity: true,
         resizeTo: window,
-        antialias: false,
+        antialias: true,
         preference: 'webgl',
     });
 
