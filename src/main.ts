@@ -11,9 +11,11 @@ import { showMainMenu } from '@ui/mainMenu/mainMenu';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/loading/loadingScreen';
 import { initGameLoop } from '@simulation/gameLoop';
 import { initMatchSystem, launchMatch } from '@simulation/match/match';
-import { getConfig, setGameMode } from '@config/activeConfig';
+import { SETTINGS } from './app';
+import { initPixiApp } from '@rendering/pixi/pixiApp';
 
-import { getGPUTier } from '@pmndrs/detect-gpu';
+// TODO: restore before production: import { getConfig, setGameMode } from '@config/activeConfig';
+// TODO: restore before production: import { getGPUTier } from '@pmndrs/detect-gpu';
 
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -21,27 +23,8 @@ function nextFrame(): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-    const gpuTier = await getGPUTier();
-    const knownVendors = ['nvidia', 'amd'];
-    const gpuName = gpuTier.gpu?.toLowerCase() || '';
-    if (!knownVendors.some(vendor => gpuName.includes(vendor))) {
-        setGameMode({
-            match: {
-                maxPlayers: 10,
-            },
-            gameplay: {
-                disableLowHealthEffects: true
-            }
-        })
-        console.log(getConfig());
-        alert(`No dedicated GPU detected. The game configurations and effects have been reduced/disabled to improve performance. You may still experience lag or stuttering. If you encounter significant issues, please try closing other applications or upgrading your hardware. We apologize for the inconvenience.`);
-    }
-
-    if (gpuTier.isMobile) {
-        alert('Mobile devices are not supported at this time. You will be redirected to a video showcasing the game instead! Sorry for the inconvenience.');
-        window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-        return;
-    }
+    // TODO: restore GPU check before production
+    // const gpuTier = await getGPUTier();
 
     showLoadingScreen();
     await nextFrame();
@@ -59,6 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     clientRenderer.init();
 
     setLoadingProgress(30, 'initializing renderer');
+    if (SETTINGS.renderer === 'pixi') {
+        await initPixiApp();
+    }
     await nextFrame();
 
     setLoadingProgress(45, 'initializing input');

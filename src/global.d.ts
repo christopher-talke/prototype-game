@@ -3,9 +3,12 @@ import { PlayerStatus } from "./simulation/player/playerData";
 declare global {
     type GameMode = 'ffa' | 'tdm';
 
+    type RendererType = 'dom' | 'pixi';
+
     interface GameSettings {
         debug: boolean;
         gameMode: GameMode;
+        renderer: RendererType;
         raycast: {
             type: 'MAIN_THREAD' | 'DISABLED' | 'SPRAY';
         };

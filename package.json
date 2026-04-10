@@ -21,6 +21,7 @@
     },
     "dependencies": {
         "@pmndrs/detect-gpu": "^6.0.0",
+        "pixi.js": "^8.17.1",
         "ws": "^8.20.0"
     }
 }

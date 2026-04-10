@@ -2,9 +2,22 @@ import { MAP_OFFSET } from './constants';
 
 export const app = typeof document !== 'undefined' ? document.getElementById('app') as HTMLElement : undefined;
 export { MAP_OFFSET };
+
+const RENDERER_STORAGE_KEY = 'sightline-renderer';
+
+function loadRendererSetting(): RendererType {
+    // TODO: restore localStorage lookup before production
+    return 'pixi';
+}
+
+export function saveRendererSetting(type: RendererType) {
+    try { localStorage.setItem(RENDERER_STORAGE_KEY, type); } catch { /* ignore */ }
+}
+
 export const SETTINGS: GameSettings = {
     debug: false,
     gameMode: 'tdm',
+    renderer: loadRendererSetting(),
     raycast: {
         type: 'MAIN_THREAD',
     },

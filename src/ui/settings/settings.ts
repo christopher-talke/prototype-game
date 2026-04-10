@@ -1,5 +1,5 @@
 import './settings.css';
-import { SETTINGS } from '../../app';
+import { SETTINGS, saveRendererSetting } from '../../app';
 import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '@audio/index';
 import { removeElements } from '@utils/removeElements';
 import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from './keybinds';
@@ -195,6 +195,14 @@ function buildGameTab() {
                 <option value="MAIN_THREAD" ${SETTINGS.raycast.type === 'MAIN_THREAD' ? 'selected' : ''}>Full Raycasting</option>
             </select>
         </div>
+        <div class="settings-row">
+            <label>Renderer</label>
+            <select id="opt-renderer">
+                <option value="dom" ${SETTINGS.renderer === 'dom' ? 'selected' : ''}>DOM (Classic)</option>
+                <option value="pixi" ${SETTINGS.renderer === 'pixi' ? 'selected' : ''}>WebGL (PixiJS)</option>
+            </select>
+            <span class="settings-hint">Requires match restart</span>
+        </div>
     `;
 
     panel.querySelector('#opt-debug')!.addEventListener('change', (e) => {
@@ -217,5 +225,11 @@ function buildGameTab() {
         } else {
             document.getElementById('fog-of-war')?.classList.remove('d-none');
         }
+    });
+
+    panel.querySelector('#opt-renderer')!.addEventListener('change', (e) => {
+        const val = (e.target as HTMLSelectElement).value as RendererType;
+        SETTINGS.renderer = val;
+        saveRendererSetting(val);
     });
 }
