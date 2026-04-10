@@ -1,5 +1,6 @@
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from './player/playerRegistry';
 import { getPlayerElement } from '@rendering/playerElements';
+import { SETTINGS } from '../app';
 import { environment } from '@simulation/environment/environment';
 import { initShooting } from '@simulation/combat/shooting';
 import { isPlayerDead } from '@simulation/combat/damage';
@@ -44,7 +45,7 @@ function startLoop() {
 
             const player = getActivePlayerInfo();
             const playerEl = getActivePlayerElement();
-            if (player && playerEl && window.visualViewport) {
+            if (player && (SETTINGS.renderer === 'pixi' || playerEl) && window.visualViewport) {
                 const adapter = getAdapter();
                 const roundRunning = adapter.isRoundActive();
 
