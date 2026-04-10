@@ -1,6 +1,6 @@
 import { environment, clearWallGeometry } from './environment';
 import { registerWallAABB, clearWallAABBs } from '@simulation/player/collision';
-import { clearRenderedWalls } from '@rendering/wallRenderer';
+import { clearRenderedWalls } from '@rendering/dom/wallRenderer';
 
 /**
  * Registers the geometry of a wall in the environment, including its axis-aligned bounding box (AABB) for collision detection.

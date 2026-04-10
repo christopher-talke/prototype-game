@@ -1,8 +1,8 @@
-import '@rendering/css/wall.css';
+import '@rendering/dom/css/wall.css';
 
-import { app } from '../app';
+import { app } from '../../app';
 import { getRandomNumber } from '@utils/getRandomNumber';
-import { cssTransform } from '@rendering/cssTransform';
+import { cssTransform } from '@rendering/dom/cssTransform';
 
 export function clearRenderedWalls() {
     if (app === undefined) return;

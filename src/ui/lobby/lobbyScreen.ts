@@ -3,7 +3,7 @@ import type { GameModeConfig, DeepPartial } from '@config/types';
 import type { LobbyPlayer } from '@net/protocol';
 import { MAP_LIST } from '@maps/helpers';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
-import { hideCrosshair, showCrosshair } from '@rendering/hud';
+import { hideCrosshair, showCrosshair } from '@rendering/dom/hud';
 
 type LobbyStateView = {
     host: number;

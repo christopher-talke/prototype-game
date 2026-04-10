@@ -1,4 +1,4 @@
-import { MAP_OFFSET } from '../constants';
+import { MAP_OFFSET } from '../../constants';
 
 let currentOffsetX = 0;
 let currentOffsetY = 0;

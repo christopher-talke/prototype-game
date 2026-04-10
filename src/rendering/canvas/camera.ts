@@ -1,4 +1,4 @@
-import { worldContainer } from './pixiSceneGraph';
+import { worldContainer } from './sceneGraph';
 
 let currentOffsetX = 0;
 let currentOffsetY = 0;

@@ -24,15 +24,15 @@ import { registerWallGeometry, clearAllWallData } from '@simulation/environment/
 import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
 import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
 
-import { createPlayer } from '@rendering/playerRenderer';
-import { renderWall } from '@rendering/wallRenderer';
-import { clientRenderer } from '@rendering/clientRenderer';
+import { createPlayer } from '@rendering/dom/playerRenderer';
+import { renderWall } from '@rendering/dom/wallRenderer';
+import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { updateActivePlayerVisual } from '@rendering/playerElements';
-import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
+import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/dom/hud';
 import { SETTINGS } from '../../app';
-import { renderPixiWalls, clearPixiWalls } from '@rendering/pixi/pixiWallRenderer';
-import { setWorldBounds } from '@rendering/pixi/pixiSceneGraph';
-import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
+import { renderPixiWalls, clearPixiWalls } from '@rendering/canvas/wallRenderer';
+import { setWorldBounds } from '@rendering/canvas/sceneGraph';
+import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
 
 const authSim = offlineAdapter.authSim;
 

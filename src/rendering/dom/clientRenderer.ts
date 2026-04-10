@@ -1,10 +1,10 @@
 // ClientRenderer: subscribes to GameEvent stream and handles all DOM/audio side effects.
 // No state mutation happens here -- only visual/audio reactions to events.
 
-import { app } from '../app';
-import { HALF_HIT_BOX } from '../constants';
-import '@rendering/css/combat.css';
-import '@rendering/css/grenade.css';
+import { app } from '../../app';
+import { HALF_HIT_BOX } from '../../constants';
+import '@rendering/dom/css/combat.css';
+import '@rendering/dom/css/grenade.css';
 
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from '@net/gameEvent';
@@ -12,19 +12,19 @@ import { acquireProjectile, releaseProjectile } from '@simulation/combat/project
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerRegistry } from '@simulation/player/playerRegistry';
 import { getPlayerElement, getHealthBarElement, getNametagElement, clearPlayerElements } from '@rendering/playerElements';
-import { updateHealthBar, positionHealthBar, positionNametag } from '@rendering/playerRenderer';
+import { updateHealthBar, positionHealthBar, positionNametag } from '@rendering/dom/playerRenderer';
 import { PlayerStatus } from '@simulation/player/playerData';
-import { removeLastKnownForPlayer } from '@rendering/visibilityRenderer';
+import { removeLastKnownForPlayer } from '@rendering/dom/visibilityRenderer';
 import { playSoundAtPlayer, playSound, playFootstep } from '@audio/index';
 import { getWeaponSoundId, getWeaponReloadSoundId } from '@audio/soundMap';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
-import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '@rendering/hud';
+import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '@rendering/dom/hud';
 import { addSmokeData } from '@simulation/combat/smokeData';
-import { spawnSmokeCloud } from '@rendering/smokeRenderer';
+import { spawnSmokeCloud } from '@rendering/dom/smokeRenderer';
 import { getConfig } from '@config/activeConfig';
 import { getAdapter } from '@net/activeAdapter';
-import { cssTransform } from '@rendering/cssTransform';
+import { cssTransform } from '@rendering/dom/cssTransform';
 
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
@@ -33,7 +33,7 @@ class ClientRendererImpl {
     private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
     private lastFireSoundTime = new Map<number, number>(); // ownerId -> timestamp (dedup for shotgun)
     private detonatedGrenades = new Set<number>(); // prevent duplicate detonation effects
-    
+
     // Last written transform per remote player to skip redundant DOM writes
     private lastPlayerTransform = new Map<number, string>();
     private statusLabels = new Map<number, { el: HTMLElement; timer: ReturnType<typeof setTimeout> | null }>();
@@ -148,7 +148,7 @@ class ClientRendererImpl {
                     this.lastWeaponType.set(player.id, weaponType);
                     el.dataset.weapon = weaponType;
                 }
-                // Flip gun icon when facing left half (90°–270°) to avoid upside-down grip
+                // Flip gun icon when facing left half (90-270) to avoid upside-down grip
                 const rot = ((pos.rotation % 360) + 360) % 360;
                 el.classList.toggle('weapon-flip', rot > 180 && rot < 360);
             }

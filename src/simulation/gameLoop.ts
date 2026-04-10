@@ -6,8 +6,8 @@ import { initShooting } from '@simulation/combat/shooting';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getAdapter } from '@net/activeAdapter';
 import { updateAllAI } from '@ai/index';
-import { initADS } from '@rendering/aimLineRenderer';
-import { isPauseOpen } from '@rendering/hud';
+import { initADS } from '@rendering/dom/aimLineRenderer';
+import { isPauseOpen } from '@rendering/dom/hud';
 import { initInputController, getMovementInput, isFiringInput, isMenuOpen } from './inputController';
 import { updateRenderPipeline } from '@rendering/renderPipeline';
 

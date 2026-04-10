@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js';
-import { createSceneGraph } from './pixiSceneGraph';
+import { createSceneGraph } from './sceneGraph';
 
 let pixiApp: Application | null = null;
 
@@ -13,7 +13,7 @@ export async function initPixiApp(): Promise<Application> {
         autoDensity: true,
         resizeTo: window,
         antialias: true,
-        preference: 'webgl',
+        preference: 'webgpu',
     });
 
     const canvas = pixiApp.canvas as HTMLCanvasElement;

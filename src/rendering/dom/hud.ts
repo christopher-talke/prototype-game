@@ -1,6 +1,6 @@
 import './css/hud.css';
 
-import { app } from '../app';
+import { app } from '../../app';
 import { getWeaponDef, WEAPON_DEFS, isWeaponAllowed } from '@simulation/combat/weapons';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getAdapter } from '@net/activeAdapter';
@@ -11,7 +11,7 @@ import { getSelectedGrenadeType } from '@simulation/inputController';
 import { getKeyForAction, getKeyDisplayName } from '@ui/settings/keybinds';
 import { playSound } from '@audio/index';
 import { getConfig } from '@config/activeConfig';
-import { cssTransform } from '@rendering/cssTransform';
+import { cssTransform } from '@rendering/dom/cssTransform';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -705,7 +705,7 @@ function renderLeaderboard() {
                 <td>${state.kills}</td>
                 <td>${state.deaths}</td>
             `;
-            
+
             leaderboardBody.appendChild(row);
         }
     }
@@ -723,7 +723,7 @@ export function spawnDamageNumber(worldX: number, worldY: number, damage: number
     el.classList.add('damage-number');
 
     if (isKill) el.classList.add('kill');
-    el.textContent = isKill ? `${damage} 💀` : `${damage}`;
+    el.textContent = isKill ? `${damage} \u{1F480}` : `${damage}`;
     el.style.transform = cssTransform(worldX, worldY);
 
     const app = document.getElementById('app');

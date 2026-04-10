@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
-import { aimLineLayer } from './pixiSceneGraph';
-import { pixiScreenToWorld } from './pixiCamera';
+import { aimLineLayer } from './sceneGraph';
+import { pixiScreenToWorld } from './camera';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../../constants';
 import { angleToRadians } from '@utils/angleToRadians';
 import { getActiveWeapon } from '@simulation/combat/shooting';

@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
-import { backgroundLayer, fovConeLayer } from './pixiSceneGraph';
-import { getPixiCameraOffset } from './pixiCamera';
+import { backgroundLayer, fovConeLayer } from './sceneGraph';
+import { getPixiCameraOffset } from './camera';
 import { computeFOVCone } from '@simulation/detection/raycast';
 
 // Must be larger than max ray distance (5000px) so the cut polygon is always enclosed
@@ -41,7 +41,7 @@ export function updatePixiFogOfWar(vertices: coordinates[], count: number) {
     fogOverlay
         .rect(cameraX - FOG_MARGIN, cameraY - FOG_MARGIN,
               vp.width + FOG_MARGIN * 2, vp.height + FOG_MARGIN * 2)
-        .fill({ color: 0x050508, alpha: 1 });
+        .fill({ color: 0x050508, alpha: 0.4 });
     fogOverlay.poly(pts).cut();
 
     // Subtle blue-white tint on the visible floor area

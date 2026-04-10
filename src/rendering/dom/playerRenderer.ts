@@ -1,10 +1,10 @@
-import '@rendering/css/player.css';
-import { app, SETTINGS } from '../app';
-import { HALF_HIT_BOX } from '../constants';
+import '@rendering/dom/css/player.css';
+import { app, SETTINGS } from '../../app';
+import { HALF_HIT_BOX } from '../../constants';
 import { ACTIVE_PLAYER, addPlayer } from '@simulation/player/playerRegistry';
 import { registerPlayerElement, registerHealthBarElement, getHealthBarElement, registerNametagElement } from '@rendering/playerElements';
-import { cssTransform } from '@rendering/cssTransform';
-import { createPixiPlayer } from '@rendering/pixi/pixiPlayerRenderer';
+import { cssTransform } from '@rendering/dom/cssTransform';
+import { createPixiPlayer } from '@rendering/canvas/playerRenderer';
 
 // Cached child references to avoid querySelector per updateHealthBar call
 const healthBarChildren = new Map<number, { bar: HTMLElement; armor: HTMLElement }>();

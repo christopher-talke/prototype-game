@@ -1,5 +1,5 @@
 import { Graphics } from 'pixi.js';
-import { projectileLayer } from './pixiSceneGraph';
+import { projectileLayer } from './sceneGraph';
 
 const INITIAL_POOL_SIZE = 64;
 const MAX_PROJECTILES = 512;
@@ -12,6 +12,7 @@ function allocateGraphics(count: number) {
         const g = new Graphics();
         g.circle(0, 0, 3).fill(0xffffff);
         g.visible = false;
+        g.blendMode = 'add';
         projectileLayer.addChild(g);
         poolGraphics.push(g);
         freeStack.push(start + i);

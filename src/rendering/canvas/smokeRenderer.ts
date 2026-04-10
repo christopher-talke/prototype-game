@@ -1,5 +1,5 @@
 import { BlurFilter, Graphics } from 'pixi.js';
-import { smokeLayer } from './pixiSceneGraph';
+import { smokeLayer } from './sceneGraph';
 
 const FADE_DURATION = 2000;
 

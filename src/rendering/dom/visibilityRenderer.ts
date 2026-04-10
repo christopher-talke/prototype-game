@@ -1,8 +1,8 @@
-import { app } from '../app';
-import { HALF_HIT_BOX } from '../constants';
+import { app } from '../../app';
+import { HALF_HIT_BOX } from '../../constants';
 import { getAngle } from '@utils/getAngle';
 import { getDistance } from '@utils/getDistance';
-import { cssTransform } from '@rendering/cssTransform';
+import { cssTransform } from '@rendering/dom/cssTransform';
 import { isFacingTarget, type LOSResult } from '@simulation/player/visibility';
 
 const lastKnownElements = new Map<string, HTMLElement>();
@@ -115,8 +115,8 @@ export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info
         newLosEntity.style.transform = cssTransform(sx, sy, angleToTarget);
 
         app.appendChild(newLosEntity);
-    } 
-    
+    }
+
     else {
         existingLosEl.style.width = `${distance}px`;
 

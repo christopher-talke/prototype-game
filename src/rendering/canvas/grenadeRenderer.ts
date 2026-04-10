@@ -1,5 +1,5 @@
 import { Graphics, Ticker } from 'pixi.js';
-import { grenadeLayer, explosionLayer } from './pixiSceneGraph';
+import { grenadeLayer, explosionLayer } from './sceneGraph';
 
 const GRENADE_RADIUS = 6;
 const EXPLOSION_DURATION = 500;
@@ -56,6 +56,7 @@ export function onPixiGrenadeDetonate(_grenadeId: number, grenadeType: GrenadeTy
     ring.y = y;
     ring.scale.set(0.1);
     ring.alpha = 1;
+    ring.blendMode = 'add';
     explosionLayer.addChild(ring);
     activeExplosions.push({ g: ring, elapsed: 0, isC4 });
 }

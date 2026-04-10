@@ -1,22 +1,23 @@
 import './style.css';
 
-import { drawFogOfWar } from '@rendering/fogOfWar';
+import { drawFogOfWar } from '@rendering/dom/fogOfWar';
 import { generateEnvironment } from '@simulation/environment/environment';
-import { initHUD } from '@rendering/hud';
+import { initHUD } from '@rendering/dom/hud';
 import { resumeAudioContext, playMenuMusic } from '@audio/index';
 import { loadAllSounds } from '@audio/soundMap';
 import { initProjectilePool } from '@simulation/combat/projectilePool';
-import { clientRenderer } from '@rendering/clientRenderer';
+import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { showMainMenu } from '@ui/mainMenu/mainMenu';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/loading/loadingScreen';
 import { initGameLoop } from '@simulation/gameLoop';
 import { initMatchSystem, launchMatch } from '@simulation/match/match';
 import { SETTINGS } from './app';
-import { initPixiApp, hidePixiCanvas } from '@rendering/pixi/pixiApp';
-import { initPixiProjectilePool } from '@rendering/pixi/pixiProjectilePool';
-import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
-import { initPixiFogOfWar } from '@rendering/pixi/pixiFogOfWar';
-import { initPixiAimLine } from '@rendering/pixi/pixiAimLineRenderer';
+import { initPixiApp, hidePixiCanvas } from '@rendering/canvas/app';
+import { initPixiProjectilePool } from '@rendering/canvas/projectilePool';
+import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
+import { initPixiFogOfWar } from '@rendering/canvas/fogOfWar';
+import { initPixiAimLine } from '@rendering/canvas/aimLineRenderer';
+import { initPlayerGlowManager } from '@rendering/canvas/playerGlowManager';
 
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLoadingProgress(30, 'initializing renderer');
     await initPixiApp();
     initPixiProjectilePool();
+    initPlayerGlowManager();
     initPixiFogOfWar();
     initPixiAimLine();
     if (SETTINGS.renderer === 'dom') {

@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js';
-import { wallLayer } from './pixiSceneGraph';
+import { wallLayer } from './sceneGraph';
 
 const WALL_COLORS: Record<WallType, { fill: number; stroke: number }> = {
     concrete: { fill: 0x4a5568, stroke: 0x2d3748 },

@@ -8,8 +8,8 @@ import { clearPlayerElements } from '@rendering/playerElements';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { HALF_HIT_BOX } from '../../constants';
 import { Text, Ticker } from 'pixi.js';
-import { damageNumberLayer, statusLabelLayer } from './pixiSceneGraph';
-import { spawnPixiSmokeCloud } from './pixiSmokeRenderer';
+import { damageNumberLayer, statusLabelLayer } from './sceneGraph';
+import { spawnPixiSmokeCloud } from './smokeRenderer';
 import {
     updatePixiPlayerVisuals,
     onPixiPlayerDamaged,
@@ -18,15 +18,15 @@ import {
     onPixiPlayerRespawn,
     onPixiRoundStart,
     clearPixiPlayers,
-} from './pixiPlayerRenderer';
-import { acquirePixiProjectile, releasePixiProjectile } from './pixiProjectilePool';
+} from './playerRenderer';
+import { acquirePixiProjectile, releasePixiProjectile } from './projectilePool';
 import {
     onPixiGrenadeSpawn,
     onPixiGrenadeDetonate,
     onPixiGrenadeRemoved,
     updatePixiGrenadePositions,
     clearPixiGrenades,
-} from './pixiGrenadeRenderer';
+} from './grenadeRenderer';
 import type { Graphics } from 'pixi.js';
 
 type DamageNumber = { text: Text; elapsed: number };

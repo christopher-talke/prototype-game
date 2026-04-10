@@ -6,7 +6,7 @@ import { toggleSettings } from '@ui/settings/settings';
 import { webSocketAdapter } from '@net/webSocketAdapter';
 import { showLobbyScreen, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
-import { hideCrosshair, showCrosshair } from '@rendering/hud';
+import { hideCrosshair, showCrosshair } from '@rendering/dom/hud';
 
 type Screen = 'main' | 'map-select' | 'mode-select' | 'customize' | 'how-to-play';
 

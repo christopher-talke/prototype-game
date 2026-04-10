@@ -1,6 +1,6 @@
 import { SETTINGS } from '../app';
 import { MAP_OFFSET } from '../constants';
-import { pixiScreenToWorld } from '@rendering/pixi/pixiCamera';
+import { pixiScreenToWorld } from '@rendering/canvas/camera';
 
 /**
  * Converts screen (client) coordinates to world coordinates,

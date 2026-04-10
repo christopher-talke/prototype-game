@@ -1,4 +1,4 @@
-import { app, SETTINGS } from '../app';
+import { app, SETTINGS } from '../../app';
 import { computeRaycastPolygon, computeFOVCone } from '@simulation/detection/raycast';
 
 let _fogOfWarEl: HTMLElement | null = null;
@@ -101,7 +101,7 @@ function showAdaptiveQualityModal() {
             <button id="aq-dismiss">DISMISS</button>
         </div>
     `;
-    
+
     document.body.appendChild(adaptiveModalEl);
     document.getElementById('aq-accept')!.addEventListener('click', () => {
         SETTINGS.raycast.type = 'DISABLED';

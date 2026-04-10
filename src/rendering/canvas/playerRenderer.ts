@@ -1,17 +1,12 @@
 import { Container, Graphics, Sprite, Text, Texture, Ticker } from 'pixi.js';
 import { HALF_HIT_BOX } from '../../constants';
 import { ACTIVE_PLAYER, addPlayer, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
-import { playerLayer, healthBarLayer, nametagLayer, corpseLayer, lastKnownLayer } from './pixiSceneGraph';
+import { playerLayer, healthBarLayer, nametagLayer, corpseLayer, lastKnownLayer } from './sceneGraph';
 import { getConfig } from '@config/activeConfig';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import type { LOSResult } from '@simulation/player/visibility';
-
-const TEAM_COLORS: Record<number, number> = {
-    1: 0x00e5ff,
-    2: 0xff4757,
-    3: 0xffa502,
-    4: 0x7bed9f,
-};
+import { TEAM_COLORS } from './teamColors';
+import { onPlayerGlowCreated, clearPlayerGlows } from './playerGlowManager';
 
 const RADIUS = 21;
 const HIT_COLOR = 0xff943c;
@@ -44,6 +39,14 @@ const lastKnownMarkers = new Map<string, LastKnownEntry>();
 const lastKnownFading: { g: Graphics; elapsed: number }[] = [];
 
 const weaponTextureCache = new Map<string, Texture>();
+
+function lerpColor(a: number, b: number, t: number): number {
+    const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+    const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+    return (Math.round(ar + (br - ar) * t) << 16) |
+           (Math.round(ag + (bg - ag) * t) << 8) |
+           Math.round(ab + (bb - ab) * t);
+}
 
 async function loadWeaponTexture(weaponType: string): Promise<Texture | null> {
     const key = weaponType.toLowerCase();
@@ -176,6 +179,12 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
         weaponIcon,
         lastWeaponType: null,
     });
+
+    onPlayerGlowCreated(playerInfo.id, playerInfo.team);
+}
+
+export function getPixiPlayerContainer(playerId: number): Container | null {
+    return pixiPlayers.get(playerId)?.container ?? null;
 }
 
 function redrawBars(healthBar: Graphics, armorBar: Graphics, health: number, armour: number) {
@@ -347,16 +356,18 @@ export function onPixiPlayerKilled(targetId: number) {
     if (!playerInfo) return;
 
     const color = TEAM_COLORS[playerInfo.team] ?? 0xffffff;
+    // Desaturate toward grey to look lifeless
+    const paleColor = lerpColor(color, 0x666666, 0.7);
 
     const corpseContainer = new Container();
     const circle = new Graphics();
-    circle.circle(0, 0, RADIUS).fill({ color, alpha: 0.1 });
-    circle.circle(0, 0, RADIUS).stroke({ color, width: 2 });
+    circle.circle(0, 0, RADIUS).fill({ color: paleColor, alpha: 0.06 });
+    circle.circle(0, 0, RADIUS).stroke({ color: paleColor, width: 1, alpha: 0.4 });
     corpseContainer.addChild(circle);
 
     const skull = new Text({
         text: '\u2620',
-        style: { fontFamily: 'Arial', fontSize: 16, fill: 0xffffff },
+        style: { fontFamily: 'Arial', fontSize: 16, fill: 0x888888 },
     });
     skull.anchor.set(0.5, 0.5);
     corpseContainer.addChild(skull);
@@ -403,6 +414,7 @@ export function onPixiRoundStart() {
 }
 
 export function clearPixiPlayers() {
+    clearPlayerGlows();
     for (const [, entry] of pixiPlayers) {
         entry.container.destroy({ children: true });
         entry.healthGroup.destroy({ children: true });
