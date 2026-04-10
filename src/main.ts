@@ -13,6 +13,7 @@ import { initGameLoop } from '@simulation/gameLoop';
 import { initMatchSystem, launchMatch } from '@simulation/match/match';
 import { SETTINGS } from './app';
 import { initPixiApp } from '@rendering/pixi/pixiApp';
+import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 
 // TODO: restore before production: import { getConfig, setGameMode } from '@config/activeConfig';
 // TODO: restore before production: import { getGPUTier } from '@pmndrs/detect-gpu';
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLoadingProgress(20, 'initializing systems');
     initProjectilePool();
     clientRenderer.init();
+    pixiClientRenderer.init();
 
     setLoadingProgress(30, 'initializing renderer');
     if (SETTINGS.renderer === 'pixi') {

@@ -32,6 +32,7 @@ import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/hud';
 import { SETTINGS } from '../../app';
 import { renderPixiWalls, clearPixiWalls } from '@rendering/pixi/pixiWallRenderer';
 import { setWorldBounds } from '@rendering/pixi/pixiSceneGraph';
+import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 
 const authSim = offlineAdapter.authSim;
 
@@ -162,7 +163,11 @@ function spawnOnlinePlayers() {
 
 function destroyAllPlayers() {
     clearAllAI();
-    clientRenderer.clearPlayers();
+    if (SETTINGS.renderer === 'pixi') {
+        pixiClientRenderer.clearPlayers();
+    } else {
+        clientRenderer.clearPlayers();
+    }
 }
 
 export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConfig>) {

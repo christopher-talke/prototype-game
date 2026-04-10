@@ -17,12 +17,18 @@ import { updateHUD } from '@rendering/hud';
 import { offlineAdapter } from '@net/offlineAdapter';
 import type { NetAdapter } from '@net/netAdapter';
 import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from '@rendering/pixi/pixiCamera';
+import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
+import { applyPixiVisibility } from '@rendering/pixi/pixiPlayerRenderer';
 
 let _cachedFogEl: HTMLElement | null = null;
 
 export function updateRenderPipeline(player: player_info, adapter: NetAdapter, timestamp: number) {
 
-    clientRenderer.updateVisuals();
+    if (SETTINGS.renderer === 'pixi') {
+        pixiClientRenderer.updateVisuals();
+    } else {
+        clientRenderer.updateVisuals();
+    }
     removeExpiredSmoke(timestamp);
     updateSmokeClouds(timestamp);
 
@@ -45,12 +51,16 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
 
     const detections = detectOtherPlayers(player.id);
     for (const entry of detections) {
-        const targetEl = getPlayerElement(entry.targetId);
-        if (SETTINGS.debug) {
-            debugLineOfSight(entry.blocked, entry.targetPlayer, entry.sourcePlayer, targetEl);
+        if (SETTINGS.renderer === 'pixi') {
+            applyPixiVisibility(entry.result, entry.targetId);
         } else {
-            if (targetEl) applyVisibility(entry.result, targetEl);
-            updateLastKnown(entry.result, entry.targetPlayer, entry.sourcePlayer);
+            const targetEl = getPlayerElement(entry.targetId);
+            if (SETTINGS.debug) {
+                debugLineOfSight(entry.blocked, entry.targetPlayer, entry.sourcePlayer, targetEl);
+            } else {
+                if (targetEl) applyVisibility(entry.result, targetEl);
+                updateLastKnown(entry.result, entry.targetPlayer, entry.sourcePlayer);
+            }
         }
     }
 

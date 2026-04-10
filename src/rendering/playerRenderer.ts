@@ -1,14 +1,20 @@
 import '@rendering/css/player.css';
-import { app } from '../app';
+import { app, SETTINGS } from '../app';
 import { HALF_HIT_BOX } from '../constants';
 import { ACTIVE_PLAYER, addPlayer } from '@simulation/player/playerRegistry';
 import { registerPlayerElement, registerHealthBarElement, getHealthBarElement, registerNametagElement } from '@rendering/playerElements';
 import { cssTransform } from '@rendering/cssTransform';
+import { createPixiPlayer } from '@rendering/pixi/pixiPlayerRenderer';
 
 // Cached child references to avoid querySelector per updateHealthBar call
 const healthBarChildren = new Map<number, { bar: HTMLElement; armor: HTMLElement }>();
 
 export function createPlayer(playerInfo: player_info, controllable: boolean = false, localTeam?: number) {
+    if (SETTINGS.renderer === 'pixi') {
+        createPixiPlayer(playerInfo, controllable, localTeam);
+        return null;
+    }
+
     if (app === undefined) return null;
 
     const newPlayerEntity = window.document.createElement('div');
