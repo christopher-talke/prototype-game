@@ -20,6 +20,8 @@ import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from
 import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 import { applyPixiVisibility } from '@rendering/pixi/pixiPlayerRenderer';
 import { updatePixiFogOfWar, hidePixiFog, updatePixiFOVCone, hidePixiFOVCone } from '@rendering/pixi/pixiFogOfWar';
+import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/pixi/pixiAimLineRenderer';
+import { updatePixiSmokeClouds } from '@rendering/pixi/pixiSmokeRenderer';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -32,6 +34,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     }
     removeExpiredSmoke(timestamp);
     updateSmokeClouds(timestamp);
+    if (SETTINGS.renderer === 'pixi') updatePixiSmokeClouds(timestamp);
 
     const weapon = getActiveWeapon(player);
     const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
@@ -87,8 +90,13 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     }
 
     const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;
-    updateAimLine(player, shots);
-    updateGrenadeAimLine(player);
+    if (SETTINGS.renderer === 'pixi') {
+        updatePixiAimLine(player, shots);
+        updatePixiGrenadeAimLine(player);
+    } else {
+        updateAimLine(player, shots);
+        updateGrenadeAimLine(player);
+    }
 
     updateHUD(player, adapter.getMatchTimeRemaining());
 }

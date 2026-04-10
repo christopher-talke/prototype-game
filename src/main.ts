@@ -16,6 +16,7 @@ import { initPixiApp } from '@rendering/pixi/pixiApp';
 import { initPixiProjectilePool } from '@rendering/pixi/pixiProjectilePool';
 import { pixiClientRenderer } from '@rendering/pixi/pixiClientRenderer';
 import { initPixiFogOfWar } from '@rendering/pixi/pixiFogOfWar';
+import { initPixiAimLine } from '@rendering/pixi/pixiAimLineRenderer';
 
 // TODO: restore before production: import { getConfig, setGameMode } from '@config/activeConfig';
 // TODO: restore before production: import { getGPUTier } from '@pmndrs/detect-gpu';
@@ -50,6 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initPixiApp();
         initPixiProjectilePool();
         initPixiFogOfWar();
+        initPixiAimLine();
     }
     await nextFrame();
 
