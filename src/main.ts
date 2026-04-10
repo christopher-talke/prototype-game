@@ -1,7 +1,7 @@
 import './style.css';
 
 import { drawFogOfWar } from '@rendering/fogOfWar';
-import { generateEnvironment, environment } from '@simulation/environment/environment';
+import { generateEnvironment } from '@simulation/environment/environment';
 import { initHUD } from '@rendering/hud';
 import { resumeAudioContext, playMenuMusic } from '@audio/index';
 import { loadAllSounds } from '@audio/soundMap';
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (SETTINGS.renderer === 'pixi') {
         await initPixiApp();
         initPixiProjectilePool();
-        initPixiFogOfWar(environment.limits.right, environment.limits.bottom);
+        initPixiFogOfWar();
     }
     await nextFrame();
 
