@@ -1,29 +1,70 @@
-import { Sprite, Texture, Ticker } from 'pixi.js';
+import { Sprite, Container, Ticker, RenderTexture, type Shader, type Mesh } from 'pixi.js';
 import { lightingLayer } from './sceneGraph';
-import { computeLightPolygon } from './lightRaycast';
+import { createLightingShader, createLightingMesh } from './shaders/lightingShader';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
-import { getAllPlayers } from '@simulation/player/playerRegistry';
+import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
+import { getVisibleEnemies, getVisibleTeammates } from './playerRenderer';
 import { getAdapter } from '@net/activeAdapter';
+import { getPixiApp } from './app';
 import { environment } from '@simulation/environment/environment';
+import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
 
-// --- Constants ---
-const DEFAULT_AMBIENT_LEVEL = 0.3;
-const DEFAULT_AMBIENT_COLOR = 0x141420;
-const LIGHTMAP_SCALE = 0.5; // half-res for performance
+// --- Configuration---
+export const lightingConfig = {
+  // Base scene
+  ambientLevel: 0.4,           
+  ambientColor: 0x080814,      
+  falloffExponent: 3.5,        
+  coreSharpness: 0.06,         
+
+  // Player
+  playerRadius: 200,
+  playerIntensity: 1.4,
+  fovRadius: 1100,
+  fovIntensity: 2.5,           
+  fovSoftEdge: 8,              
+
+  // Projectiles
+  bulletRadius: 80,             
+  bulletIntensity: 2.0,         
+  bulletSniperRadius: 160,      
+  bulletSniperIntensity: 2.5,
+  bulletTrailAngle: 50,
+
+  // Grenades
+  grenadeRadius: 400,
+  grenadeIntensity: 3.0,
+  grenadeDecay: 400,
+  flashRadius: 1000,
+  flashIntensity: 4.0,          
+  flashDecay: 800,
+
+  // Impact effects
+  deathBurstRadius: 280,
+  deathBurstIntensity: 3.5,
+  deathBurstDecay: 900,        
+  wallHitRadius: 100,
+  wallHitIntensity: 2.5,
+  wallHitDecay: 300,
+
+  // Last known
+  lastKnownRadius: 160,
+  lastKnownIntensity: 1.5,
+};
+
+const LIGHTMAP_SCALE = 0.5;
 
 // --- Ambient state ---
-let ambientLevel = DEFAULT_AMBIENT_LEVEL;
-let ambientColor = DEFAULT_AMBIENT_COLOR;
-let ambientR = 0, ambientG = 0, ambientB = 0; // computed fill channels
+let ambientLevel = lightingConfig.ambientLevel;
+let ambientColor = lightingConfig.ambientColor;
 
-// --- Light data (no GPU objects, just data) ---
+// --- Light data ---
 interface LightEntry {
     x: number;
     y: number;
     radius: number;
     color: number;
     intensity: number;
-    polygon: number[] | null;
 }
 
 interface TransientLight {
@@ -35,6 +76,11 @@ interface TransientLight {
     intensity: number;
     decayMs: number;
     elapsed: number;
+    castShadow: boolean;
+    spotDirX: number;
+    spotDirY: number;
+    cosHalf: number;
+    cosOuter: number;
 }
 
 const staticLights: LightEntry[] = [];
@@ -42,13 +88,12 @@ const playerLightMap = new Map<number, LightEntry>();
 const transientLights: TransientLight[] = [];
 let transientIdCounter = 0;
 
-// --- Canvas lightmap ---
-let lightCanvas: HTMLCanvasElement | null = null;
-let lightCtx: CanvasRenderingContext2D | null = null;
-let lightSprite: Sprite | null = null;
-let lightTexture: Texture | null = null;
-let canvasW = 0;
-let canvasH = 0;
+// --- GPU lightmap state ---
+let lightingShader: Shader | null = null;
+let lightingMesh: Mesh | null = null;
+let meshContainer: Container | null = null;
+let lightmapRT: RenderTexture | null = null;
+let lightmapSprite: Sprite | null = null;
 let initialized = false;
 
 // --- Color helpers ---
@@ -57,96 +102,117 @@ function hexToRGB(hex: number): [number, number, number] {
 }
 
 function lerpChannel(a: number, b: number, t: number): number {
-    return Math.round(a + (b - a) * t);
+    return a + (b - a) * t;
 }
 
-function computeAmbientRGB(level: number, color: number) {
+function computeAmbientRGB(level: number, color: number): [number, number, number] {
     const [r, g, b] = hexToRGB(color);
-    ambientR = lerpChannel(r, 255, level);
-    ambientG = lerpChannel(g, 255, level);
-    ambientB = lerpChannel(b, 255, level);
+    return [
+        lerpChannel(r / 255, 1.0, level),
+        lerpChannel(g / 255, 1.0, level),
+        lerpChannel(b / 255, 1.0, level),
+    ];
 }
 
-// --- Canvas 2D lightmap rendering ---
+// --- Uniform upload ---
 
-function drawLight(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: number, intensity: number, polygon: number[] | null) {
-    const [cr, cg, cb] = hexToRGB(color);
-    const sr = Math.round(cr * intensity);
-    const sg = Math.round(cg * intensity);
-    const sb = Math.round(cb * intensity);
-
-    // Scale coordinates to canvas space
-    const sx = x * LIGHTMAP_SCALE;
-    const sy = y * LIGHTMAP_SCALE;
-    const sr2 = radius * LIGHTMAP_SCALE;
-
-    ctx.save();
-
-    // Clip to shadow polygon if available
-    if (polygon) {
-        ctx.beginPath();
-        ctx.moveTo(polygon[0] * LIGHTMAP_SCALE, polygon[1] * LIGHTMAP_SCALE);
-        for (let i = 2; i < polygon.length; i += 2) {
-            ctx.lineTo(polygon[i] * LIGHTMAP_SCALE, polygon[i + 1] * LIGHTMAP_SCALE);
-        }
-        ctx.closePath();
-        ctx.clip();
+function uploadWallUniforms(walls: wall_info[]) {
+    if (!lightingShader) return;
+    const u = lightingShader.resources.lightingUniforms.uniforms;
+    const arr = u.uWalls as Float32Array;
+    const count = Math.min(walls.length, 128);
+    for (let i = 0; i < count; i++) {
+        const w = walls[i];
+        const off = i * 4;
+        arr[off] = w.x;
+        arr[off + 1] = w.y;
+        arr[off + 2] = w.width;
+        arr[off + 3] = w.height;
     }
-
-    // Draw radial gradient
-    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr2);
-    grad.addColorStop(0, `rgba(${sr},${sg},${sb},1)`);
-    grad.addColorStop(0.4, `rgba(${sr},${sg},${sb},0.6)`);
-    grad.addColorStop(1, `rgba(${sr},${sg},${sb},0)`);
-    ctx.fillStyle = grad;
-    ctx.fillRect(sx - sr2, sy - sr2, sr2 * 2, sr2 * 2);
-
-    ctx.restore();
+    u.uWallCount = count;
 }
 
-function renderLightMap() {
-    if (!lightCtx || !lightTexture) return;
+function uploadLightUniforms() {
+    if (!lightingShader) return;
+    const u = lightingShader.resources.lightingUniforms.uniforms;
+    const posArr = u.uLightPosData as Float32Array;
+    const colArr = u.uLightColorData as Float32Array;
+    const spotArr = u.uLightSpotData as Float32Array;
 
-    const ctx = lightCtx;
+    // Falloff curve params (live from debug panel)
+    u.uFalloffExp = lightingConfig.falloffExponent;
+    u.uCoreSharpness = lightingConfig.coreSharpness;
 
-    // 1. Fill with ambient color (opaque)
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgb(${ambientR},${ambientG},${ambientB})`;
-    ctx.fillRect(0, 0, canvasW, canvasH);
+    let idx = 0;
 
-    // 2. Switch to additive blend for lights
-    ctx.globalCompositeOperation = 'lighter';
-
-    // 3. Static lights
+    // Static lights (shadow-casting, point)
     for (const light of staticLights) {
-        drawLight(ctx, light.x, light.y, light.radius, light.color, light.intensity, light.polygon);
+        if (idx >= 32) break;
+        writeLight(posArr, colArr, spotArr, idx, light, 1.0);
+        idx++;
     }
 
-    // 4. Player lights
+    // Player ambient lights (shadow-casting)
     for (const [, light] of playerLightMap) {
-        drawLight(ctx, light.x, light.y, light.radius, light.color, light.intensity, light.polygon);
+        if (idx >= 32) break;
+        writeLight(posArr, colArr, spotArr, idx, light, 1.0);
+        idx++;
     }
 
-    // 5. Transient lights (no shadow polygon)
+    // FOV spotlight (shadow-casting)
+    if (fovSpotlight && idx < 32) {
+        writeLight(posArr, colArr, spotArr, idx, fovSpotlight.light, 1.0,
+            fovSpotlight.dirX, fovSpotlight.dirY, fovSpotlight.cosHalf, fovSpotlight.cosOuter);
+        idx++;
+    }
+
+    // Transient lights
     for (const tl of transientLights) {
+        if (idx >= 32) break;
         const alpha = tl.decayMs > 0 ? Math.max(0, 1 - tl.elapsed / tl.decayMs) : 1;
-        drawLight(ctx, tl.x, tl.y, tl.radius, tl.color, tl.intensity * alpha, null);
+        writeLight(posArr, colArr, spotArr, idx, { ...tl, intensity: tl.intensity * alpha }, tl.castShadow ? 1.0 : 0.0,
+            tl.spotDirX, tl.spotDirY, tl.cosHalf, tl.cosOuter);
+        idx++;
     }
 
-    // 6. Reset blend mode
-    ctx.globalCompositeOperation = 'source-over';
+    u.uLightCount = idx;
 
-    // 7. Push canvas update to GPU texture
-    lightTexture.source.update();
+    // Ambient color (re-read from config each frame for live tuning)
+    const [ar, ag, ab] = computeAmbientRGB(lightingConfig.ambientLevel, ambientColor);
+    const ambArr = u.uAmbientColor as Float32Array;
+    ambArr[0] = ar;
+    ambArr[1] = ag;
+    ambArr[2] = ab;
+}
+
+function writeLight(
+    posArr: Float32Array, colArr: Float32Array, spotArr: Float32Array,
+    idx: number, light: LightEntry, hasShadow: number,
+    spotDirX = 0, spotDirY = 0, cosHalf = 0, cosOuter = 0,
+) {
+    const po = idx * 4;
+    posArr[po] = light.x;
+    posArr[po + 1] = light.y;
+    posArr[po + 2] = light.radius;
+    posArr[po + 3] = light.radius * light.intensity; // bloomRadius
+    const [cr, cg, cb] = hexToRGB(light.color);
+    colArr[po] = (cr / 255) * light.intensity;
+    colArr[po + 1] = (cg / 255) * light.intensity;
+    colArr[po + 2] = (cb / 255) * light.intensity;
+    colArr[po + 3] = hasShadow;
+    spotArr[po] = spotDirX;
+    spotArr[po + 1] = spotDirY;
+    spotArr[po + 2] = cosHalf;
+    spotArr[po + 3] = cosOuter;
 }
 
 // --- Player lights ---
-const PLAYER_LIGHT_RADIUS = 150;
 const PLAYER_LIGHT_COLOR = 0xffffff;
-const PLAYER_LIGHT_INTENSITY = 0.4;
 
 function updatePlayerLights() {
     const players = getAllPlayers();
+    const localPlayer = ACTIVE_PLAYER != null ? getPlayerInfo(ACTIVE_PLAYER) : null;
+    const localTeam = localPlayer?.team;
     const seen = new Set<number>();
 
     for (const player of players) {
@@ -155,24 +221,39 @@ function updatePlayerLights() {
             continue;
         }
 
+        // Only emit lights for local team + visible enemies
+        if (localTeam != null && player.team !== localTeam && !getVisibleEnemies().has(player.id)) {
+            playerLightMap.delete(player.id);
+            continue;
+        }
+
         seen.add(player.id);
-        const px = player.current_position.x;
-        const py = player.current_position.y;
+        const px = player.current_position.x + HALF_HIT_BOX;
+        const py = player.current_position.y + HALF_HIT_BOX;
+
+        // Teammates outside FOV get a small glow instead of full light
+        const isLocalPlayer = player.id === ACTIVE_PLAYER;
+        const isTeammateOutOfFOV = !isLocalPlayer
+            && localTeam != null && player.team === localTeam
+            && !getVisibleTeammates().has(player.id);
+
+        const radius = isTeammateOutOfFOV ? lightingConfig.lastKnownRadius : lightingConfig.playerRadius;
+        const intensity = isTeammateOutOfFOV ? lightingConfig.lastKnownIntensity : lightingConfig.playerIntensity;
 
         let light = playerLightMap.get(player.id);
         if (!light) {
             light = {
                 x: px, y: py,
-                radius: PLAYER_LIGHT_RADIUS,
+                radius,
                 color: PLAYER_LIGHT_COLOR,
-                intensity: PLAYER_LIGHT_INTENSITY,
-                polygon: computeLightPolygon(px, py, PLAYER_LIGHT_RADIUS),
+                intensity,
             };
             playerLightMap.set(player.id, light);
         } else {
             light.x = px;
             light.y = py;
-            light.polygon = computeLightPolygon(px, py, PLAYER_LIGHT_RADIUS);
+            light.radius = radius;
+            light.intensity = intensity;
         }
     }
 
@@ -181,11 +262,50 @@ function updatePlayerLights() {
     }
 }
 
+// --- FOV spotlight ---
+const DEG_TO_RAD = Math.PI / 180;
+let fovSpotlight: { light: LightEntry; dirX: number; dirY: number; cosHalf: number; cosOuter: number } | null = null;
+
+function updateFOVSpotlight() {
+    if (ACTIVE_PLAYER == null) { fovSpotlight = null; return; }
+    const p = getPlayerInfo(ACTIVE_PLAYER);
+    if (!p || p.dead) { fovSpotlight = null; return; }
+
+    const cx = p.current_position.x + HALF_HIT_BOX;
+    const cy = p.current_position.y + HALF_HIT_BOX;
+    const facingRad = (p.current_position.rotation - ROTATION_OFFSET) * DEG_TO_RAD;
+    const dirX = Math.cos(facingRad);
+    const dirY = Math.sin(facingRad);
+
+    const halfFovRad = FOV * DEG_TO_RAD;
+    const cosHalf = Math.cos(halfFovRad);
+    const softEdgeDeg = lightingConfig.fovSoftEdge;
+    const cosOuter = Math.cos((FOV + softEdgeDeg) * DEG_TO_RAD);
+
+    fovSpotlight = {
+        light: {
+            x: cx, y: cy,
+            radius: lightingConfig.fovRadius,
+            color: 0xffffff,
+            intensity: lightingConfig.fovIntensity,
+        },
+        dirX, dirY, cosHalf, cosOuter,
+    };
+}
+
 // --- Transient lights ---
 
-function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0): number {
+interface TransientSpot {
+    dirX: number; dirY: number; cosHalf: number; cosOuter: number;
+}
+
+function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0, castShadow: boolean = false, spot?: TransientSpot): number {
     const id = transientIdCounter++;
-    transientLights.push({ id, x, y, radius, color, intensity, decayMs, elapsed: 0 });
+    transientLights.push({
+        id, x, y, radius, color, intensity, decayMs, elapsed: 0, castShadow,
+        spotDirX: spot?.dirX ?? 0, spotDirY: spot?.dirY ?? 0,
+        cosHalf: spot?.cosHalf ?? 0, cosOuter: spot?.cosOuter ?? 0,
+    });
     return id;
 }
 
@@ -206,35 +326,87 @@ function updateTransientDecay(dt: number) {
 }
 
 // --- Bullet tracking ---
-const bulletLightIds = new Map<number, number>();
+interface BulletLightEntry { lightId: number; dx: number; dy: number }
+const bulletLights = new Map<number, BulletLightEntry>();
+
+function bulletTrailSpot(dx: number, dy: number): TransientSpot {
+    // Cone points BACKWARD (opposite travel direction)
+    const halfRad = lightingConfig.bulletTrailAngle * DEG_TO_RAD;
+    const cosHalf = Math.cos(halfRad);
+    const cosOuter = Math.cos((lightingConfig.bulletTrailAngle + 15) * DEG_TO_RAD);
+    return { dirX: -dx, dirY: -dy, cosHalf, cosOuter };
+}
 
 function handleEvent(event: GameEvent) {
     if (!initialized) return;
 
     switch (event.type) {
         case 'BULLET_SPAWN': {
+            const isSniper = event.weaponType === 'SNIPER';
+            const spot = bulletTrailSpot(event.dx, event.dy);
             const lightId = addTransientLight(
-                event.x, event.y, 60,
-                event.weaponType === 'SNIPER' ? 0xffffff : 0xffcc00,
-                0.3,
+                event.x, event.y,
+                isSniper ? lightingConfig.bulletSniperRadius : lightingConfig.bulletRadius,
+                isSniper ? 0xeeeeff : 0xffcc00,
+                isSniper ? lightingConfig.bulletSniperIntensity : lightingConfig.bulletIntensity,
+                0, true, spot,
             );
-            bulletLightIds.set(event.bulletId, lightId);
+            bulletLights.set(event.bulletId, { lightId, dx: event.dx, dy: event.dy });
             break;
         }
         case 'BULLET_REMOVED': {
-            const lightId = bulletLightIds.get(event.bulletId);
-            if (lightId !== undefined) {
-                removeTransientLight(lightId);
-                bulletLightIds.delete(event.bulletId);
+            const entry = bulletLights.get(event.bulletId);
+            if (entry) {
+                // Grab position before removing
+                const tl = transientLights.find(t => t.id === entry.lightId);
+                if (tl) {
+                    // Wall-hit burst at impact point
+                    addTransientLight(
+                        tl.x, tl.y,
+                        lightingConfig.wallHitRadius,
+                        0xffaa44, lightingConfig.wallHitIntensity,
+                        lightingConfig.wallHitDecay, true,
+                    );
+                }
+                removeTransientLight(entry.lightId);
+                bulletLights.delete(event.bulletId);
+            }
+            break;
+        }
+        case 'BULLET_HIT': {
+            if (event.isKill) {
+                // Death burst
+                addTransientLight(
+                    event.x, event.y,
+                    lightingConfig.deathBurstRadius,
+                    0xff3300, lightingConfig.deathBurstIntensity,
+                    lightingConfig.deathBurstDecay, true,
+                );
+            }
+            break;
+        }
+        case 'PLAYER_KILLED': {
+            const victim = getPlayerInfo(event.targetId);
+            if (victim) {
+                addTransientLight(
+                    victim.current_position.x + HALF_HIT_BOX,
+                    victim.current_position.y + HALF_HIT_BOX,
+                    lightingConfig.deathBurstRadius,
+                    0xff3300, lightingConfig.deathBurstIntensity,
+                    lightingConfig.deathBurstDecay, true,
+                );
             }
             break;
         }
         case 'GRENADE_DETONATE': {
+            const isFlash = event.grenadeType === 'FLASH';
             addTransientLight(
-                event.x, event.y, 300,
-                event.grenadeType === 'FLASH' ? 0xffffff : 0xff9500,
-                1.0,
-                500,
+                event.x, event.y,
+                isFlash ? lightingConfig.flashRadius : lightingConfig.grenadeRadius,
+                isFlash ? 0xffffff : 0xff8800,
+                isFlash ? lightingConfig.flashIntensity : lightingConfig.grenadeIntensity,
+                isFlash ? lightingConfig.flashDecay : lightingConfig.grenadeDecay,
+                true,
             );
             break;
         }
@@ -246,16 +418,40 @@ function handleEvent(event: GameEvent) {
 }
 
 function syncBulletLightPositions() {
-    if (bulletLightIds.size === 0) return;
+    if (bulletLights.size === 0) return;
     const projectiles = getAdapter().getProjectiles();
     for (const p of projectiles) {
-        const lightId = bulletLightIds.get(p.id);
-        if (lightId === undefined) continue;
-        const tl = transientLights.find(t => t.id === lightId);
+        const entry = bulletLights.get(p.id);
+        if (!entry) continue;
+        const tl = transientLights.find(t => t.id === entry.lightId);
         if (tl) {
             tl.x = p.x;
             tl.y = p.y;
         }
+    }
+}
+
+// --- Last-known position lights ---
+const lastKnownLightIds = new Map<string, number>();
+
+export function addLastKnownLight(key: string, x: number, y: number) {
+    removeLastKnownLight(key);
+    const id = addTransientLight(
+        x, y,
+        lightingConfig.lastKnownRadius,
+        0xff4444,
+        lightingConfig.lastKnownIntensity,
+        3500, // matches LAST_KNOWN_FADE_DURATION + fade
+        false,
+    );
+    lastKnownLightIds.set(key, id);
+}
+
+export function removeLastKnownLight(key: string) {
+    const id = lastKnownLightIds.get(key);
+    if (id !== undefined) {
+        removeTransientLight(id);
+        lastKnownLightIds.delete(key);
     }
 }
 
@@ -265,34 +461,31 @@ export function initLightingSystem() {
     gameEventBus.subscribe(handleEvent);
 }
 
-export function initLighting(lights: LightDef[], config?: LightingConfig) {
+export function initLighting(lights: LightDef[], walls: wall_info[], config?: LightingConfig) {
     clearLighting();
 
-    ambientLevel = config?.ambientLight ?? DEFAULT_AMBIENT_LEVEL;
-    ambientColor = config?.ambientColor ?? DEFAULT_AMBIENT_COLOR;
-    computeAmbientRGB(ambientLevel, ambientColor);
+    ambientLevel = config?.ambientLight ?? lightingConfig.ambientLevel;
+    ambientColor = config?.ambientColor ?? lightingConfig.ambientColor;
 
     const w = environment.limits.right;
     const h = environment.limits.bottom;
-    canvasW = Math.ceil(w * LIGHTMAP_SCALE);
-    canvasH = Math.ceil(h * LIGHTMAP_SCALE);
+    const rtW = Math.ceil(w * LIGHTMAP_SCALE);
+    const rtH = Math.ceil(h * LIGHTMAP_SCALE);
 
-    // Create Canvas 2D lightmap
-    lightCanvas = document.createElement('canvas');
-    lightCanvas.width = canvasW;
-    lightCanvas.height = canvasH;
-    lightCtx = lightCanvas.getContext('2d')!;
+    // Create shader + mesh
+    lightingShader = createLightingShader();
+    lightingMesh = createLightingMesh(lightingShader);
 
-    // Create PixiJS texture from canvas, displayed as multiply sprite
-    lightTexture = Texture.from(lightCanvas);
-    lightSprite = new Sprite(lightTexture);
-    lightSprite.width = w;
-    lightSprite.height = h;
-    lightSprite.blendMode = 'multiply';
-    lightSprite.label = 'lightMapSprite';
-    lightingLayer.addChild(lightSprite);
+    // Set world size uniform
+    const u = lightingShader.resources.lightingUniforms.uniforms;
+    const ws = u.uWorldSize as Float32Array;
+    ws[0] = w;
+    ws[1] = h;
 
-    // Compute static light polygons once
+    // Upload wall geometry (once per map)
+    uploadWallUniforms(walls);
+
+    // Build static light entries
     for (const def of lights) {
         staticLights.push({
             x: def.x,
@@ -300,9 +493,23 @@ export function initLighting(lights: LightDef[], config?: LightingConfig) {
             radius: def.radius,
             color: def.color ?? 0xffffff,
             intensity: def.intensity ?? 1.0,
-            polygon: computeLightPolygon(def.x, def.y, def.radius),
         });
     }
+
+    // Wrap mesh in a container for renderer.render()
+    meshContainer = new Container();
+    meshContainer.addChild(lightingMesh);
+
+    // Create RenderTexture at half world resolution
+    lightmapRT = RenderTexture.create({ width: rtW, height: rtH });
+
+    // Display sprite composites the lightmap onto the scene
+    lightmapSprite = new Sprite(lightmapRT);
+    lightmapSprite.width = w;
+    lightmapSprite.height = h;
+    lightmapSprite.blendMode = 'multiply';
+    lightmapSprite.label = 'lightMapSprite';
+    lightingLayer.addChild(lightmapSprite);
 
     initialized = true;
 }
@@ -313,14 +520,26 @@ export function updateLighting() {
     const dt = Ticker.shared.deltaMS;
 
     updatePlayerLights();
+    updateFOVSpotlight();
     updateTransientDecay(dt);
     syncBulletLightPositions();
-    renderLightMap();
+
+    // Upload light data to shader uniforms
+    uploadLightUniforms();
+
+    // Render the lighting mesh to the RenderTexture
+    const app = getPixiApp();
+    if (app && meshContainer && lightmapRT) {
+        app.renderer.render({
+            container: meshContainer,
+            target: lightmapRT,
+            clear: true,
+        });
+    }
 }
 
 export function setAmbientLight(level: number) {
     ambientLevel = Math.max(0, Math.min(1, level));
-    computeAmbientRGB(ambientLevel, ambientColor);
 }
 
 (window as any).setAmbientLight = setAmbientLight;
@@ -332,22 +551,30 @@ export function getAmbientLight(): number {
 function clearDynamicLights() {
     playerLightMap.clear();
     transientLights.length = 0;
-    bulletLightIds.clear();
+    bulletLights.clear();
+    lastKnownLightIds.clear();
 }
 
 export function clearLighting() {
     clearDynamicLights();
     staticLights.length = 0;
 
-    if (lightSprite) {
-        lightSprite.destroy();
-        lightSprite = null;
+    if (lightmapSprite) {
+        lightmapSprite.destroy();
+        lightmapSprite = null;
     }
-    if (lightTexture) {
-        lightTexture.destroy(true);
-        lightTexture = null;
+    if (lightmapRT) {
+        lightmapRT.destroy(true);
+        lightmapRT = null;
     }
-    lightCanvas = null;
-    lightCtx = null;
+    if (lightingMesh) {
+        lightingMesh.destroy();
+        lightingMesh = null;
+    }
+    if (meshContainer) {
+        meshContainer.destroy();
+        meshContainer = null;
+    }
+    lightingShader = null;
     initialized = false;
 }

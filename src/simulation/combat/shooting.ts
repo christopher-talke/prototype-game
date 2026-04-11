@@ -11,7 +11,7 @@ export function getActiveWeapon(playerInfo: player_info): PlayerWeapon | undefin
     return playerInfo.weapons.find((w) => w.active);
 }
 
-const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #lobby-screen, #hud-pause, #hud-match-end';
+const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #lobby-screen, #hud-pause, #hud-match-end, #lighting-debug-panel';
 
 export function initShooting() {
     window.addEventListener('mousedown', (e) => {

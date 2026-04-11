@@ -7,9 +7,15 @@ import { getActiveWeapon } from '@simulation/combat/shooting';
 import type { LOSResult } from '@simulation/player/visibility';
 import { TEAM_COLORS } from './teamColors';
 import { onPlayerGlowCreated, clearPlayerGlows } from './playerGlowManager';
+import { addLastKnownLight, removeLastKnownLight } from './lightingManager';
 
 const RADIUS = 21;
 const HIT_COLOR = 0xff943c;
+
+const visibleEnemies = new Set<number>();
+export function getVisibleEnemies(): ReadonlySet<number> { return visibleEnemies; }
+const visibleTeammates = new Set<number>();
+export function getVisibleTeammates(): ReadonlySet<number> { return visibleTeammates; }
 const HEALTH_COLOR = 0x4ade80;
 const ARMOR_COLOR = 0x60a5fa;
 const BAR_WIDTH = 44;
@@ -302,23 +308,31 @@ export function applyPixiVisibility(result: LOSResult, targetId: number) {
     if (!entry) return;
 
     if (result.canSee) {
+        entry.container.visible = true;
         entry.container.alpha = 1;
         entry.body.visible = true;
         entry.dirIndicator.visible = true;
         entry.sameTeamSquare.visible = false;
         if (entry.weaponIcon) entry.weaponIcon.visible = entry.lastWeaponType !== null;
+        if (result.sameTeam) {
+            visibleTeammates.add(targetId);
+        } else {
+            visibleEnemies.add(targetId);
+        }
     } else if (result.sameTeam) {
+        entry.container.visible = true;
         entry.container.alpha = 1;
         entry.body.visible = false;
         entry.dirIndicator.visible = false;
         entry.sameTeamSquare.visible = true;
         if (entry.weaponIcon) entry.weaponIcon.visible = false;
+        visibleTeammates.delete(targetId);
     } else {
+        entry.container.visible = false;
         entry.container.alpha = 0;
-        entry.body.visible = true;
-        entry.dirIndicator.visible = true;
         entry.sameTeamSquare.visible = false;
         if (entry.weaponIcon) entry.weaponIcon.visible = false;
+        visibleEnemies.delete(targetId);
     }
 }
 
@@ -347,6 +361,10 @@ function showLastKnown(key: string, targetPlayer: player_info) {
     g.y = targetPlayer.current_position.y + HALF_HIT_BOX - 10;
     lastKnownLayer.addChild(g);
 
+    addLastKnownLight(key,
+        targetPlayer.current_position.x + HALF_HIT_BOX,
+        targetPlayer.current_position.y + HALF_HIT_BOX);
+
     const fadeTimer = setTimeout(() => {
         lastKnownMarkers.delete(key);
         lastKnownFading.push({ g, elapsed: 0 });
@@ -361,6 +379,7 @@ function removeLastKnownByKey(key: string) {
     if (existing.fadeTimer) clearTimeout(existing.fadeTimer);
     existing.g.destroy();
     lastKnownMarkers.delete(key);
+    removeLastKnownLight(key);
 }
 
 export function removePixiLastKnownForPlayer(targetId: number) {
@@ -501,6 +520,8 @@ export function clearPixiPlayers() {
         if (entry.nameTag) entry.nameTag.destroy();
     }
     pixiPlayers.clear();
+    visibleEnemies.clear();
+    visibleTeammates.clear();
     for (const [, timer] of healthBarTimers) clearTimeout(timer);
     healthBarTimers.clear();
     for (const entry of lastKnownMarkers.values()) {

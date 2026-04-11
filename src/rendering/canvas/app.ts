@@ -13,7 +13,7 @@ export async function initPixiApp(): Promise<Application> {
         autoDensity: true,
         resizeTo: window,
         antialias: true,
-        preference: 'webgpu',
+        preference: 'webgl',
     });
 
     const canvas = pixiApp.canvas as HTMLCanvasElement;

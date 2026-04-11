@@ -7,8 +7,8 @@ import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerElements } from '@rendering/playerElements';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { HALF_HIT_BOX } from '../../constants';
-import { Text, Ticker } from 'pixi.js';
-import { damageNumberLayer, statusLabelLayer } from './sceneGraph';
+import { Graphics as PixiGraphics, Text, Ticker } from 'pixi.js';
+import { damageNumberLayer, statusLabelLayer, explosionLayer } from './sceneGraph';
 import { spawnPixiSmokeCloud } from './smokeRenderer';
 import {
     updatePixiPlayerVisuals,
@@ -30,6 +30,24 @@ import {
 import type { Graphics } from 'pixi.js';
 
 type DamageNumber = { text: Text; elapsed: number };
+type WallSpark = { g: PixiGraphics; elapsed: number };
+
+const WALL_SPARK_DURATION = 250;
+const activeWallSparks: WallSpark[] = [];
+
+Ticker.shared.add((ticker) => {
+    for (let i = activeWallSparks.length - 1; i >= 0; i--) {
+        const s = activeWallSparks[i];
+        s.elapsed += ticker.deltaMS;
+        const t = Math.min(1, s.elapsed / WALL_SPARK_DURATION);
+        s.g.scale.set(0.2 + 0.8 * t);
+        s.g.alpha = 1 - t;
+        if (t >= 1) {
+            s.g.destroy();
+            activeWallSparks.splice(i, 1);
+        }
+    }
+});
 
 class PixiClientRendererImpl {
     private initialized = false;
@@ -214,6 +232,17 @@ class PixiClientRendererImpl {
     private onBulletRemoved(event: BulletRemovedEvent) {
         const entry = this.bulletGraphics.get(event.bulletId);
         if (entry) {
+            // Spawn wall-hit spark at bullet's last position
+            const spark = new PixiGraphics();
+            spark.circle(0, 0, 18).fill({ color: 0xffaa44, alpha: 0.9 });
+            spark.circle(0, 0, 12).fill({ color: 0xffffff, alpha: 0.7 });
+            spark.x = entry.graphic.x;
+            spark.y = entry.graphic.y;
+            spark.scale.set(0.2);
+            spark.blendMode = 'add';
+            explosionLayer.addChild(spark);
+            activeWallSparks.push({ g: spark, elapsed: 0 });
+
             releasePixiProjectile(entry.poolIndex);
             this.bulletGraphics.delete(event.bulletId);
         }
@@ -237,6 +266,8 @@ class PixiClientRendererImpl {
         onPixiRoundStart();
         this.detonatedGrenades.clear();
         for (const [id] of this.statusLabels) this.removeStatusLabel(id);
+        for (const s of activeWallSparks) s.g.destroy();
+        activeWallSparks.length = 0;
     }
 }
 

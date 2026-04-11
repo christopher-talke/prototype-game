@@ -19,7 +19,7 @@ import type { NetAdapter } from '@net/netAdapter';
 import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from '@rendering/canvas/camera';
 import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
 import { applyPixiVisibility, updatePixiLastKnown } from '@rendering/canvas/playerRenderer';
-import { updatePixiFogOfWar, hidePixiFog, updatePixiFOVCone, hidePixiFOVCone } from '@rendering/canvas/fogOfWar';
+import { updatePixiFogOfWar, hidePixiFog } from '@rendering/canvas/fogOfWar';
 import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/canvas/aimLineRenderer';
 import { updatePixiSmokeClouds } from '@rendering/canvas/smokeRenderer';
 import { updateLighting } from '@rendering/canvas/lightingManager';
@@ -74,21 +74,16 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
         const rayResult = generateRayCast(player, { type: RaycastTypes.CORNERS });
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
-        hidePixiFOVCone();
         tickAdaptiveQuality(timestamp);
     } else if (SETTINGS.raycast.type === 'SPRAY') {
         const rayResult = generateRayCast(player, { type: RaycastTypes.SPRAY });
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
-        hidePixiFOVCone();
     } else {
         generateFOVCone(player);
         if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');
         _cachedFogEl?.classList.add('d-none');
-        if (SETTINGS.renderer === 'pixi') {
-            hidePixiFog();
-            updatePixiFOVCone(player);
-        }
+        if (SETTINGS.renderer === 'pixi') hidePixiFog();
     }
 
     if (SETTINGS.renderer === 'pixi') updateLighting();

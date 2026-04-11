@@ -44,7 +44,7 @@ export function switchRenderer(newType: RendererType) {
     if (newType === 'pixi') {
         setWorldBounds(environment.limits.right, environment.limits.bottom);
         renderPixiWalls(map.walls);
-        initLighting(map.lights ?? [], map.lighting);
+        initLighting(map.lights ?? [], map.walls, map.lighting);
     } else {
         for (const wall of map.walls) renderWall(wall);
     }

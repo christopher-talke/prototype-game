@@ -51,7 +51,7 @@ function loadMapWalls() {
         const h = environment.limits.bottom;
         setWorldBounds(w, h);
         renderPixiWalls(map.walls);
-        initLighting(map.lights ?? [], map.lighting);
+        initLighting(map.lights ?? [], map.walls, map.lighting);
     }
 }
 
