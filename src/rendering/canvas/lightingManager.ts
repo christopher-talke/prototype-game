@@ -378,6 +378,9 @@ export function setAmbientLight(level: number) {
     ambientFillColor = computeAmbientFill(ambientLevel, ambientColor);
 }
 
+// Expose for console testing: setAmbientLight(0.8) for daytime, setAmbientLight(0.05) for deep night
+(window as any).setAmbientLight = setAmbientLight;
+
 export function getAmbientLight(): number {
     return ambientLevel;
 }
@@ -412,9 +415,13 @@ export function clearLighting() {
         lightMapRT = null;
     }
     if (drawContainer) {
-        drawContainer.destroy({ children: true });
+        drawContainer.removeChildren();
+        drawContainer.destroy();
         drawContainer = null;
     }
-    ambientRect = null;
+    if (ambientRect) {
+        ambientRect.destroy();
+        ambientRect = null;
+    }
     initialized = false;
 }
