@@ -1,4 +1,4 @@
-import { Container, Graphics, RenderTexture, Sprite, Texture, Ticker } from 'pixi.js';
+import { Container, Graphics, Matrix, RenderTexture, Sprite, Texture, Ticker } from 'pixi.js';
 import { getPixiApp } from './app';
 import { lightingLayer } from './sceneGraph';
 import { computeLightPolygon } from './lightRaycast';
@@ -13,18 +13,16 @@ const DEFAULT_AMBIENT_COLOR = 0x141420;
 
 let ambientLevel = DEFAULT_AMBIENT_LEVEL;
 let ambientColor = DEFAULT_AMBIENT_COLOR;
-let ambientFillColor = 0x000000; // computed from level + color
+let ambientFillColor = 0x000000;
 
 // --- Light state ---
-interface StaticLight {
+interface LightEntry {
     x: number;
     y: number;
     radius: number;
     color: number;
     intensity: number;
     polygon: number[] | null;
-    gradientSprite: Sprite;
-    maskGraphics: Graphics | null;
 }
 
 interface TransientLight {
@@ -34,13 +32,12 @@ interface TransientLight {
     radius: number;
     color: number;
     intensity: number;
-    sprite: Sprite;
-    decayMs: number;    // 0 = no decay
+    decayMs: number;
     elapsed: number;
 }
 
-const staticLights: StaticLight[] = [];
-const playerLightMap = new Map<number, StaticLight>();
+const staticLights: LightEntry[] = [];
+const playerLightMap = new Map<number, LightEntry>();
 const transientLights: TransientLight[] = [];
 let transientIdCounter = 0;
 
@@ -49,6 +46,7 @@ let lightMapRT: RenderTexture | null = null;
 let lightMapSprite: Sprite | null = null;
 let drawContainer: Container | null = null;
 let ambientRect: Graphics | null = null;
+let lightGraphics: Graphics | null = null; // single Graphics for all lights
 let initialized = false;
 
 // --- Gradient texture cache ---
@@ -95,33 +93,46 @@ function computeAmbientFill(level: number, color: number): number {
            lerpColorChannel(b, 255, level);
 }
 
-// --- Core rendering ---
+// --- Drawing helpers ---
 
-function createLightSprite(x: number, y: number, radius: number, color: number, intensity: number): Sprite {
+// Build a transform matrix that maps the gradient texture onto world coords
+// so the gradient center aligns with the light position
+const _matrix = new Matrix();
+
+function drawLightPolygon(g: Graphics, light: LightEntry) {
+    if (!light.polygon) return;
+    const tex = getGradientTexture(light.radius);
+    const bucketed = bucketRadius(light.radius);
+    const scale = light.radius / bucketed;
+
+    // Matrix maps texture coords -> world coords
+    // Texture is (bucketed*2 x bucketed*2), center at (bucketed, bucketed)
+    // We want the center at (light.x, light.y) with proper scale
+    _matrix.identity();
+    _matrix.scale(scale, scale);
+    _matrix.translate(light.x - light.radius, light.y - light.radius);
+
+    g.poly(light.polygon).fill({ texture: tex, matrix: _matrix, alpha: light.intensity, color: light.color });
+}
+
+function drawLightCircle(g: Graphics, x: number, y: number, radius: number, color: number, intensity: number) {
     const tex = getGradientTexture(radius);
-    const sprite = new Sprite(tex);
-    sprite.anchor.set(0.5);
-    sprite.width = radius * 2;
-    sprite.height = radius * 2;
-    sprite.x = x;
-    sprite.y = y;
-    sprite.tint = color;
-    sprite.alpha = intensity;
-    sprite.blendMode = 'add';
-    return sprite;
+    const bucketed = bucketRadius(radius);
+    const scale = radius / bucketed;
+
+    _matrix.identity();
+    _matrix.scale(scale, scale);
+    _matrix.translate(x - radius, y - radius);
+
+    g.circle(x, y, radius).fill({ texture: tex, matrix: _matrix, alpha: intensity, color });
 }
 
-function createMask(polygon: number[]): Graphics {
-    const g = new Graphics();
-    g.poly(polygon).fill({ color: 0xffffff });
-    return g;
-}
+// --- Core rendering ---
 
 function renderLightMap() {
     const app = getPixiApp();
-    if (!app || !lightMapRT || !drawContainer || !ambientRect) return;
+    if (!app || !lightMapRT || !drawContainer || !ambientRect || !lightGraphics) return;
 
-    // Clear draw container
     drawContainer.removeChildren();
 
     // Ambient base fill
@@ -131,28 +142,32 @@ function renderLightMap() {
     ambientRect.rect(0, 0, w, h).fill(ambientFillColor);
     drawContainer.addChild(ambientRect);
 
-    // Static lights
+    // Draw all lights into a single Graphics with additive blend
+    lightGraphics.clear();
+    lightGraphics.blendMode = 'add';
+
     for (const light of staticLights) {
-        if (light.maskGraphics) {
-            light.gradientSprite.mask = light.maskGraphics;
-            drawContainer.addChild(light.maskGraphics);
+        if (light.polygon) {
+            drawLightPolygon(lightGraphics, light);
+        } else {
+            drawLightCircle(lightGraphics, light.x, light.y, light.radius, light.color, light.intensity);
         }
-        drawContainer.addChild(light.gradientSprite);
     }
 
-    // Player lights
     for (const [, light] of playerLightMap) {
-        if (light.maskGraphics) {
-            light.gradientSprite.mask = light.maskGraphics;
-            drawContainer.addChild(light.maskGraphics);
+        if (light.polygon) {
+            drawLightPolygon(lightGraphics, light);
+        } else {
+            drawLightCircle(lightGraphics, light.x, light.y, light.radius, light.color, light.intensity);
         }
-        drawContainer.addChild(light.gradientSprite);
     }
 
-    // Transient lights (no masks)
     for (const tl of transientLights) {
-        drawContainer.addChild(tl.sprite);
+        const alpha = tl.decayMs > 0 ? tl.intensity * (1 - tl.elapsed / tl.decayMs) : tl.intensity;
+        drawLightCircle(lightGraphics, tl.x, tl.y, tl.radius, tl.color, alpha);
     }
+
+    drawContainer.addChild(lightGraphics);
 
     app.renderer.render({ container: drawContainer, target: lightMapRT });
 }
@@ -168,73 +183,47 @@ function updatePlayerLights() {
 
     for (const player of players) {
         if (player.dead) {
-            if (playerLightMap.has(player.id)) removePlayerLight(player.id);
+            playerLightMap.delete(player.id);
             continue;
         }
 
         seen.add(player.id);
-        let light = playerLightMap.get(player.id);
-
         const px = player.current_position.x;
         const py = player.current_position.y;
 
+        let light = playerLightMap.get(player.id);
         if (!light) {
-            const polygon = computeLightPolygon(px, py, PLAYER_LIGHT_RADIUS);
-            const sprite = createLightSprite(px, py, PLAYER_LIGHT_RADIUS, PLAYER_LIGHT_COLOR, PLAYER_LIGHT_INTENSITY);
-            const mask = polygon ? createMask(polygon) : null;
-
             light = {
                 x: px, y: py,
                 radius: PLAYER_LIGHT_RADIUS,
                 color: PLAYER_LIGHT_COLOR,
                 intensity: PLAYER_LIGHT_INTENSITY,
-                polygon,
-                gradientSprite: sprite,
-                maskGraphics: mask,
+                polygon: computeLightPolygon(px, py, PLAYER_LIGHT_RADIUS),
             };
             playerLightMap.set(player.id, light);
         } else {
             light.x = px;
             light.y = py;
-            light.gradientSprite.x = px;
-            light.gradientSprite.y = py;
-
-            // Recompute polygon each frame for moving players
-            const polygon = computeLightPolygon(px, py, PLAYER_LIGHT_RADIUS);
-            light.polygon = polygon;
-            if (light.maskGraphics) light.maskGraphics.destroy();
-            light.maskGraphics = polygon ? createMask(polygon) : null;
+            light.polygon = computeLightPolygon(px, py, PLAYER_LIGHT_RADIUS);
         }
     }
 
-    // Remove lights for players that no longer exist
     for (const [id] of playerLightMap) {
-        if (!seen.has(id)) removePlayerLight(id);
+        if (!seen.has(id)) playerLightMap.delete(id);
     }
-}
-
-function removePlayerLight(id: number) {
-    const light = playerLightMap.get(id);
-    if (!light) return;
-    light.gradientSprite.destroy();
-    if (light.maskGraphics) light.maskGraphics.destroy();
-    playerLightMap.delete(id);
 }
 
 // --- Transient lights ---
 
 function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0): number {
     const id = transientIdCounter++;
-    const sprite = createLightSprite(x, y, radius, color, intensity);
-    transientLights.push({ id, x, y, radius, color, intensity, sprite, decayMs, elapsed: 0 });
+    transientLights.push({ id, x, y, radius, color, intensity, decayMs, elapsed: 0 });
     return id;
 }
 
 function removeTransientLight(id: number) {
     const idx = transientLights.findIndex(t => t.id === id);
-    if (idx === -1) return;
-    transientLights[idx].sprite.destroy();
-    transientLights.splice(idx, 1);
+    if (idx !== -1) transientLights.splice(idx, 1);
 }
 
 function updateTransientDecay(dt: number) {
@@ -243,17 +232,13 @@ function updateTransientDecay(dt: number) {
         if (tl.decayMs <= 0) continue;
         tl.elapsed += dt;
         if (tl.elapsed >= tl.decayMs) {
-            tl.sprite.destroy();
             transientLights.splice(i, 1);
-        } else {
-            const t = 1 - tl.elapsed / tl.decayMs;
-            tl.sprite.alpha = tl.intensity * t;
         }
     }
 }
 
 // --- Bullet light tracking ---
-const bulletLightIds = new Map<number, number>(); // bulletId -> transientLightId
+const bulletLightIds = new Map<number, number>();
 
 // --- Event handling ---
 
@@ -304,8 +289,6 @@ function syncBulletLightPositions() {
         if (tl) {
             tl.x = p.x;
             tl.y = p.y;
-            tl.sprite.x = p.x;
-            tl.sprite.y = p.y;
         }
     }
 }
@@ -338,24 +321,17 @@ export function initLighting(lights: LightDef[], config?: LightingConfig) {
     drawContainer = new Container();
     drawContainer.label = 'lightDrawContainer';
     ambientRect = new Graphics();
+    lightGraphics = new Graphics();
 
-    // Create static lights
+    // Compute static light polygons once
     for (const def of lights) {
-        const color = def.color ?? 0xffffff;
-        const intensity = def.intensity ?? 1.0;
-        const polygon = computeLightPolygon(def.x, def.y, def.radius);
-        const sprite = createLightSprite(def.x, def.y, def.radius, color, intensity);
-        const mask = polygon ? createMask(polygon) : null;
-
         staticLights.push({
             x: def.x,
             y: def.y,
             radius: def.radius,
-            color,
-            intensity,
-            polygon,
-            gradientSprite: sprite,
-            maskGraphics: mask,
+            color: def.color ?? 0xffffff,
+            intensity: def.intensity ?? 1.0,
+            polygon: computeLightPolygon(def.x, def.y, def.radius),
         });
     }
 
@@ -386,24 +362,13 @@ export function getAmbientLight(): number {
 }
 
 function clearDynamicLights() {
-    for (const [, light] of playerLightMap) {
-        light.gradientSprite.destroy();
-        if (light.maskGraphics) light.maskGraphics.destroy();
-    }
     playerLightMap.clear();
-
-    for (const tl of transientLights) tl.sprite.destroy();
     transientLights.length = 0;
     bulletLightIds.clear();
 }
 
 export function clearLighting() {
     clearDynamicLights();
-
-    for (const light of staticLights) {
-        light.gradientSprite.destroy();
-        if (light.maskGraphics) light.maskGraphics.destroy();
-    }
     staticLights.length = 0;
 
     if (lightMapSprite) {
@@ -414,14 +379,18 @@ export function clearLighting() {
         lightMapRT.destroy(true);
         lightMapRT = null;
     }
-    if (drawContainer) {
-        drawContainer.removeChildren();
-        drawContainer.destroy();
-        drawContainer = null;
+    if (lightGraphics) {
+        lightGraphics.destroy();
+        lightGraphics = null;
     }
     if (ambientRect) {
         ambientRect.destroy();
         ambientRect = null;
+    }
+    if (drawContainer) {
+        drawContainer.removeChildren();
+        drawContainer.destroy();
+        drawContainer = null;
     }
     initialized = false;
 }
