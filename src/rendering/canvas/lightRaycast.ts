@@ -2,34 +2,30 @@ import { environment } from '@simulation/environment/environment';
 import { raySegmentIntersect } from '@simulation/detection/rayGeometry';
 
 const DEG_TO_RAD = Math.PI / 180;
-const CORNER_OFFSET = 0.01; // degrees, same as CORNER_RAY_OFFSET_DEGREES
+const CORNER_OFFSET = 0.01; // degrees
 const AABB_PAD = 50;
+const BOUNDARY_STEP = 10; // degrees between boundary rays
+const FULL_CIRCLE = 360;
 
-// Pre-allocated buffers to avoid GC pressure
-const _hit: coordinates = { x: 0, y: 0 };
+// Pre-allocated hit point
+const _hit = { x: 0, y: 0 };
 
-interface RayEntry {
+interface RayHit {
     x: number;
     y: number;
-    angle: number;
+    angle: number; // radians for sorting
 }
 
-const rayBuffer: RayEntry[] = [];
+let rayBuffer: RayHit[] = [];
 
-function castRay(ox: number, oy: number, dx: number, dy: number, maxDist: number, segments: WallSegment[]): void {
-    let nearest = maxDist;
-    for (let i = 0, len = segments.length; i < len; i++) {
-        const seg = segments[i];
-        const t = raySegmentIntersect(ox, oy, dx, dy, seg.x1, seg.y1, seg.x2, seg.y2);
-        if (t !== null && t < nearest) nearest = t;
+function ensureBuffer(needed: number) {
+    while (rayBuffer.length < needed) {
+        rayBuffer.push({ x: 0, y: 0, angle: 0 });
     }
-    _hit.x = ox + dx * nearest;
-    _hit.y = oy + dy * nearest;
 }
 
-// Reusable arrays to avoid allocations per call
+// Reusable filtered segment array
 const _filteredSegs: WallSegment[] = [];
-const _corners: { x: number; y: number }[] = [];
 
 function filterSegmentsByAABB(cx: number, cy: number, radius: number): WallSegment[] {
     const minX = cx - radius - AABB_PAD;
@@ -53,23 +49,15 @@ function filterSegmentsByAABB(cx: number, cy: number, radius: number): WallSegme
     return _filteredSegs;
 }
 
-function collectCorners(cx: number, cy: number, radiusSq: number): typeof _corners {
-    _corners.length = 0;
-    const corners = environment.corners;
-    for (let i = 0, len = corners.length; i < len; i++) {
-        const c = corners[i];
-        const dx = c.x - cx;
-        const dy = c.y - cy;
-        if (dx * dx + dy * dy <= radiusSq) {
-            // Deduplicate by exact coordinate
-            let dup = false;
-            for (let j = 0, jlen = _corners.length; j < jlen; j++) {
-                if (_corners[j].x === c.x && _corners[j].y === c.y) { dup = true; break; }
-            }
-            if (!dup) _corners.push(c);
-        }
+function castRay(ox: number, oy: number, dx: number, dy: number, maxDist: number, segments: WallSegment[]): void {
+    let nearest = maxDist;
+    for (let i = 0, len = segments.length; i < len; i++) {
+        const seg = segments[i];
+        const t = raySegmentIntersect(ox, oy, dx, dy, seg.x1, seg.y1, seg.x2, seg.y2);
+        if (t !== null && t > 0 && t < nearest) nearest = t;
     }
-    return _corners;
+    _hit.x = ox + dx * nearest;
+    _hit.y = oy + dy * nearest;
 }
 
 export function computeLightPolygon(cx: number, cy: number, radius: number): number[] | null {
@@ -77,29 +65,45 @@ export function computeLightPolygon(cx: number, cy: number, radius: number): num
     if (segments.length === 0) return null;
 
     const radiusSq = radius * radius;
-    const corners = collectCorners(cx, cy, radiusSq);
-
     let rayCount = 0;
 
+    // 1) Boundary rays at fixed intervals for full 360 coverage
+    const boundaryRays = Math.ceil(FULL_CIRCLE / BOUNDARY_STEP);
+    ensureBuffer(boundaryRays + environment.corners.length * 2);
+
+    for (let i = 0; i < boundaryRays; i++) {
+        const angleDeg = i * BOUNDARY_STEP;
+        const angleRad = angleDeg * DEG_TO_RAD;
+        castRay(cx, cy, Math.cos(angleRad), Math.sin(angleRad), radius, segments);
+        rayBuffer[rayCount].x = _hit.x;
+        rayBuffer[rayCount].y = _hit.y;
+        rayBuffer[rayCount].angle = angleRad;
+        rayCount++;
+    }
+
+    // 2) Corner rays for sharp shadow edges
+    const corners = environment.corners;
     for (let i = 0, len = corners.length; i < len; i++) {
-        const corner = corners[i];
-        const angleToCorner = Math.atan2(corner.y - cy, corner.x - cx) * (180 / Math.PI);
+        const c = corners[i];
+        const dx = c.x - cx;
+        const dy = c.y - cy;
+        if (dx * dx + dy * dy > radiusSq) continue;
 
-        const angA = angleToCorner - CORNER_OFFSET;
-        const angB = angleToCorner + CORNER_OFFSET;
-        const radA = angA * DEG_TO_RAD;
-        const radB = angB * DEG_TO_RAD;
+        const angleToCorner = Math.atan2(dy, dx);
+        const offsetRad = CORNER_OFFSET * DEG_TO_RAD;
 
-        castRay(cx, cy, Math.cos(radA), Math.sin(radA), radius, segments);
-        if (rayCount + 2 > rayBuffer.length) {
-            rayBuffer.push({ x: 0, y: 0, angle: 0 }, { x: 0, y: 0, angle: 0 });
-        }
+        const angA = angleToCorner - offsetRad;
+        const angB = angleToCorner + offsetRad;
+
+        ensureBuffer(rayCount + 2);
+
+        castRay(cx, cy, Math.cos(angA), Math.sin(angA), radius, segments);
         rayBuffer[rayCount].x = _hit.x;
         rayBuffer[rayCount].y = _hit.y;
         rayBuffer[rayCount].angle = angA;
         rayCount++;
 
-        castRay(cx, cy, Math.cos(radB), Math.sin(radB), radius, segments);
+        castRay(cx, cy, Math.cos(angB), Math.sin(angB), radius, segments);
         rayBuffer[rayCount].x = _hit.x;
         rayBuffer[rayCount].y = _hit.y;
         rayBuffer[rayCount].angle = angB;
@@ -108,14 +112,16 @@ export function computeLightPolygon(cx: number, cy: number, radius: number): num
 
     if (rayCount === 0) return null;
 
-    // Sort by angle for correct polygon winding
+    // 3) Sort all rays by angle
     const slice = rayBuffer.slice(0, rayCount);
     slice.sort((a, b) => a.angle - b.angle);
 
-    const pts: number[] = [];
+    // 4) Build fan polygon: center -> sorted hits -> close to center
+    const pts: number[] = [cx, cy];
     for (let i = 0; i < rayCount; i++) {
         pts.push(slice[i].x, slice[i].y);
     }
+    // Close the fan back to the first hit point (not center -- Graphics.poly closes automatically)
 
     return pts;
 }
