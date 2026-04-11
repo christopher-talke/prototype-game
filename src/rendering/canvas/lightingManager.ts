@@ -1,5 +1,4 @@
-import { Container, Graphics, Matrix, RenderTexture, Sprite, Texture, Ticker } from 'pixi.js';
-import { getPixiApp } from './app';
+import { Sprite, Texture, Ticker } from 'pixi.js';
 import { lightingLayer } from './sceneGraph';
 import { computeLightPolygon } from './lightRaycast';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
@@ -7,15 +6,17 @@ import { getAllPlayers } from '@simulation/player/playerRegistry';
 import { getAdapter } from '@net/activeAdapter';
 import { environment } from '@simulation/environment/environment';
 
-// --- Ambient light ---
+// --- Constants ---
 const DEFAULT_AMBIENT_LEVEL = 0.3;
 const DEFAULT_AMBIENT_COLOR = 0x141420;
+const LIGHTMAP_SCALE = 0.5; // half-res for performance
 
+// --- Ambient state ---
 let ambientLevel = DEFAULT_AMBIENT_LEVEL;
 let ambientColor = DEFAULT_AMBIENT_COLOR;
-let ambientFillColor = 0x000000;
+let ambientR = 0, ambientG = 0, ambientB = 0; // computed fill channels
 
-// --- Light state ---
+// --- Light data (no GPU objects, just data) ---
 interface LightEntry {
     x: number;
     y: number;
@@ -41,128 +42,102 @@ const playerLightMap = new Map<number, LightEntry>();
 const transientLights: TransientLight[] = [];
 let transientIdCounter = 0;
 
-// --- Render targets ---
-let lightMapRT: RenderTexture | null = null;
-let lightMapSprite: Sprite | null = null;
-let drawContainer: Container | null = null;
-let ambientRect: Graphics | null = null;
-let lightGraphics: Graphics | null = null; // single Graphics for all lights
+// --- Canvas lightmap ---
+let lightCanvas: HTMLCanvasElement | null = null;
+let lightCtx: CanvasRenderingContext2D | null = null;
+let lightSprite: Sprite | null = null;
+let lightTexture: Texture | null = null;
+let canvasW = 0;
+let canvasH = 0;
 let initialized = false;
 
-// --- Gradient texture cache ---
-const gradientCache = new Map<number, Texture>();
-const RADIUS_BUCKET = 50;
-
-function bucketRadius(r: number): number {
-    return Math.ceil(r / RADIUS_BUCKET) * RADIUS_BUCKET;
+// --- Color helpers ---
+function hexToRGB(hex: number): [number, number, number] {
+    return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
 }
 
-function getGradientTexture(radius: number): Texture {
-    const bucketed = bucketRadius(radius);
-    let tex = gradientCache.get(bucketed);
-    if (tex) return tex;
-
-    const size = bucketed * 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    const grad = ctx.createRadialGradient(bucketed, bucketed, 0, bucketed, bucketed, bucketed);
-    grad.addColorStop(0, 'rgba(255,255,255,1)');
-    grad.addColorStop(0.4, 'rgba(255,255,255,0.6)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
-
-    tex = Texture.from(canvas);
-    gradientCache.set(bucketed, tex);
-    return tex;
-}
-
-// --- Color math ---
-function lerpColorChannel(a: number, b: number, t: number): number {
+function lerpChannel(a: number, b: number, t: number): number {
     return Math.round(a + (b - a) * t);
 }
 
-function computeAmbientFill(level: number, color: number): number {
-    const r = (color >> 16) & 0xff;
-    const g = (color >> 8) & 0xff;
-    const b = color & 0xff;
-    return (lerpColorChannel(r, 255, level) << 16) |
-           (lerpColorChannel(g, 255, level) << 8) |
-           lerpColorChannel(b, 255, level);
+function computeAmbientRGB(level: number, color: number) {
+    const [r, g, b] = hexToRGB(color);
+    ambientR = lerpChannel(r, 255, level);
+    ambientG = lerpChannel(g, 255, level);
+    ambientB = lerpChannel(b, 255, level);
 }
 
-// --- Drawing helpers ---
+// --- Canvas 2D lightmap rendering ---
 
-// Build a transform matrix that maps the gradient texture onto world coords
-// so the gradient center aligns with the light position
-const _matrix = new Matrix();
+function drawLight(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: number, intensity: number, polygon: number[] | null) {
+    const [cr, cg, cb] = hexToRGB(color);
+    const sr = Math.round(cr * intensity);
+    const sg = Math.round(cg * intensity);
+    const sb = Math.round(cb * intensity);
 
-function drawLightPolygon(g: Graphics, light: LightEntry) {
-    if (!light.polygon) return;
-    const tex = getGradientTexture(light.radius);
-    const bucketed = bucketRadius(light.radius);
-    const scale = light.radius / bucketed;
+    // Scale coordinates to canvas space
+    const sx = x * LIGHTMAP_SCALE;
+    const sy = y * LIGHTMAP_SCALE;
+    const sr2 = radius * LIGHTMAP_SCALE;
 
-    // Matrix maps texture coords -> world coords
-    // Texture is (bucketed*2 x bucketed*2), center at (bucketed, bucketed)
-    // We want the center at (light.x, light.y) with proper scale
-    _matrix.identity();
-    _matrix.scale(scale, scale);
-    _matrix.translate(light.x - light.radius, light.y - light.radius);
+    ctx.save();
 
-    g.poly(light.polygon).fill({ texture: tex, matrix: _matrix, alpha: light.intensity, color: light.color });
+    // Clip to shadow polygon if available
+    if (polygon) {
+        ctx.beginPath();
+        ctx.moveTo(polygon[0] * LIGHTMAP_SCALE, polygon[1] * LIGHTMAP_SCALE);
+        for (let i = 2; i < polygon.length; i += 2) {
+            ctx.lineTo(polygon[i] * LIGHTMAP_SCALE, polygon[i + 1] * LIGHTMAP_SCALE);
+        }
+        ctx.closePath();
+        ctx.clip();
+    }
+
+    // Draw radial gradient
+    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr2);
+    grad.addColorStop(0, `rgba(${sr},${sg},${sb},1)`);
+    grad.addColorStop(0.4, `rgba(${sr},${sg},${sb},0.6)`);
+    grad.addColorStop(1, `rgba(${sr},${sg},${sb},0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(sx - sr2, sy - sr2, sr2 * 2, sr2 * 2);
+
+    ctx.restore();
 }
-
-function drawLightCircle(g: Graphics, x: number, y: number, radius: number, color: number, intensity: number) {
-    const tex = getGradientTexture(radius);
-    const bucketed = bucketRadius(radius);
-    const scale = radius / bucketed;
-
-    _matrix.identity();
-    _matrix.scale(scale, scale);
-    _matrix.translate(x - radius, y - radius);
-
-    g.circle(x, y, radius).fill({ texture: tex, matrix: _matrix, alpha: intensity, color });
-}
-
-// --- Core rendering ---
 
 function renderLightMap() {
-    const app = getPixiApp();
-    if (!app || !lightMapRT || !drawContainer || !ambientRect || !lightGraphics) return;
+    if (!lightCtx || !lightTexture) return;
 
-    // Redraw ambient fill (only if color changed, but cheap enough to always do)
-    ambientRect.clear();
-    ambientRect.rect(0, 0, environment.limits.right, environment.limits.bottom).fill(ambientFillColor);
+    const ctx = lightCtx;
 
-    // Redraw all lights into single Graphics
-    lightGraphics.clear();
+    // 1. Fill with ambient color (opaque)
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `rgb(${ambientR},${ambientG},${ambientB})`;
+    ctx.fillRect(0, 0, canvasW, canvasH);
 
+    // 2. Switch to additive blend for lights
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 3. Static lights
     for (const light of staticLights) {
-        if (light.polygon) {
-            drawLightPolygon(lightGraphics, light);
-        } else {
-            drawLightCircle(lightGraphics, light.x, light.y, light.radius, light.color, light.intensity);
-        }
+        drawLight(ctx, light.x, light.y, light.radius, light.color, light.intensity, light.polygon);
     }
 
+    // 4. Player lights
     for (const [, light] of playerLightMap) {
-        if (light.polygon) {
-            drawLightPolygon(lightGraphics, light);
-        } else {
-            drawLightCircle(lightGraphics, light.x, light.y, light.radius, light.color, light.intensity);
-        }
+        drawLight(ctx, light.x, light.y, light.radius, light.color, light.intensity, light.polygon);
     }
 
+    // 5. Transient lights (no shadow polygon)
     for (const tl of transientLights) {
-        const alpha = tl.decayMs > 0 ? tl.intensity * Math.max(0, 1 - tl.elapsed / tl.decayMs) : tl.intensity;
-        drawLightCircle(lightGraphics, tl.x, tl.y, tl.radius, tl.color, alpha);
+        const alpha = tl.decayMs > 0 ? Math.max(0, 1 - tl.elapsed / tl.decayMs) : 1;
+        drawLight(ctx, tl.x, tl.y, tl.radius, tl.color, tl.intensity * alpha, null);
     }
 
-    // Clear RT before rendering to prevent accumulation from additive blend
-    app.renderer.render({ container: drawContainer, target: lightMapRT, clear: true });
+    // 6. Reset blend mode
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 7. Push canvas update to GPU texture
+    lightTexture.source.update();
 }
 
 // --- Player lights ---
@@ -230,10 +205,8 @@ function updateTransientDecay(dt: number) {
     }
 }
 
-// --- Bullet light tracking ---
+// --- Bullet tracking ---
 const bulletLightIds = new Map<number, number>();
-
-// --- Event handling ---
 
 function handleEvent(event: GameEvent) {
     if (!initialized) return;
@@ -293,33 +266,31 @@ export function initLightingSystem() {
 }
 
 export function initLighting(lights: LightDef[], config?: LightingConfig) {
-    const app = getPixiApp();
-    if (!app) return;
-
     clearLighting();
 
     ambientLevel = config?.ambientLight ?? DEFAULT_AMBIENT_LEVEL;
     ambientColor = config?.ambientColor ?? DEFAULT_AMBIENT_COLOR;
-    ambientFillColor = computeAmbientFill(ambientLevel, ambientColor);
+    computeAmbientRGB(ambientLevel, ambientColor);
 
     const w = environment.limits.right;
     const h = environment.limits.bottom;
+    canvasW = Math.ceil(w * LIGHTMAP_SCALE);
+    canvasH = Math.ceil(h * LIGHTMAP_SCALE);
 
-    lightMapRT = RenderTexture.create({ width: w, height: h });
-    lightMapSprite = new Sprite(lightMapRT);
-    lightMapSprite.blendMode = 'multiply';
-    lightMapSprite.label = 'lightMapSprite';
-    lightingLayer.addChild(lightMapSprite);
+    // Create Canvas 2D lightmap
+    lightCanvas = document.createElement('canvas');
+    lightCanvas.width = canvasW;
+    lightCanvas.height = canvasH;
+    lightCtx = lightCanvas.getContext('2d')!;
 
-    drawContainer = new Container();
-    drawContainer.label = 'lightDrawContainer';
-    ambientRect = new Graphics();
-    lightGraphics = new Graphics();
-    lightGraphics.blendMode = 'add';
-
-    // Add children once -- they stay attached, just get .clear() + redrawn each frame
-    drawContainer.addChild(ambientRect);
-    drawContainer.addChild(lightGraphics);
+    // Create PixiJS texture from canvas, displayed as multiply sprite
+    lightTexture = Texture.from(lightCanvas);
+    lightSprite = new Sprite(lightTexture);
+    lightSprite.width = w;
+    lightSprite.height = h;
+    lightSprite.blendMode = 'multiply';
+    lightSprite.label = 'lightMapSprite';
+    lightingLayer.addChild(lightSprite);
 
     // Compute static light polygons once
     for (const def of lights) {
@@ -349,10 +320,9 @@ export function updateLighting() {
 
 export function setAmbientLight(level: number) {
     ambientLevel = Math.max(0, Math.min(1, level));
-    ambientFillColor = computeAmbientFill(ambientLevel, ambientColor);
+    computeAmbientRGB(ambientLevel, ambientColor);
 }
 
-// Expose for console testing: setAmbientLight(0.8) for daytime, setAmbientLight(0.05) for deep night
 (window as any).setAmbientLight = setAmbientLight;
 
 export function getAmbientLight(): number {
@@ -369,26 +339,15 @@ export function clearLighting() {
     clearDynamicLights();
     staticLights.length = 0;
 
-    if (lightMapSprite) {
-        lightMapSprite.destroy();
-        lightMapSprite = null;
+    if (lightSprite) {
+        lightSprite.destroy();
+        lightSprite = null;
     }
-    if (lightMapRT) {
-        lightMapRT.destroy(true);
-        lightMapRT = null;
+    if (lightTexture) {
+        lightTexture.destroy(true);
+        lightTexture = null;
     }
-    if (lightGraphics) {
-        lightGraphics.destroy();
-        lightGraphics = null;
-    }
-    if (ambientRect) {
-        ambientRect.destroy();
-        ambientRect = null;
-    }
-    if (drawContainer) {
-        drawContainer.removeChildren();
-        drawContainer.destroy();
-        drawContainer = null;
-    }
+    lightCanvas = null;
+    lightCtx = null;
     initialized = false;
 }
