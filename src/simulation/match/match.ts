@@ -33,6 +33,7 @@ import { SETTINGS } from '../../app';
 import { renderPixiWalls, clearPixiWalls } from '@rendering/canvas/wallRenderer';
 import { setWorldBounds } from '@rendering/canvas/sceneGraph';
 import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
+import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
 
 const authSim = offlineAdapter.authSim;
 
@@ -50,6 +51,7 @@ function loadMapWalls() {
         const h = environment.limits.bottom;
         setWorldBounds(w, h);
         renderPixiWalls(map.walls);
+        initLighting(map.lights ?? [], map.lighting);
     }
 }
 
@@ -201,7 +203,10 @@ function returnToMenu() {
     authSim.endMatch();
     destroyAllPlayers();
     clearAllWallData();
-    if (SETTINGS.renderer === 'pixi') clearPixiWalls();
+    if (SETTINGS.renderer === 'pixi') {
+        clearPixiWalls();
+        clearLighting();
+    }
 
     webSocketAdapter.onGameStart = () => {
         loadMapWalls();

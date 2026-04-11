@@ -141,11 +141,28 @@ declare global {
         detonated: boolean;
     };
 
+    type LightDef = {
+        x: number;
+        y: number;
+        radius: number;
+        color?: number;
+        intensity?: number;
+        angle?: number;
+        cone?: number;
+    };
+
+    type LightingConfig = {
+        ambientLight?: number;
+        ambientColor?: number;
+    };
+
     type MapData = {
         bounds?: { width: number; height: number };
         teamSpawns: Record<number, coordinates[]>;
         patrolPoints: coordinates[];
         walls: wall_info[];
+        lights?: LightDef[];
+        lighting?: LightingConfig;
     };
 
     type RayPoint = {

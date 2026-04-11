@@ -20,6 +20,7 @@ export let statusLabelLayer: Container;
 export let aimLineLayer: Container;
 export let fovConeLayer: Container;
 export let explosionLayer: Container;
+export let lightingLayer: Container;
 export let damageNumberLayer: Container;
 export let fogOfWarLayer: Container;
 
@@ -44,6 +45,7 @@ export function createSceneGraph(stage: Container) {
     aimLineLayer = addLayer('aimLineLayer');
     fovConeLayer = addLayer('fovConeLayer');
     explosionLayer = addLayer('explosionLayer');
+    lightingLayer = addLayer('lightingLayer');
     damageNumberLayer = addLayer('damageNumberLayer');
     fogOfWarLayer = addLayer('fogOfWarLayer');
 }

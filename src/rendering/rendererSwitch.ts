@@ -11,6 +11,7 @@ import { createPlayer } from './dom/playerRenderer';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { getActiveMap } from '@maps/helpers';
 import { environment } from '@simulation/environment/environment';
+import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
 
 export function switchRenderer(newType: RendererType) {
     if (SETTINGS.renderer === newType) return;
@@ -20,6 +21,7 @@ export function switchRenderer(newType: RendererType) {
     clearPixiWalls();
     clearPixiSmokeClouds();
     hidePixiFog();
+    clearLighting();
 
     clientRenderer.teardownVisuals();
     clearRenderedWalls();
@@ -42,6 +44,7 @@ export function switchRenderer(newType: RendererType) {
     if (newType === 'pixi') {
         setWorldBounds(environment.limits.right, environment.limits.bottom);
         renderPixiWalls(map.walls);
+        initLighting(map.lights ?? [], map.lighting);
     } else {
         for (const wall of map.walls) renderWall(wall);
     }

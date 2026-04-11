@@ -22,6 +22,7 @@ import { applyPixiVisibility, updatePixiLastKnown } from '@rendering/canvas/play
 import { updatePixiFogOfWar, hidePixiFog, updatePixiFOVCone, hidePixiFOVCone } from '@rendering/canvas/fogOfWar';
 import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/canvas/aimLineRenderer';
 import { updatePixiSmokeClouds } from '@rendering/canvas/smokeRenderer';
+import { updateLighting } from '@rendering/canvas/lightingManager';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -89,6 +90,8 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
             updatePixiFOVCone(player);
         }
     }
+
+    if (SETTINGS.renderer === 'pixi') updateLighting();
 
     const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;
     if (SETTINGS.renderer === 'pixi') {

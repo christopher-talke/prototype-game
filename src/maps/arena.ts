@@ -4,6 +4,36 @@
 // Cover objects in open areas, no tight pinch points
 
 export const Arena: MapData = {
+    lighting: { ambientLight: 0.15, ambientColor: 0x101018 },
+    lights: [
+        // Corner room lights (warm)
+        { x: 440, y: 440, radius: 400, color: 0xffddaa, intensity: 0.8 },
+        { x: 2360, y: 440, radius: 400, color: 0xffddaa, intensity: 0.8 },
+        { x: 440, y: 2360, radius: 400, color: 0xffddaa, intensity: 0.8 },
+        { x: 2360, y: 2360, radius: 400, color: 0xffddaa, intensity: 0.8 },
+
+        // Center plaza lights (cool white)
+        { x: 1300, y: 1300, radius: 350, color: 0xeeeeff, intensity: 0.9 },
+        { x: 1700, y: 1300, radius: 350, color: 0xeeeeff, intensity: 0.9 },
+        { x: 1300, y: 1700, radius: 350, color: 0xeeeeff, intensity: 0.9 },
+        { x: 1700, y: 1700, radius: 350, color: 0xeeeeff, intensity: 0.9 },
+
+        // Corridor lights (cool blue)
+        { x: 1200, y: 300, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 1700, y: 300, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 1200, y: 2700, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 1700, y: 2700, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 300, y: 1200, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 300, y: 1700, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 2700, y: 1200, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+        { x: 2700, y: 1700, radius: 300, color: 0xc8dcff, intensity: 0.6 },
+
+        // Mid connector lights
+        { x: 1500, y: 900, radius: 250, color: 0xddeeff, intensity: 0.5 },
+        { x: 1500, y: 2100, radius: 250, color: 0xddeeff, intensity: 0.5 },
+        { x: 900, y: 1500, radius: 250, color: 0xddeeff, intensity: 0.5 },
+        { x: 2100, y: 1500, radius: 250, color: 0xddeeff, intensity: 0.5 },
+    ],
     patrolPoints: [
         // Patrol points in corridors
         { x: 1100, y: 300 }, // top corridor

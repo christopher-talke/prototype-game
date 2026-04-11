@@ -1,4 +1,14 @@
 export const Shipment: MapData = {
+    lighting: { ambientLight: 0.25, ambientColor: 0x121620 },
+    lights: [
+        // Central overhead
+        { x: 1500, y: 1500, radius: 450, color: 0xeef4ff, intensity: 0.9 },
+        // Corner area lights
+        { x: 900, y: 900, radius: 350, color: 0xffeedd, intensity: 0.7 },
+        { x: 2100, y: 900, radius: 350, color: 0xffeedd, intensity: 0.7 },
+        { x: 900, y: 2100, radius: 350, color: 0xffeedd, intensity: 0.7 },
+        { x: 2100, y: 2100, radius: 350, color: 0xffeedd, intensity: 0.7 },
+    ],
     patrolPoints: [
         // North lane (east-west)
         { x: 1000, y: 880 },

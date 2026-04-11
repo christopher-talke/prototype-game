@@ -18,6 +18,7 @@ import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
 import { initPixiFogOfWar } from '@rendering/canvas/fogOfWar';
 import { initPixiAimLine } from '@rendering/canvas/aimLineRenderer';
 import { initPlayerGlowManager } from '@rendering/canvas/playerGlowManager';
+import { initLightingSystem } from '@rendering/canvas/lightingManager';
 
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPixiProjectilePool();
     initPlayerGlowManager();
     initPixiFogOfWar();
+    initLightingSystem();
     initPixiAimLine();
     if (SETTINGS.renderer === 'dom') {
         hidePixiCanvas();
