@@ -34,19 +34,107 @@ const pixiPlayers = new Map<number, PlayerEntry>();
 const healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const corpseList: { g: Container; timer: ReturnType<typeof setTimeout> }[] = [];
 
+const SHARD_COUNT = 28;
+const SPARK_COUNT = 16;
+const SHATTER_DURATION = 1400;
+
+interface Particle {
+    g: Graphics;
+    vx: number;
+    vy: number;
+    rotSpeed: number;
+    elapsed: number;
+    duration: number;
+}
+
+const activeParticles: Particle[] = [];
+
+Ticker.shared.add((ticker) => {
+    for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const p = activeParticles[i];
+        p.elapsed += ticker.deltaMS;
+        const t = Math.min(1, p.elapsed / p.duration);
+        const dt = ticker.deltaMS / 16;
+        p.g.x += p.vx * dt;
+        p.g.y += p.vy * dt;
+        p.g.rotation += p.rotSpeed * dt;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        // Hold full brightness then fade fast at the end
+        p.g.alpha = t < 0.4 ? 1 : 1 - ((t - 0.4) / 0.6) * ((t - 0.4) / 0.6);
+        if (t >= 1) {
+            p.g.destroy();
+            activeParticles.splice(i, 1);
+        }
+    }
+});
+
+function spawnShatter(x: number, y: number, color: number) {
+    // Angular shards - the main body fragments
+    for (let i = 0; i < SHARD_COUNT; i++) {
+        const angle = (Math.PI * 2 * i) / SHARD_COUNT + (Math.random() - 0.5) * 0.5;
+        const speed = 3 + Math.random() * 5;
+        const w = 3 + Math.random() * 6;
+        const h = 2 + Math.random() * 4;
+
+        const g = new Graphics();
+        g.poly([-w / 2, -h / 2, w / 2, 0, -w / 2, h / 2]).fill({ color });
+        g.x = x + Math.cos(angle) * (RADIUS * 0.5 * Math.random());
+        g.y = y + Math.sin(angle) * (RADIUS * 0.5 * Math.random());
+        g.rotation = angle;
+        corpseLayer.addChild(g);
+
+        activeParticles.push({
+            g,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            rotSpeed: (Math.random() - 0.5) * 0.3,
+            elapsed: 0,
+            duration: SHATTER_DURATION * (0.7 + Math.random() * 0.3),
+        });
+    }
+
+    // Bright sparks - small fast dots
+    for (let i = 0; i < SPARK_COUNT; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 5 + Math.random() * 6;
+
+        const g = new Graphics();
+        g.circle(0, 0, 1.5 + Math.random()).fill({ color: 0xffffff });
+        g.x = x + (Math.random() - 0.5) * RADIUS;
+        g.y = y + (Math.random() - 0.5) * RADIUS;
+        corpseLayer.addChild(g);
+
+        activeParticles.push({
+            g,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            rotSpeed: 0,
+            elapsed: 0,
+            duration: 400 + Math.random() * 300,
+        });
+    }
+
+    // Brief bright flash at center
+    const flash = new Graphics();
+    flash.circle(0, 0, RADIUS * 1.2).fill({ color, alpha: 0.5 });
+    flash.x = x;
+    flash.y = y;
+    corpseLayer.addChild(flash);
+    activeParticles.push({
+        g: flash,
+        vx: 0, vy: 0, rotSpeed: 0,
+        elapsed: 0,
+        duration: 250,
+    });
+}
+
 type LastKnownEntry = { g: Graphics; fadeTimer: ReturnType<typeof setTimeout> | null };
 const lastKnownMarkers = new Map<string, LastKnownEntry>();
 const lastKnownFading: { g: Graphics; elapsed: number }[] = [];
 
 const weaponTextureCache = new Map<string, Texture>();
 
-function lerpColor(a: number, b: number, t: number): number {
-    const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-    const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-    return (Math.round(ar + (br - ar) * t) << 16) |
-           (Math.round(ag + (bg - ag) * t) << 8) |
-           Math.round(ab + (bb - ab) * t);
-}
 
 async function loadWeaponTexture(weaponType: string): Promise<Texture | null> {
     const key = weaponType.toLowerCase();
@@ -111,16 +199,18 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
 
     const container = new Container();
     container.label = `player-${playerInfo.id}`;
-    container.x = pos.x + HALF_HIT_BOX;
-    container.y = pos.y + HALF_HIT_BOX;
+    container.x = Math.round(pos.x + HALF_HIT_BOX);
+    container.y = Math.round(pos.y + HALF_HIT_BOX);
     container.rotation = (pos.rotation * Math.PI) / 180;
 
     const body = new Graphics();
-    body.circle(0, 0, RADIUS).fill({ color, alpha: 0.15 });
+    body.circle(0, 0, RADIUS).fill({ color, alpha: 0.12 });
+    body.circle(0, 0, RADIUS * 0.6).fill({ color, alpha: 0.06 });
     body.circle(0, 0, RADIUS).stroke({ color, width: 2 });
+    body.circle(0, 0, RADIUS * 0.6).stroke({ color, width: 1, alpha: 0.2 });
 
     const dirIndicator = new Graphics();
-    dirIndicator.rect(-1, -(RADIUS + 5), 2, 8).fill({ color });
+    dirIndicator.poly([-4, -(RADIUS + 2), 0, -(RADIUS + 10), 4, -(RADIUS + 2)]).fill({ color, alpha: 0.9 });
 
     const sameTeamSquare = new Graphics();
     sameTeamSquare.rect(-10, -10, 20, 20).fill({ color });
@@ -141,8 +231,8 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
     container.alpha = playerInfo.id === ACTIVE_PLAYER ? 1 : 0;
 
     const healthGroup = new Container();
-    healthGroup.x = pos.x;
-    healthGroup.y = pos.y - 12;
+    healthGroup.x = Math.round(pos.x);
+    healthGroup.y = Math.round(pos.y - 12);
     healthGroup.alpha = 0;
 
     const armorBar = new Graphics();
@@ -158,11 +248,17 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
     if (sameTeam) {
         nameTag = new Text({
             text: playerInfo.name,
-            style: { fontFamily: 'Courier New', fontSize: 13, fill: 0xdddddd, align: 'center' },
+            style: {
+                fontFamily: 'Courier New',
+                fontSize: 13,
+                fill: 0xeeeeee,
+                align: 'center',
+                dropShadow: { color: 0x000000, alpha: 0.8, blur: 2, distance: 1 },
+            },
         });
         nameTag.anchor.set(0.5, 1);
-        nameTag.x = pos.x + HALF_HIT_BOX;
-        nameTag.y = pos.y - 14;
+        nameTag.x = Math.round(pos.x + HALF_HIT_BOX);
+        nameTag.y = Math.round(pos.y - 14);
         nametagLayer.addChild(nameTag);
     }
 
@@ -191,8 +287,12 @@ function redrawBars(healthBar: Graphics, armorBar: Graphics, health: number, arm
     const hw = Math.max(0, health / 100) * BAR_WIDTH;
     const aw = Math.max(0, armour / 100) * BAR_WIDTH;
     healthBar.clear();
+    healthBar.rect(0, BAR_HEIGHT + 2, BAR_WIDTH, BAR_HEIGHT).fill({ color: 0x000000, alpha: 0.5 });
+    healthBar.rect(0, BAR_HEIGHT + 2, BAR_WIDTH, BAR_HEIGHT).stroke({ color: 0xffffff, width: 0.5, alpha: 0.15 });
     if (hw > 0) healthBar.rect(0, BAR_HEIGHT + 2, hw, BAR_HEIGHT).fill(HEALTH_COLOR);
     armorBar.clear();
+    armorBar.rect(0, 0, BAR_WIDTH, BAR_HEIGHT).fill({ color: 0x000000, alpha: 0.5 });
+    armorBar.rect(0, 0, BAR_WIDTH, BAR_HEIGHT).stroke({ color: 0xffffff, width: 0.5, alpha: 0.15 });
     if (aw > 0) armorBar.rect(0, 0, aw, BAR_HEIGHT).fill(ARMOR_COLOR);
 }
 
@@ -274,14 +374,14 @@ export function updatePixiPlayerVisuals() {
         const entry = pixiPlayers.get(player.id);
         if (!entry) continue;
         const pos = player.current_position;
-        entry.container.x = pos.x + HALF_HIT_BOX;
-        entry.container.y = pos.y + HALF_HIT_BOX;
+        entry.container.x = Math.round(pos.x + HALF_HIT_BOX);
+        entry.container.y = Math.round(pos.y + HALF_HIT_BOX);
         entry.container.rotation = (pos.rotation * Math.PI) / 180;
-        entry.healthGroup.x = pos.x;
-        entry.healthGroup.y = pos.y - 12;
+        entry.healthGroup.x = Math.round(pos.x);
+        entry.healthGroup.y = Math.round(pos.y - 12);
         if (entry.nameTag) {
-            entry.nameTag.x = pos.x + HALF_HIT_BOX;
-            entry.nameTag.y = pos.y - 14;
+            entry.nameTag.x = Math.round(pos.x + HALF_HIT_BOX);
+            entry.nameTag.y = Math.round(pos.y - 14);
         }
 
         const weapon = getActiveWeapon(player);
@@ -356,32 +456,10 @@ export function onPixiPlayerKilled(targetId: number) {
     if (!playerInfo) return;
 
     const color = TEAM_COLORS[playerInfo.team] ?? 0xffffff;
-    // Desaturate toward grey to look lifeless
-    const paleColor = lerpColor(color, 0x666666, 0.7);
+    const cx = playerInfo.current_position.x + HALF_HIT_BOX;
+    const cy = playerInfo.current_position.y + HALF_HIT_BOX;
 
-    const corpseContainer = new Container();
-    const circle = new Graphics();
-    circle.circle(0, 0, RADIUS).fill({ color: paleColor, alpha: 0.06 });
-    circle.circle(0, 0, RADIUS).stroke({ color: paleColor, width: 1, alpha: 0.4 });
-    corpseContainer.addChild(circle);
-
-    const skull = new Text({
-        text: '\u2620',
-        style: { fontFamily: 'Arial', fontSize: 16, fill: 0x888888 },
-    });
-    skull.anchor.set(0.5, 0.5);
-    corpseContainer.addChild(skull);
-
-    corpseContainer.x = playerInfo.current_position.x + HALF_HIT_BOX;
-    corpseContainer.y = playerInfo.current_position.y + HALF_HIT_BOX;
-    corpseLayer.addChild(corpseContainer);
-
-    const timer = setTimeout(() => {
-        corpseContainer.destroy({ children: true });
-        const idx = corpseList.findIndex((c) => c.g === corpseContainer);
-        if (idx !== -1) corpseList.splice(idx, 1);
-    }, 5000);
-    corpseList.push({ g: corpseContainer, timer });
+    spawnShatter(cx, cy, color);
 }
 
 export function onPixiPlayerRespawn(playerId: number, x: number, y: number, rotation: number) {
@@ -389,8 +467,8 @@ export function onPixiPlayerRespawn(playerId: number, x: number, y: number, rota
     if (!entry) return;
 
     entry.container.visible = true;
-    entry.container.x = x + HALF_HIT_BOX;
-    entry.container.y = y + HALF_HIT_BOX;
+    entry.container.x = Math.round(x + HALF_HIT_BOX);
+    entry.container.y = Math.round(y + HALF_HIT_BOX);
     entry.container.rotation = (rotation * Math.PI) / 180;
     entry.body.visible = true;
     entry.dirIndicator.visible = true;
@@ -411,6 +489,8 @@ export function onPixiRoundStart() {
         g.destroy({ children: true });
     }
     corpseList.length = 0;
+    for (const p of activeParticles) p.g.destroy();
+    activeParticles.length = 0;
 }
 
 export function clearPixiPlayers() {

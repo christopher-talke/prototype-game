@@ -52,6 +52,20 @@ export function setWorldBounds(width: number, height: number) {
     if (!backgroundRect) return;
     backgroundRect.clear();
     backgroundRect.rect(0, 0, width, height).fill(0x0f0f1a);
+
+    // Subtle dot grid for spatial awareness
+    const spacing = 64;
+    for (let x = spacing; x < width; x += spacing) {
+        for (let y = spacing; y < height; y += spacing) {
+            backgroundRect.circle(x, y, 1.2).fill({ color: 0xffffff, alpha: 0.3 });
+            if (x + spacing < width) {
+                backgroundRect.moveTo(x, y).lineTo(x + spacing, y).stroke({ color: 0xffffff, alpha: 0.05, width: 1 });
+            }
+            if (y + spacing < height) {
+                backgroundRect.moveTo(x, y).lineTo(x, y + spacing).stroke({ color: 0xffffff, alpha: 0.05, width: 1 });
+            }
+        }
+    }
 }
 
 function addLayer(label: string): Container {

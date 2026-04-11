@@ -5,8 +5,8 @@ import { getPixiPlayerContainer } from './playerRenderer';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { TEAM_COLORS } from './teamColors';
 
-const GLOW_DISTANCE = 10;
-const GLOW_QUALITY = 0.1;
+const GLOW_DISTANCE = 8;
+const GLOW_QUALITY = 0.3;
 const NORMAL_STRENGTH = 1.0;
 const SPIKE_BASE = 2.5;
 const SPIKE_DAMAGE_SCALE = 2.5;
@@ -102,7 +102,7 @@ function handleEvent(event: GameEvent) {
 
 function tick(dt: number) {
     for (const [playerId, state] of glowStates) {
-        // 1. Death drain (highest priority)
+
         if (state.deathDrainRemaining > 0) {
             state.deathDrainRemaining -= dt;
             if (state.deathDrainRemaining <= 0) {
@@ -115,7 +115,6 @@ function tick(dt: number) {
             continue;
         }
 
-        // 2. Respawn fade-in
         if (state.respawnFadeRemaining > 0) {
             state.respawnFadeRemaining -= dt;
             if (state.respawnFadeRemaining <= 0) {
@@ -130,7 +129,6 @@ function tick(dt: number) {
             continue;
         }
 
-        // 3. Damage spike decay
         if (state.damageSpikeRemaining > 0) {
             state.damageSpikeRemaining -= dt;
             if (state.damageSpikeRemaining <= 0) {
@@ -146,7 +144,6 @@ function tick(dt: number) {
             }
         }
 
-        // 4. Steady state based on health
         const info = getPlayerInfo(playerId);
         const hp = info?.health ?? state.lastKnownHealth;
         state.lastKnownHealth = hp;
@@ -181,11 +178,12 @@ export function onPlayerGlowCreated(playerId: number, team: number) {
     const filter = new GlowFilter({
         color: getTeamColor(team),
         innerStrength: 0,
-        outerStrength: 0, // starts at 0, respawn fade-in or first frame will set it
+        outerStrength: 0,
         distance: GLOW_DISTANCE,
         quality: GLOW_QUALITY,
-        alpha: 0.7,
+        alpha: 0.5,
     });
+    filter.resolution = 4;
 
     container.filters = [filter];
 

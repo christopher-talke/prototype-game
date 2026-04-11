@@ -14,10 +14,16 @@ export function renderPixiWalls(walls: wall_info[]) {
     for (const wall of walls) {
         const colors = WALL_COLORS[wall.type ?? 'concrete'];
         const g = new Graphics();
+        g.rect(0, 0, wall.width, wall.height).fill(colors.fill);
+        // Inner highlight edge (top-left bevel)
+        const inset = 1.5;
+        g.moveTo(inset, wall.height - inset)
+            .lineTo(inset, inset)
+            .lineTo(wall.width - inset, inset)
+            .stroke({ color: 0xffffff, width: 1, alpha: 0.08 });
+        // Outer border
         g.rect(0, 0, wall.width, wall.height)
-            .fill(colors.fill)
-            .rect(0, 0, wall.width, wall.height)
-            .stroke({ color: colors.stroke, width: 1 });
+            .stroke({ color: colors.stroke, width: 1.5 });
         g.x = wall.x;
         g.y = wall.y;
         wallLayer.addChild(g);
