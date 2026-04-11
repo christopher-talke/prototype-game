@@ -1,5 +1,6 @@
 import { Graphics, Ticker } from 'pixi.js';
 import { grenadeLayer, explosionLayer } from './sceneGraph';
+import { swapRemove } from './renderUtils';
 
 const GRENADE_RADIUS = 6;
 const EXPLOSION_DURATION = 500;
@@ -29,7 +30,7 @@ Ticker.shared.add((ticker) => {
         entry.g.alpha = 1 - t;
         if (t >= 1) {
             entry.g.destroy();
-            activeExplosions.splice(i, 1);
+            swapRemove(activeExplosions, i);
         }
     }
 });
@@ -41,6 +42,7 @@ export function onPixiGrenadeSpawn(grenadeId: number, grenadeType: GrenadeType, 
     g.circle(0, 0, GRENADE_RADIUS).stroke({ color: 0xffffff, width: 1, alpha: 0.4 });
     g.x = x;
     g.y = y;
+    g.cullable = true;
     grenadeLayer.addChild(g);
     grenadeGraphics.set(grenadeId, g);
 }

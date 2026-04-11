@@ -1,7 +1,9 @@
 import { BlurFilter, Graphics } from 'pixi.js';
 import { smokeLayer } from './sceneGraph';
+import { swapRemove } from './renderUtils';
 
 const FADE_DURATION = 2000;
+const sharedBlur = new BlurFilter({ strength: 12, quality: 2 });
 
 type PixiSmoke = {
     g: Graphics;
@@ -22,7 +24,8 @@ export function spawnPixiSmokeCloud(x: number, y: number, radius: number, durati
     g.circle(0, 0, radius * 0.3).fill({ color: 0xaabbcc, alpha: 0.5 });
     g.x = x;
     g.y = y;
-    g.filters = [new BlurFilter({ strength: 12, quality: 2 })];
+    g.cullable = true;
+    g.filters = [sharedBlur];
     smokeLayer.addChild(g);
     activeClouds.push({ g, expiresAt: now + duration, fadeStart: now + duration - FADE_DURATION });
 }
@@ -32,7 +35,7 @@ export function updatePixiSmokeClouds(timestamp: number) {
         const cloud = activeClouds[i];
         if (timestamp >= cloud.expiresAt) {
             cloud.g.destroy();
-            activeClouds.splice(i, 1);
+            swapRemove(activeClouds, i);
         } else if (timestamp >= cloud.fadeStart) {
             cloud.g.alpha = 1 - (timestamp - cloud.fadeStart) / FADE_DURATION;
         }

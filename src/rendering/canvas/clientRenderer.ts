@@ -1,12 +1,13 @@
 import { SETTINGS } from '../../app';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent } from '@net/gameEvent';
-import { getAdapter } from '@net/activeAdapter';
 import { ACTIVE_PLAYER, clearPlayerRegistry } from '@simulation/player/playerRegistry';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerElements } from '@rendering/playerElements';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { HALF_HIT_BOX } from '../../constants';
+import { WALL_SPARK_COLOR } from './renderConstants';
+import { swapRemove } from './renderUtils';
 import { Graphics as PixiGraphics, Text, Ticker } from 'pixi.js';
 import { damageNumberLayer, statusLabelLayer, explosionLayer } from './sceneGraph';
 import { spawnPixiSmokeCloud } from './smokeRenderer';
@@ -44,7 +45,7 @@ Ticker.shared.add((ticker) => {
         s.g.alpha = 1 - t;
         if (t >= 1) {
             s.g.destroy();
-            activeWallSparks.splice(i, 1);
+            swapRemove(activeWallSparks, i);
         }
     }
 });
@@ -73,17 +74,19 @@ class PixiClientRendererImpl {
         Ticker.shared.add((ticker) => this.tickDamageNumbers(ticker.deltaMS));
     }
 
-    updateVisuals() {
+    updateVisuals(
+        projectiles: readonly { id: number; x: number; y: number }[],
+        grenades: readonly { id: number; x: number; y: number; detonated: boolean }[],
+    ) {
         updatePixiPlayerVisuals();
-        const adapter = getAdapter();
-        for (const p of adapter.getProjectiles()) {
+        for (const p of projectiles) {
             const entry = this.bulletGraphics.get(p.id);
             if (entry) {
                 entry.graphic.x = Math.round(p.x);
                 entry.graphic.y = Math.round(p.y);
             }
         }
-        updatePixiGrenadePositions(adapter.getGrenades());
+        updatePixiGrenadePositions(grenades);
         for (const [playerId, entry] of this.statusLabels) {
             const player = getPlayerInfo(playerId);
             if (player) {
@@ -177,7 +180,7 @@ class PixiClientRendererImpl {
             entry.text.alpha = 1 - t;
             if (t >= 1) {
                 entry.text.destroy();
-                this.activeDamageNumbers.splice(i, 1);
+                swapRemove(this.activeDamageNumbers, i);
             }
         }
     }
@@ -234,7 +237,7 @@ class PixiClientRendererImpl {
         if (entry) {
             // Spawn wall-hit spark at bullet's last position
             const spark = new PixiGraphics();
-            spark.circle(0, 0, 18).fill({ color: 0xffaa44, alpha: 0.9 });
+            spark.circle(0, 0, 18).fill({ color: WALL_SPARK_COLOR, alpha: 0.9 });
             spark.circle(0, 0, 12).fill({ color: 0xffffff, alpha: 0.7 });
             spark.x = entry.graphic.x;
             spark.y = entry.graphic.y;

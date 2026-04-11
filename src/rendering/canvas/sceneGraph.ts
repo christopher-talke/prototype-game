@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import { initGridPoints } from './gridDisplacement';
+import { BACKGROUND_COLOR } from './renderConstants';
 
 let backgroundRect: Graphics | null = null;
 export let gridGraphics: Graphics | null = null;
@@ -57,7 +58,7 @@ export function createSceneGraph(stage: Container) {
 export function setWorldBounds(width: number, height: number) {
     if (!backgroundRect) return;
     backgroundRect.clear();
-    backgroundRect.rect(0, 0, width, height).fill(0x0f0f1a);
+    backgroundRect.rect(0, 0, width, height).fill(BACKGROUND_COLOR);
 
     if (gridGraphics) {
         initGridPoints(width, height, gridGraphics);

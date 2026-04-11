@@ -28,12 +28,14 @@ import { updateGridDisplacement } from '@rendering/canvas/gridDisplacement';
 let _cachedFogEl: HTMLElement | null = null;
 
 export function updateRenderPipeline(player: player_info, adapter: NetAdapter, timestamp: number) {
+    const projectiles = adapter.getProjectiles();
+    const grenades = adapter.getGrenades();
 
     if (SETTINGS.renderer === 'pixi') {
-        pixiClientRenderer.updateVisuals();
-        updateGridDisplacement(player);
+        pixiClientRenderer.updateVisuals(projectiles, grenades);
+        updateGridDisplacement(player, projectiles);
     } else {
-        clientRenderer.updateVisuals();
+        clientRenderer.updateVisuals(projectiles, grenades);
     }
     removeExpiredSmoke(timestamp);
     updateSmokeClouds(timestamp);
@@ -88,7 +90,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
         if (SETTINGS.renderer === 'pixi') hidePixiFog();
     }
 
-    if (SETTINGS.renderer === 'pixi') updateLighting();
+    if (SETTINGS.renderer === 'pixi') updateLighting(projectiles);
 
     const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;
     if (SETTINGS.renderer === 'pixi') {

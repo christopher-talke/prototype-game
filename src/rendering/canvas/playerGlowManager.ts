@@ -4,6 +4,7 @@ import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getPixiPlayerContainer } from './playerRenderer';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { TEAM_COLORS } from './teamColors';
+import { CRITICAL_HEALTH_COLOR } from './renderConstants';
 
 const GLOW_DISTANCE = 8;
 const GLOW_QUALITY = 0.3;
@@ -45,13 +46,13 @@ function getTeamColor(team: number): number {
 
 function baseStrengthForHealth(hp: number, team: number): { strength: number; color: number } {
     if (hp < CRITICAL_HP_THRESHOLD) {
-        return { strength: NORMAL_STRENGTH + 0.5, color: 0xff2222 };
+        return { strength: NORMAL_STRENGTH + 0.5, color: CRITICAL_HEALTH_COLOR };
     }
     if (hp < LOW_HP_THRESHOLD) {
         const redFactor = 1 - hp / LOW_HP_THRESHOLD;
         return {
             strength: NORMAL_STRENGTH + 0.5 * redFactor,
-            color: lerpColor(getTeamColor(team), 0xff2222, redFactor),
+            color: lerpColor(getTeamColor(team), CRITICAL_HEALTH_COLOR, redFactor),
         };
     }
     return { strength: NORMAL_STRENGTH, color: getTeamColor(team) };
@@ -152,11 +153,11 @@ function tick(dt: number) {
             state.lowHealthPulsePhase += dt * PULSE_FREQ;
             const pulse = 0.5 + 0.5 * Math.sin(state.lowHealthPulsePhase);
             state.filter.outerStrength = 0.6 + 1.4 * pulse;
-            state.filter.color = 0xff2222;
+            state.filter.color = CRITICAL_HEALTH_COLOR;
         } else if (hp < LOW_HP_THRESHOLD) {
             const redFactor = 1 - hp / LOW_HP_THRESHOLD;
             state.filter.outerStrength = NORMAL_STRENGTH + 0.5 * redFactor;
-            state.filter.color = lerpColor(getTeamColor(state.team), 0xff2222, redFactor);
+            state.filter.color = lerpColor(getTeamColor(state.team), CRITICAL_HEALTH_COLOR, redFactor);
             state.lowHealthPulsePhase = 0;
         } else {
             state.filter.outerStrength = NORMAL_STRENGTH;
@@ -183,7 +184,7 @@ export function onPlayerGlowCreated(playerId: number, team: number) {
         quality: GLOW_QUALITY,
         alpha: 0.5,
     });
-    filter.resolution = 4;
+    filter.resolution = 2;
 
     container.filters = [filter];
 

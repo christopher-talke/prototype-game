@@ -35,14 +35,24 @@ export function updatePixiCamera(viewportWidth: number, viewportHeight: number) 
     worldContainer.y = Math.round(-cameraY);
 }
 
+const _cameraOffset = { x: 0, y: 0 };
+const _screenToWorld = { x: 0, y: 0 };
+const _worldToScreen = { x: 0, y: 0 };
+
 export function getPixiCameraOffset(): { x: number; y: number } {
-    return { x: cameraX, y: cameraY };
+    _cameraOffset.x = cameraX;
+    _cameraOffset.y = cameraY;
+    return _cameraOffset;
 }
 
 export function pixiScreenToWorld(sx: number, sy: number): { x: number; y: number } {
-    return { x: sx + cameraX, y: sy + cameraY };
+    _screenToWorld.x = sx + cameraX;
+    _screenToWorld.y = sy + cameraY;
+    return _screenToWorld;
 }
 
 export function pixiWorldToScreen(wx: number, wy: number): { x: number; y: number } {
-    return { x: wx - cameraX, y: wy - cameraY };
+    _worldToScreen.x = wx - cameraX;
+    _worldToScreen.y = wy - cameraY;
+    return _worldToScreen;
 }

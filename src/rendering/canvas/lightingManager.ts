@@ -4,10 +4,11 @@ import { createLightingShader, createLightingMesh } from './shaders/lightingShad
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { getVisibleEnemies, getVisibleTeammates } from './playerRenderer';
-import { getAdapter } from '@net/activeAdapter';
 import { getPixiApp } from './app';
 import { environment } from '@simulation/environment/environment';
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
+import { BULLET_COLOR, WALL_SPARK_COLOR } from './renderConstants';
+import { swapRemove } from './renderUtils';
 
 // --- Configuration---
 export const lightingConfig = {
@@ -65,6 +66,7 @@ interface LightEntry {
     radius: number;
     color: number;
     intensity: number;
+    cr: number; cg: number; cb: number; // cached color components (0-1)
 }
 
 interface TransientLight {
@@ -74,6 +76,7 @@ interface TransientLight {
     radius: number;
     color: number;
     intensity: number;
+    cr: number; cg: number; cb: number;
     decayMs: number;
     elapsed: number;
     castShadow: boolean;
@@ -83,9 +86,16 @@ interface TransientLight {
     cosOuter: number;
 }
 
+function setRGB(entry: { cr: number; cg: number; cb: number }, hex: number) {
+    entry.cr = ((hex >> 16) & 0xff) / 255;
+    entry.cg = ((hex >> 8) & 0xff) / 255;
+    entry.cb = (hex & 0xff) / 255;
+}
+
 const staticLights: LightEntry[] = [];
 const playerLightMap = new Map<number, LightEntry>();
 const transientLights: TransientLight[] = [];
+const transientLightById = new Map<number, TransientLight>();
 let transientIdCounter = 0;
 
 // --- GPU lightmap state ---
@@ -170,8 +180,8 @@ function uploadLightUniforms() {
     for (const tl of transientLights) {
         if (idx >= 32) break;
         const alpha = tl.decayMs > 0 ? Math.max(0, 1 - tl.elapsed / tl.decayMs) : 1;
-        writeLight(posArr, colArr, spotArr, idx, { ...tl, intensity: tl.intensity * alpha }, tl.castShadow ? 1.0 : 0.0,
-            tl.spotDirX, tl.spotDirY, tl.cosHalf, tl.cosOuter);
+        writeLight(posArr, colArr, spotArr, idx, tl, tl.castShadow ? 1.0 : 0.0,
+            tl.spotDirX, tl.spotDirY, tl.cosHalf, tl.cosOuter, tl.intensity * alpha);
         idx++;
     }
 
@@ -189,16 +199,17 @@ function writeLight(
     posArr: Float32Array, colArr: Float32Array, spotArr: Float32Array,
     idx: number, light: LightEntry, hasShadow: number,
     spotDirX = 0, spotDirY = 0, cosHalf = 0, cosOuter = 0,
+    intensityOverride?: number,
 ) {
+    const intensity = intensityOverride ?? light.intensity;
     const po = idx * 4;
     posArr[po] = light.x;
     posArr[po + 1] = light.y;
     posArr[po + 2] = light.radius;
-    posArr[po + 3] = light.radius * light.intensity; // bloomRadius
-    const [cr, cg, cb] = hexToRGB(light.color);
-    colArr[po] = (cr / 255) * light.intensity;
-    colArr[po + 1] = (cg / 255) * light.intensity;
-    colArr[po + 2] = (cb / 255) * light.intensity;
+    posArr[po + 3] = light.radius * intensity; // bloomRadius
+    colArr[po] = light.cr * intensity;
+    colArr[po + 1] = light.cg * intensity;
+    colArr[po + 2] = light.cb * intensity;
     colArr[po + 3] = hasShadow;
     spotArr[po] = spotDirX;
     spotArr[po + 1] = spotDirY;
@@ -208,12 +219,13 @@ function writeLight(
 
 // --- Player lights ---
 const PLAYER_LIGHT_COLOR = 0xffffff;
+const _seenPlayers = new Set<number>();
 
 function updatePlayerLights() {
     const players = getAllPlayers();
     const localPlayer = ACTIVE_PLAYER != null ? getPlayerInfo(ACTIVE_PLAYER) : null;
     const localTeam = localPlayer?.team;
-    const seen = new Set<number>();
+    _seenPlayers.clear();
 
     for (const player of players) {
         if (player.dead) {
@@ -227,7 +239,7 @@ function updatePlayerLights() {
             continue;
         }
 
-        seen.add(player.id);
+        _seenPlayers.add(player.id);
         const px = player.current_position.x + HALF_HIT_BOX;
         const py = player.current_position.y + HALF_HIT_BOX;
 
@@ -247,6 +259,7 @@ function updatePlayerLights() {
                 radius,
                 color: PLAYER_LIGHT_COLOR,
                 intensity,
+                cr: 1, cg: 1, cb: 1, // white
             };
             playerLightMap.set(player.id, light);
         } else {
@@ -258,7 +271,7 @@ function updatePlayerLights() {
     }
 
     for (const [id] of playerLightMap) {
-        if (!seen.has(id)) playerLightMap.delete(id);
+        if (!_seenPlayers.has(id)) playerLightMap.delete(id);
     }
 }
 
@@ -288,6 +301,7 @@ function updateFOVSpotlight() {
             radius: lightingConfig.fovRadius,
             color: 0xffffff,
             intensity: lightingConfig.fovIntensity,
+            cr: 1, cg: 1, cb: 1,
         },
         dirX, dirY, cosHalf, cosOuter,
     };
@@ -301,17 +315,23 @@ interface TransientSpot {
 
 function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0, castShadow: boolean = false, spot?: TransientSpot): number {
     const id = transientIdCounter++;
-    transientLights.push({
-        id, x, y, radius, color, intensity, decayMs, elapsed: 0, castShadow,
+    const tl: TransientLight = {
+        id, x, y, radius, color, intensity,
+        cr: 0, cg: 0, cb: 0,
+        decayMs, elapsed: 0, castShadow,
         spotDirX: spot?.dirX ?? 0, spotDirY: spot?.dirY ?? 0,
         cosHalf: spot?.cosHalf ?? 0, cosOuter: spot?.cosOuter ?? 0,
-    });
+    };
+    setRGB(tl, color);
+    transientLights.push(tl);
+    transientLightById.set(id, tl);
     return id;
 }
 
 function removeTransientLight(id: number) {
     const idx = transientLights.findIndex(t => t.id === id);
-    if (idx !== -1) transientLights.splice(idx, 1);
+    if (idx !== -1) swapRemove(transientLights, idx);
+    transientLightById.delete(id);
 }
 
 function updateTransientDecay(dt: number) {
@@ -320,7 +340,8 @@ function updateTransientDecay(dt: number) {
         if (tl.decayMs <= 0) continue;
         tl.elapsed += dt;
         if (tl.elapsed >= tl.decayMs) {
-            transientLights.splice(i, 1);
+            transientLightById.delete(tl.id);
+            swapRemove(transientLights, i);
         }
     }
 }
@@ -347,7 +368,7 @@ function handleEvent(event: GameEvent) {
             const lightId = addTransientLight(
                 event.x, event.y,
                 isSniper ? lightingConfig.bulletSniperRadius : lightingConfig.bulletRadius,
-                isSniper ? 0xeeeeff : 0xffcc00,
+                isSniper ? 0xeeeeff : BULLET_COLOR,
                 isSniper ? lightingConfig.bulletSniperIntensity : lightingConfig.bulletIntensity,
                 0, true, spot,
             );
@@ -364,7 +385,7 @@ function handleEvent(event: GameEvent) {
                     addTransientLight(
                         tl.x, tl.y,
                         lightingConfig.wallHitRadius,
-                        0xffaa44, lightingConfig.wallHitIntensity,
+                        WALL_SPARK_COLOR, lightingConfig.wallHitIntensity,
                         lightingConfig.wallHitDecay, true,
                     );
                 }
@@ -417,13 +438,12 @@ function handleEvent(event: GameEvent) {
     }
 }
 
-function syncBulletLightPositions() {
+function syncBulletLightPositions(projectiles: readonly { id: number; x: number; y: number }[]) {
     if (bulletLights.size === 0) return;
-    const projectiles = getAdapter().getProjectiles();
     for (const p of projectiles) {
         const entry = bulletLights.get(p.id);
         if (!entry) continue;
-        const tl = transientLights.find(t => t.id === entry.lightId);
+        const tl = transientLightById.get(entry.lightId);
         if (tl) {
             tl.x = p.x;
             tl.y = p.y;
@@ -487,13 +507,17 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
 
     // Build static light entries
     for (const def of lights) {
-        staticLights.push({
+        const color = def.color ?? 0xffffff;
+        const entry: LightEntry = {
             x: def.x,
             y: def.y,
             radius: def.radius,
-            color: def.color ?? 0xffffff,
+            color,
             intensity: def.intensity ?? 1.0,
-        });
+            cr: 0, cg: 0, cb: 0,
+        };
+        setRGB(entry, color);
+        staticLights.push(entry);
     }
 
     // Wrap mesh in a container for renderer.render()
@@ -514,7 +538,7 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
     initialized = true;
 }
 
-export function updateLighting() {
+export function updateLighting(projectiles: readonly { id: number; x: number; y: number }[] = []) {
     if (!initialized) return;
 
     const dt = Ticker.shared.deltaMS;
@@ -522,7 +546,7 @@ export function updateLighting() {
     updatePlayerLights();
     updateFOVSpotlight();
     updateTransientDecay(dt);
-    syncBulletLightPositions();
+    syncBulletLightPositions(projectiles);
 
     // Upload light data to shader uniforms
     uploadLightUniforms();

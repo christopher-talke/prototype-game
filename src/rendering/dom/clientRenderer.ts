@@ -23,7 +23,6 @@ import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry
 import { addSmokeData } from '@simulation/combat/smokeData';
 import { spawnSmokeCloud } from '@rendering/dom/smokeRenderer';
 import { getConfig } from '@config/activeConfig';
-import { getAdapter } from '@net/activeAdapter';
 import { cssTransform } from '@rendering/dom/cssTransform';
 
 class ClientRendererImpl {
@@ -109,15 +108,17 @@ class ClientRendererImpl {
     }
 
     // Called each frame after simulation tick to sync DOM positions
-    updateVisuals() {
-        const adapter = getAdapter();
-        for (const p of adapter.getProjectiles()) {
+    updateVisuals(
+        projectiles: readonly { id: number; x: number; y: number }[],
+        grenades: readonly { id: number; x: number; y: number; detonated: boolean }[],
+    ) {
+        for (const p of projectiles) {
             const entry = this.bulletElements.get(p.id);
             if (entry) {
                 entry.element.style.transform = cssTransform(Math.round(p.x), Math.round(p.y));
             }
         }
-        for (const g of adapter.getGrenades()) {
+        for (const g of grenades) {
             const el = this.grenadeElements.get(g.id);
             if (el && !g.detonated) {
                 el.style.transform = cssTransform(Math.round(g.x), Math.round(g.y));

@@ -1,4 +1,4 @@
-import { Shader, GlProgram, GpuProgram, MeshGeometry, Mesh, Texture } from 'pixi.js';
+import { Shader, GlProgram, MeshGeometry, Mesh, Texture } from 'pixi.js';
 
 // --- Constants ---
 const MAX_LIGHTS = 32;
@@ -124,125 +124,6 @@ void main() {
 `;
 
 // ============================================================
-// WGSL (WebGPU)
-// ============================================================
-
-const WGSL_SOURCE = /* wgsl */ `
-struct LightingUniforms {
-    uAmbientColor: vec3<f32>,
-    uLightCount: i32,
-    uWallCount: i32,
-    uFalloffExp: f32,
-    uCoreSharpness: f32,
-    uWorldSize: vec2<f32>,
-    uLightPosData: array<vec4<f32>, ${MAX_LIGHTS}>,
-    uLightColorData: array<vec4<f32>, ${MAX_LIGHTS}>,
-    uLightSpotData: array<vec4<f32>, ${MAX_LIGHTS}>,
-    uWalls: array<vec4<f32>, ${MAX_WALLS}>,
-};
-
-@group(0) @binding(0) var<uniform> uniforms: LightingUniforms;
-
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) vWorldUV: vec2<f32>,
-};
-
-@vertex
-fn mainVertex(@location(0) aPosition: vec2<f32>) -> VertexOutput {
-    var output: VertexOutput;
-    output.position = vec4<f32>(aPosition * 2.0 - 1.0, 0.0, 1.0);
-    output.vWorldUV = aPosition;
-    return output;
-}
-
-fn shadowAABB(origin: vec2<f32>, dir: vec2<f32>, maxDist: f32, wall: vec4<f32>) -> f32 {
-    let wMin = wall.xy;
-    let wMax = wall.xy + wall.zw;
-    let invDir = 1.0 / dir;
-    let t1 = (wMin - origin) * invDir;
-    let t2 = (wMax - origin) * invDir;
-    let tNear = min(t1, t2);
-    let tFar  = max(t1, t2);
-    let tEnter = max(tNear.x, tNear.y);
-    let tExit  = min(tFar.x, tFar.y);
-    if (tEnter < tExit && tExit > 0.0 && tEnter > 0.001 && tEnter < maxDist) {
-        return 0.0;
-    }
-    return 1.0;
-}
-
-fn sceneShadow(origin: vec2<f32>, lightPos: vec2<f32>, dist: f32) -> f32 {
-    let dir = normalize(lightPos - origin);
-    var shadow: f32 = 1.0;
-    for (var w: i32 = 0; w < ${MAX_WALLS}; w++) {
-        if (w >= uniforms.uWallCount) { break; }
-        shadow *= shadowAABB(origin, dir, dist, uniforms.uWalls[w]);
-        if (shadow <= 0.0) { break; }
-    }
-    return shadow;
-}
-
-fn insideAnyWall(pos: vec2<f32>) -> bool {
-    for (var w: i32 = 0; w < ${MAX_WALLS}; w++) {
-        if (w >= uniforms.uWallCount) { break; }
-        let wMin = uniforms.uWalls[w].xy;
-        let wMax = uniforms.uWalls[w].xy + uniforms.uWalls[w].zw;
-        if (pos.x >= wMin.x && pos.x <= wMax.x && pos.y >= wMin.y && pos.y <= wMax.y) {
-            return true;
-        }
-    }
-    return false;
-}
-
-@fragment
-fn mainFragment(input: VertexOutput) -> @location(0) vec4<f32> {
-    let worldPos = input.vWorldUV * uniforms.uWorldSize;
-    var totalLight = uniforms.uAmbientColor;
-
-    if (insideAnyWall(worldPos)) {
-        return vec4<f32>(totalLight / (totalLight + vec3<f32>(1.0)), 1.0);
-    }
-
-    for (var i: i32 = 0; i < ${MAX_LIGHTS}; i++) {
-        if (i >= uniforms.uLightCount) { break; }
-
-        let lightPos  = uniforms.uLightPosData[i].xy;
-        let radius    = uniforms.uLightPosData[i].z;
-        let bloomRad  = uniforms.uLightPosData[i].w;
-        let color     = uniforms.uLightColorData[i].rgb;
-        let hasShadow = uniforms.uLightColorData[i].a;
-
-        let dist = distance(worldPos, lightPos);
-        if (dist > radius) { continue; }
-
-        let spotDir    = uniforms.uLightSpotData[i].xy;
-        let cosHalf    = uniforms.uLightSpotData[i].z;
-        let spotOuter  = uniforms.uLightSpotData[i].w;
-        var spotMask: f32 = 1.0;
-        if (cosHalf > 0.0) {
-            let toFrag = normalize(worldPos - lightPos);
-            let d = dot(toFrag, spotDir);
-            spotMask = smoothstep(spotOuter, cosHalf, d);
-        }
-
-        let t = dist / radius;
-        let edge = pow(1.0 - t * t, uniforms.uFalloffExp);
-        let core = bloomRad / (dist + uniforms.uCoreSharpness * bloomRad);
-        let bloom = edge * core * spotMask;
-        var shadow: f32 = 1.0;
-        if (hasShadow > 0.5) {
-            shadow = sceneShadow(worldPos, lightPos, dist);
-        }
-
-        totalLight += color * bloom * shadow;
-    }
-
-    return vec4<f32>(totalLight / (totalLight + vec3<f32>(1.0)), 1.0);
-}
-`;
-
-// ============================================================
 // Factory functions
 // ============================================================
 
@@ -253,15 +134,8 @@ export function createLightingShader(): Shader {
         name: 'lighting-shader',
     });
 
-    const gpuProgram = GpuProgram.from({
-        vertex: { source: WGSL_SOURCE, entryPoint: 'mainVertex' },
-        fragment: { source: WGSL_SOURCE, entryPoint: 'mainFragment' },
-    });
-
-    
     return new Shader({
         glProgram,
-        gpuProgram,
         resources: {
             lightingUniforms: {
                 uAmbientColor: { value: new Float32Array(3), type: 'vec3<f32>' },

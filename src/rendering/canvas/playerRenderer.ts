@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, Text, Texture, Ticker } from 'pixi.js';
 import { HALF_HIT_BOX } from '../../constants';
+import { swapRemove } from './renderUtils';
 import { ACTIVE_PLAYER, addPlayer, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { playerLayer, healthBarLayer, nametagLayer, corpseLayer, lastKnownLayer } from './sceneGraph';
 import { getConfig } from '@config/activeConfig';
@@ -34,6 +35,8 @@ interface PlayerEntry {
     hitFlashMs: number;
     weaponIcon: Sprite | null;
     lastWeaponType: string | null;
+    lastHealth: number;
+    lastArmour: number;
 }
 
 const pixiPlayers = new Map<number, PlayerEntry>();
@@ -70,7 +73,7 @@ Ticker.shared.add((ticker) => {
         p.g.alpha = t < 0.4 ? 1 : 1 - ((t - 0.4) / 0.6) * ((t - 0.4) / 0.6);
         if (t >= 1) {
             p.g.destroy();
-            activeParticles.splice(i, 1);
+            swapRemove(activeParticles, i);
         }
     }
 });
@@ -191,7 +194,7 @@ Ticker.shared.add((ticker) => {
         fade.g.alpha = 0.6 * (1 - t);
         if (t >= 1) {
             fade.g.destroy();
-            lastKnownFading.splice(i, 1);
+            swapRemove(lastKnownFading, i);
         }
     }
 });
@@ -205,6 +208,7 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
 
     const container = new Container();
     container.label = `player-${playerInfo.id}`;
+    container.cullable = true;
     container.x = Math.round(pos.x + HALF_HIT_BOX);
     container.y = Math.round(pos.y + HALF_HIT_BOX);
     container.rotation = (pos.rotation * Math.PI) / 180;
@@ -237,6 +241,7 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
     container.alpha = playerInfo.id === ACTIVE_PLAYER ? 1 : 0;
 
     const healthGroup = new Container();
+    healthGroup.cullable = true;
     healthGroup.x = Math.round(pos.x);
     healthGroup.y = Math.round(pos.y - 12);
     healthGroup.alpha = 0;
@@ -280,6 +285,8 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
         hitFlashMs: 0,
         weaponIcon,
         lastWeaponType: null,
+        lastHealth: playerInfo.health,
+        lastArmour: playerInfo.armour,
     });
 
     onPlayerGlowCreated(playerInfo.id, playerInfo.team);
@@ -289,17 +296,25 @@ export function getPixiPlayerContainer(playerId: number): Container | null {
     return pixiPlayers.get(playerId)?.container ?? null;
 }
 
-function redrawBars(healthBar: Graphics, armorBar: Graphics, health: number, armour: number) {
+function redrawHealthBar(bar: Graphics, health: number) {
     const hw = Math.max(0, health / 100) * BAR_WIDTH;
+    bar.clear();
+    bar.rect(0, BAR_HEIGHT + 2, BAR_WIDTH, BAR_HEIGHT).fill({ color: 0x000000, alpha: 0.5 });
+    bar.rect(0, BAR_HEIGHT + 2, BAR_WIDTH, BAR_HEIGHT).stroke({ color: 0xffffff, width: 0.5, alpha: 0.15 });
+    if (hw > 0) bar.rect(0, BAR_HEIGHT + 2, hw, BAR_HEIGHT).fill(HEALTH_COLOR);
+}
+
+function redrawArmorBar(bar: Graphics, armour: number) {
     const aw = Math.max(0, armour / 100) * BAR_WIDTH;
-    healthBar.clear();
-    healthBar.rect(0, BAR_HEIGHT + 2, BAR_WIDTH, BAR_HEIGHT).fill({ color: 0x000000, alpha: 0.5 });
-    healthBar.rect(0, BAR_HEIGHT + 2, BAR_WIDTH, BAR_HEIGHT).stroke({ color: 0xffffff, width: 0.5, alpha: 0.15 });
-    if (hw > 0) healthBar.rect(0, BAR_HEIGHT + 2, hw, BAR_HEIGHT).fill(HEALTH_COLOR);
-    armorBar.clear();
-    armorBar.rect(0, 0, BAR_WIDTH, BAR_HEIGHT).fill({ color: 0x000000, alpha: 0.5 });
-    armorBar.rect(0, 0, BAR_WIDTH, BAR_HEIGHT).stroke({ color: 0xffffff, width: 0.5, alpha: 0.15 });
-    if (aw > 0) armorBar.rect(0, 0, aw, BAR_HEIGHT).fill(ARMOR_COLOR);
+    bar.clear();
+    bar.rect(0, 0, BAR_WIDTH, BAR_HEIGHT).fill({ color: 0x000000, alpha: 0.5 });
+    bar.rect(0, 0, BAR_WIDTH, BAR_HEIGHT).stroke({ color: 0xffffff, width: 0.5, alpha: 0.15 });
+    if (aw > 0) bar.rect(0, 0, aw, BAR_HEIGHT).fill(ARMOR_COLOR);
+}
+
+function redrawBars(healthBar: Graphics, armorBar: Graphics, health: number, armour: number) {
+    redrawHealthBar(healthBar, health);
+    redrawArmorBar(armorBar, armour);
 }
 
 export function applyPixiVisibility(result: LOSResult, targetId: number) {
@@ -433,7 +448,14 @@ export function updatePixiPlayerVisuals() {
 export function onPixiPlayerDamaged(targetId: number, health: number, armour: number) {
     const entry = pixiPlayers.get(targetId);
     if (!entry) return;
-    redrawBars(entry.healthBar, entry.armorBar, health, armour);
+    if (health !== entry.lastHealth) {
+        redrawHealthBar(entry.healthBar, health);
+        entry.lastHealth = health;
+    }
+    if (armour !== entry.lastArmour) {
+        redrawArmorBar(entry.armorBar, armour);
+        entry.lastArmour = armour;
+    }
     showHealthBarTemporarily(targetId);
 }
 
@@ -501,7 +523,11 @@ export function onPixiPlayerRespawn(playerId: number, x: number, y: number, rota
     }
 
     const playerInfo = getPlayerInfo(playerId);
-    if (playerInfo) redrawBars(entry.healthBar, entry.armorBar, playerInfo.health, playerInfo.armour);
+    if (playerInfo) {
+        redrawBars(entry.healthBar, entry.armorBar, playerInfo.health, playerInfo.armour);
+        entry.lastHealth = playerInfo.health;
+        entry.lastArmour = playerInfo.armour;
+    }
 }
 
 export function onPixiRoundStart() {

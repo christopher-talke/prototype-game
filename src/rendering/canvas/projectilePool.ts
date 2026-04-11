@@ -1,5 +1,6 @@
 import { Graphics } from 'pixi.js';
 import { projectileLayer } from './sceneGraph';
+import { BULLET_COLOR } from './renderConstants';
 
 const INITIAL_POOL_SIZE = 64;
 const MAX_PROJECTILES = 512;
@@ -13,6 +14,7 @@ function allocateGraphics(count: number) {
         g.circle(0, 0, 3).fill(0xffffff);
         g.visible = false;
         g.blendMode = 'add';
+        g.cullable = true;
         projectileLayer.addChild(g);
         poolGraphics.push(g);
         freeStack.push(start + i);
@@ -40,7 +42,7 @@ export function acquirePixiProjectile(weaponType?: string): { graphic: Graphics;
         graphic.tint = 0xff6600;
         graphic.scale.set(0.67);
     } else {
-        graphic.tint = 0xffcc00;
+        graphic.tint = BULLET_COLOR;
         graphic.scale.set(1);
     }
     return { graphic, poolIndex };

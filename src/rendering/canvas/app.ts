@@ -1,5 +1,6 @@
 import { Application } from 'pixi.js';
 import { createSceneGraph } from './sceneGraph';
+import { BACKGROUND_COLOR } from './renderConstants';
 
 let pixiApp: Application | null = null;
 
@@ -8,7 +9,7 @@ export async function initPixiApp(): Promise<Application> {
 
     pixiApp = new Application();
     await pixiApp.init({
-        background: 0x0f0f1a,
+        background: BACKGROUND_COLOR,
         resolution: window.devicePixelRatio,
         autoDensity: true,
         resizeTo: window,

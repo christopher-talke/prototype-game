@@ -1,5 +1,6 @@
 import { Graphics } from 'pixi.js';
 import { aimLineLayer } from './sceneGraph';
+import { BULLET_COLOR } from './renderConstants';
 import { pixiScreenToWorld } from './camera';
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../../constants';
 import { angleToRadians } from '@utils/angleToRadians';
@@ -142,5 +143,5 @@ export function updatePixiGrenadeAimLine(playerInfo: player_info) {
     grenadeAimG.clear()
         .moveTo(startX, startY)
         .lineTo(startX + dx * lineLen, startY + dy * lineLen)
-        .stroke({ color: 0xffcc00, alpha: 0.7, width: 2 });
+        .stroke({ color: BULLET_COLOR, alpha: 0.7, width: 2 });
 }

@@ -1,7 +1,7 @@
 import { type Graphics } from 'pixi.js';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getPixiCameraOffset } from './camera';
-import { getAdapter } from '@net/activeAdapter';
+import { swapRemove } from './renderUtils';
 
 // --- Types ---
 
@@ -94,7 +94,7 @@ export function addDisplacementSource(config: DisplacementSourceConfig): number 
 
 export function removeDisplacementSource(id: number): void {
     const idx = activeSources.findIndex(s => s.id === id);
-    if (idx >= 0) activeSources.splice(idx, 1);
+    if (idx >= 0) swapRemove(activeSources, idx);
 }
 
 export function initGridDisplacement(): void {
@@ -118,7 +118,10 @@ export function initGridPoints(width: number, height: number, gfx: Graphics): vo
     lastTimestamp = 0;
 }
 
-export function updateGridDisplacement(player: player_info): void {
+export function updateGridDisplacement(
+    player: player_info,
+    projectiles: readonly { id: number; x: number; y: number }[] = [],
+): void {
     if (!displaceX || !gridGfx) return;
 
     const now = performance.now();
@@ -127,7 +130,7 @@ export function updateGridDisplacement(player: player_info): void {
     lastTimestamp = now;
 
     applyPlayerWake(player, dt);
-    applyBulletTravel(dt);
+    applyBulletTravel(dt, projectiles);
     tickSources(dt);
     stepPhysics(dt);
     renderGrid();
@@ -194,8 +197,7 @@ function applyPlayerWake(player: player_info, dt: number): void {
 
 // --- Bullet travel ripple ---
 
-function applyBulletTravel(dt: number): void {
-    const projectiles = getAdapter().getProjectiles();
+function applyBulletTravel(dt: number, projectiles: readonly { id: number; x: number; y: number }[]): void {
     for (const p of projectiles) {
         applyRadialForce(p.x, p.y, BULLET_TRAVEL_RADIUS, BULLET_TRAVEL_STRENGTH, dt);
     }
@@ -211,7 +213,7 @@ function tickSources(dt: number): void {
         s.elapsed += dtMs;
 
         if (s.duration > 0 && s.elapsed >= s.duration) {
-            activeSources.splice(i, 1);
+            swapRemove(activeSources, i);
             continue;
         }
 
@@ -224,7 +226,7 @@ function tickSources(dt: number): void {
         }
 
         if (s.duration === 0) {
-            activeSources.splice(i, 1);
+            swapRemove(activeSources, i);
         }
     }
 }
@@ -351,29 +353,25 @@ function renderGrid(): void {
         }
     }
 
-    // Draw horizontal lines
+    // Build all line segments as a single batched path
+    // Horizontal lines
     for (let r = rowMin; r <= rowMax; r++) {
         for (let c = colMin; c < Math.min(colMax, cols - 1); c++) {
             const i = r * cols + c;
             const i2 = i + 1;
-            const x1 = (c + 1) * SPACING + displaceX[i];
-            const y1 = (r + 1) * SPACING + displaceY[i];
-            const x2 = (c + 2) * SPACING + displaceX[i2];
-            const y2 = (r + 1) * SPACING + displaceY[i2];
-            gridGfx.moveTo(x1, y1).lineTo(x2, y2).stroke({ color: 0xffffff, alpha: 0.05, width: 1 });
+            gridGfx.moveTo((c + 1) * SPACING + displaceX[i], (r + 1) * SPACING + displaceY[i]);
+            gridGfx.lineTo((c + 2) * SPACING + displaceX[i2], (r + 1) * SPACING + displaceY[i2]);
         }
     }
-
-    // Draw vertical lines
+    // Vertical lines
     for (let r = rowMin; r < Math.min(rowMax, rows - 1); r++) {
         for (let c = colMin; c <= colMax; c++) {
             const i = r * cols + c;
             const i2 = i + cols;
-            const x1 = (c + 1) * SPACING + displaceX[i];
-            const y1 = (r + 1) * SPACING + displaceY[i];
-            const x2 = (c + 1) * SPACING + displaceX[i2];
-            const y2 = (r + 2) * SPACING + displaceY[i2];
-            gridGfx.moveTo(x1, y1).lineTo(x2, y2).stroke({ color: 0xffffff, alpha: 0.05, width: 1 });
+            gridGfx.moveTo((c + 1) * SPACING + displaceX[i], (r + 1) * SPACING + displaceY[i]);
+            gridGfx.lineTo((c + 1) * SPACING + displaceX[i2], (r + 2) * SPACING + displaceY[i2]);
         }
     }
+    // Single stroke for all lines
+    gridGfx.stroke({ color: 0xffffff, alpha: 0.05, width: 1 });
 }
