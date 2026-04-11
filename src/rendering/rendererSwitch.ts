@@ -12,6 +12,7 @@ import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/
 import { getActiveMap } from '@maps/helpers';
 import { environment } from '@simulation/environment/environment';
 import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
+import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
 
 export function switchRenderer(newType: RendererType) {
     if (SETTINGS.renderer === newType) return;
@@ -22,6 +23,7 @@ export function switchRenderer(newType: RendererType) {
     clearPixiSmokeClouds();
     hidePixiFog();
     clearLighting();
+    clearGridDisplacement();
 
     clientRenderer.teardownVisuals();
     clearRenderedWalls();

@@ -19,6 +19,7 @@ import { initPixiFogOfWar } from '@rendering/canvas/fogOfWar';
 import { initPixiAimLine } from '@rendering/canvas/aimLineRenderer';
 import { initPlayerGlowManager } from '@rendering/canvas/playerGlowManager';
 import { initLightingSystem } from '@rendering/canvas/lightingManager';
+import { initGridDisplacement } from '@rendering/canvas/gridDisplacement';
 import '@ui/debug/lightingDebug';
 
 function nextFrame(): Promise<void> {
@@ -49,10 +50,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPlayerGlowManager();
     initPixiFogOfWar();
     initLightingSystem();
+    initGridDisplacement();
     initPixiAimLine();
+    
     if (SETTINGS.renderer === 'dom') {
         hidePixiCanvas();
-    } else {
+    } 
+    else {
         document.body.classList.add('renderer-pixi');
     }
     await nextFrame();

@@ -34,6 +34,7 @@ import { renderPixiWalls, clearPixiWalls } from '@rendering/canvas/wallRenderer'
 import { setWorldBounds } from '@rendering/canvas/sceneGraph';
 import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
 import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
+import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
 
 const authSim = offlineAdapter.authSim;
 
@@ -206,6 +207,7 @@ function returnToMenu() {
     if (SETTINGS.renderer === 'pixi') {
         clearPixiWalls();
         clearLighting();
+        clearGridDisplacement();
     }
 
     webSocketAdapter.onGameStart = () => {

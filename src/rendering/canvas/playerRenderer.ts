@@ -303,6 +303,8 @@ function redrawBars(healthBar: Graphics, armorBar: Graphics, health: number, arm
 }
 
 export function applyPixiVisibility(result: LOSResult, targetId: number) {
+    const playerInfo = getPlayerInfo(targetId);
+    if (playerInfo?.dead) return;
     if (!result.stateChanged) return;
     const entry = pixiPlayers.get(targetId);
     if (!entry) return;

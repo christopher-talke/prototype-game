@@ -23,6 +23,7 @@ import { updatePixiFogOfWar, hidePixiFog } from '@rendering/canvas/fogOfWar';
 import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/canvas/aimLineRenderer';
 import { updatePixiSmokeClouds } from '@rendering/canvas/smokeRenderer';
 import { updateLighting } from '@rendering/canvas/lightingManager';
+import { updateGridDisplacement } from '@rendering/canvas/gridDisplacement';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -30,6 +31,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
 
     if (SETTINGS.renderer === 'pixi') {
         pixiClientRenderer.updateVisuals();
+        updateGridDisplacement(player);
     } else {
         clientRenderer.updateVisuals();
     }
