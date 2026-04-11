@@ -133,18 +133,12 @@ function renderLightMap() {
     const app = getPixiApp();
     if (!app || !lightMapRT || !drawContainer || !ambientRect || !lightGraphics) return;
 
-    drawContainer.removeChildren();
-
-    // Ambient base fill
-    const w = environment.limits.right;
-    const h = environment.limits.bottom;
+    // Redraw ambient fill (only if color changed, but cheap enough to always do)
     ambientRect.clear();
-    ambientRect.rect(0, 0, w, h).fill(ambientFillColor);
-    drawContainer.addChild(ambientRect);
+    ambientRect.rect(0, 0, environment.limits.right, environment.limits.bottom).fill(ambientFillColor);
 
-    // Draw all lights into a single Graphics with additive blend
+    // Redraw all lights into single Graphics
     lightGraphics.clear();
-    lightGraphics.blendMode = 'add';
 
     for (const light of staticLights) {
         if (light.polygon) {
@@ -163,13 +157,12 @@ function renderLightMap() {
     }
 
     for (const tl of transientLights) {
-        const alpha = tl.decayMs > 0 ? tl.intensity * (1 - tl.elapsed / tl.decayMs) : tl.intensity;
+        const alpha = tl.decayMs > 0 ? tl.intensity * Math.max(0, 1 - tl.elapsed / tl.decayMs) : tl.intensity;
         drawLightCircle(lightGraphics, tl.x, tl.y, tl.radius, tl.color, alpha);
     }
 
-    drawContainer.addChild(lightGraphics);
-
-    app.renderer.render({ container: drawContainer, target: lightMapRT });
+    // Clear RT before rendering to prevent accumulation from additive blend
+    app.renderer.render({ container: drawContainer, target: lightMapRT, clear: true });
 }
 
 // --- Player lights ---
@@ -322,6 +315,11 @@ export function initLighting(lights: LightDef[], config?: LightingConfig) {
     drawContainer.label = 'lightDrawContainer';
     ambientRect = new Graphics();
     lightGraphics = new Graphics();
+    lightGraphics.blendMode = 'add';
+
+    // Add children once -- they stay attached, just get .clear() + redrawn each frame
+    drawContainer.addChild(ambientRect);
+    drawContainer.addChild(lightGraphics);
 
     // Compute static light polygons once
     for (const def of lights) {
