@@ -1,7 +1,7 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
 export const PRESET_HIGH: GraphicsConfig = {
-    resolution: window.devicePixelRatio,
+    resolution: window.devicePixelRatio * 2,
     antialias: true,
     lightmapScale: 0.5,
 
