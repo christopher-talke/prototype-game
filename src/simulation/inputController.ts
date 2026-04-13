@@ -92,9 +92,13 @@ export function initInputController() {
 
         if (activePlayer && action === 'grenade' && !isPlayerDead(activePlayer) && !grenadeCharging) {
             const type = getSelectedGrenadeType();
-            if (type === 'C4') {
+            
+            // C4 is placed (inventory empty) - detonate and cycle away
+            if (type === 'C4' && activePlayer.grenades[type] === 0) {
                 getAdapter().sendInput({ type: 'DETONATE_C4', playerId: activePlayer.id });
+                cycleGrenade(1);
             }
+
             if (activePlayer.grenades[type] > 0) {
                 grenadeCharging = true;
                 grenadeChargeStart = performance.now();
@@ -145,7 +149,11 @@ export function initInputController() {
             const aimDy = dist > 0 ? tdy / dist : 0;
 
             getAdapter().sendInput({ type: 'THROW_GRENADE', playerId: activePlayer.id, grenadeType: type, chargePercent, aimDx, aimDy });
-            cycleGrenade(1);
+            // C4: keep selected so next keydown triggers detonation
+            // Other types: only cycle when throwing the last one
+            if (type !== 'C4' && activePlayer.grenades[type] <= 1) {
+                cycleGrenade(1);
+            }
         }
     });
 
