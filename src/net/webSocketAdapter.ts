@@ -226,15 +226,22 @@ class WebSocketAdapter implements NetAdapter {
             }
         }
 
-        // Interpolate remote players toward their targets
         for (const [playerId, target] of this._interpTargets) {
             if (playerId === this.localPlayerId) continue;
+
             const player = getPlayerInfo(playerId);
             if (!player) continue;
+
+            const dx = target.x - player.current_position.x;
+            const dy = target.y - player.current_position.y;
+            const dr = this.angleLerp(player.current_position.rotation, target.rotation, 1);
+
+            if (dx * dx + dy * dy < 0.01 && dr * dr < 0.01) continue;
             const lerpFactor = 0.5;
-            player.current_position.x += (target.x - player.current_position.x) * lerpFactor;
-            player.current_position.y += (target.y - player.current_position.y) * lerpFactor;
-            player.current_position.rotation += this.angleLerp(player.current_position.rotation, target.rotation, lerpFactor);
+            
+            player.current_position.x += dx * lerpFactor;
+            player.current_position.y += dy * lerpFactor;
+            player.current_position.rotation += dr * lerpFactor;
         }
     }
 

@@ -114,6 +114,7 @@ export interface ParticleBank {
     alive: Uint8Array;
     sprites: Sprite[];
     freeStack: number[];
+    aliveIndices: number[];
     aliveCount: number;
     capacity: number;
     container: Container;
@@ -133,6 +134,7 @@ export function createParticleBank(capacity: number, texture: Texture, container
         alive: new Uint8Array(capacity),
         sprites: new Array(capacity),
         freeStack: new Array(capacity),
+        aliveIndices: [],
         aliveCount: 0,
         capacity,
         container,
@@ -158,6 +160,7 @@ export function acquireParticle(bank: ParticleBank): number {
     bank.alive[idx] = 1;
     bank.elapsed[idx] = 0;
     bank.sprites[idx].visible = true;
+    bank.aliveIndices.push(idx);
     bank.aliveCount++;
     return idx;
 }
@@ -168,6 +171,7 @@ export function releaseParticle(bank: ParticleBank, idx: number) {
     bank.sprites[idx].visible = false;
     bank.freeStack.push(idx);
     bank.aliveCount--;
+    // aliveIndices removal is handled in updateBank's iteration
 }
 
 export function syncSprite(bank: ParticleBank, idx: number) {
@@ -184,11 +188,17 @@ export function syncSprite(bank: ParticleBank, idx: number) {
 export type ParticleUpdater = (bank: ParticleBank, idx: number, dt: number) => boolean; // return false to kill
 
 export function updateBank(bank: ParticleBank, dt: number, updater: ParticleUpdater) {
-    for (let i = bank.capacity - 1; i >= 0; i--) {
-        if (!bank.alive[i]) continue;
+    const indices = bank.aliveIndices;
+    for (let j = indices.length - 1; j >= 0; j--) {
+        const i = indices[j];
         bank.elapsed[i] += dt;
         if (bank.elapsed[i] >= bank.duration[i] || !updater(bank, i, dt)) {
             releaseParticle(bank, i);
+
+            const last = indices.length - 1;
+            if (j !== last) indices[j] = indices[last];
+            indices.length = last;
+            
             continue;
         }
         syncSprite(bank, i);
@@ -199,4 +209,5 @@ export function clearBank(bank: ParticleBank) {
     for (let i = 0; i < bank.capacity; i++) {
         if (bank.alive[i]) releaseParticle(bank, i);
     }
+    bank.aliveIndices.length = 0;
 }

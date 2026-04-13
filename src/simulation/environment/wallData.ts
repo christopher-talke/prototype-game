@@ -1,4 +1,4 @@
-import { environment, clearWallGeometry } from './environment';
+import { environment, clearWallGeometry, makeSegment } from './environment';
 import { registerWallAABB, clearWallAABBs } from '@simulation/player/collision';
 import { clearRenderedWalls } from '@rendering/dom/wallRenderer';
 
@@ -22,10 +22,10 @@ export function registerWallGeometry(wallInfo: wall_info) {
     const bottom = Math.floor(y + height);
 
     environment.segments.push(
-        { x1: left, y1: top, x2: right, y2: top },
-        { x1: right, y1: top, x2: right, y2: bottom },
-        { x1: right, y1: bottom, x2: left, y2: bottom },
-        { x1: left, y1: bottom, x2: left, y2: top },
+        makeSegment(left, top, right, top),
+        makeSegment(right, top, right, bottom),
+        makeSegment(right, bottom, left, bottom),
+        makeSegment(left, bottom, left, top),
     );
 
     environment.corners.push(

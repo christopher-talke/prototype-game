@@ -93,6 +93,7 @@ export interface GraphicsConfig {
     lightmapScale: number;
 
     features: {
+        dynamicLighting: boolean;
         gridDisplacement: boolean;
         glowFilter: boolean;
         heatShimmer: boolean;

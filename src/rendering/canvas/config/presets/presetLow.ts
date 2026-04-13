@@ -6,6 +6,7 @@ export const PRESET_LOW: GraphicsConfig = {
     lightmapScale: 0.25,
 
     features: {
+        dynamicLighting: false,
         gridDisplacement: false,
         glowFilter: false,
         heatShimmer: false,

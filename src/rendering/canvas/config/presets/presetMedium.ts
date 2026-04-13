@@ -6,6 +6,7 @@ export const PRESET_MEDIUM: GraphicsConfig = {
     lightmapScale: 0.35,
 
     features: {
+        dynamicLighting: true,
         gridDisplacement: true,
         glowFilter: false,
         heatShimmer: false,

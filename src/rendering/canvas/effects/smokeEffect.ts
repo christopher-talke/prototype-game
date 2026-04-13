@@ -6,26 +6,21 @@ import { getStaticLights, getTransientLights, getPlayerLights } from '../lightin
 import { getWallAABBs } from '@simulation/player/collision';
 import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../../constants';
-import {
-    effectsConfig,
-    SMOKE_LAYERS_3,
-    SMOKE_LAYERS_1,
-    SMOKE_LAYER_WEIGHTS_3,
-    SMOKE_LAYER_WEIGHTS_1,
-    SMOKE_LAYER_FADE_OFFSETS_3,
-    SMOKE_LAYER_FADE_OFFSETS_1,
-} from '../config/effectsConfig';
+import { effectsConfig } from '../config/effectsConfig';
 import { lightingConfig } from '../config/lightingConfig';
 import { getGraphicsConfig } from '../config/graphicsConfig';
+import { GRENADE_VFX } from '@simulation/combat/grenades';
+
+const vfx = GRENADE_VFX.SMOKE.cloud;
 
 function getLayerConfig() {
-    return effectsConfig.smoke.layerCount === 3 ? SMOKE_LAYERS_3 : SMOKE_LAYERS_1;
+    return effectsConfig.smoke.layerCount === 3 ? vfx.layers3 : vfx.layers1;
 }
 function getLayerWeights() {
-    return effectsConfig.smoke.layerCount === 3 ? SMOKE_LAYER_WEIGHTS_3 : SMOKE_LAYER_WEIGHTS_1;
+    return effectsConfig.smoke.layerCount === 3 ? vfx.layerWeights3 : vfx.layerWeights1;
 }
 function getLayerFadeOffsets() {
-    return effectsConfig.smoke.layerCount === 3 ? SMOKE_LAYER_FADE_OFFSETS_3 : SMOKE_LAYER_FADE_OFFSETS_1;
+    return effectsConfig.smoke.layerCount === 3 ? vfx.layerFadeOffsets3 : vfx.layerFadeOffsets1;
 }
 
 // --- Types ---
@@ -86,7 +81,7 @@ export function spawnSmokeCloud(x: number, y: number, radius: number, duration: 
         cy: y,
         radius,
         expiresAt: now + duration,
-        fadeStart: now + duration - effectsConfig.smoke.fadeDuration,
+        fadeStart: now + duration - vfx.fadeDuration,
         emitElapsed: 0,
         emitCount: 0,
         emitTarget,
@@ -113,8 +108,8 @@ export function updateSmokeParticles(timestamp: number, projectiles: readonly { 
         cloud.emitElapsed += dt;
 
         // Initial burst
-        if (cloud.emitElapsed < effectsConfig.smoke.emitDuration && cloud.emitCount < cloud.emitTarget) {
-            const emitRate = cloud.emitTarget / effectsConfig.smoke.emitDuration;
+        if (cloud.emitElapsed < vfx.emitDuration && cloud.emitCount < cloud.emitTarget) {
+            const emitRate = cloud.emitTarget / vfx.emitDuration;
             const shouldHave = Math.floor(cloud.emitElapsed * emitRate);
             while (cloud.emitCount < shouldHave && cloud.emitCount < cloud.emitTarget) {
                 if (!emitParticle(cloud)) break; // bank full
@@ -122,10 +117,10 @@ export function updateSmokeParticles(timestamp: number, projectiles: readonly { 
         }
 
         // Sustained replacement
-        if (cloud.emitElapsed >= effectsConfig.smoke.emitDuration && timestamp < cloud.fadeStart) {
+        if (cloud.emitElapsed >= vfx.emitDuration && timestamp < cloud.fadeStart) {
             cloud.sustainTimer += dt;
-            if (cloud.sustainTimer >= effectsConfig.smoke.sustainInterval) {
-                cloud.sustainTimer -= effectsConfig.smoke.sustainInterval;
+            if (cloud.sustainTimer >= vfx.sustainInterval) {
+                cloud.sustainTimer -= vfx.sustainInterval;
                 emitParticle(cloud);
             }
         }
@@ -171,12 +166,12 @@ function emitParticle(cloud: SmokeCloud): boolean {
 
     // Spawn in a tight cluster around the center with small random offset
     const angle = Math.random() * Math.PI * 2;
-    const spawnDist = Math.random() * cloud.radius * effectsConfig.smoke.initialRadiusFrac;
+    const spawnDist = Math.random() * cloud.radius * vfx.initialRadiusFrac;
 
     smokeBank.x[idx] = cloud.cx + Math.cos(angle) * spawnDist;
     smokeBank.y[idx] = cloud.cy + Math.sin(angle) * spawnDist;
-    smokeBank.vx[idx] = (Math.random() - 0.5) * effectsConfig.smoke.initialVelocityRange;
-    smokeBank.vy[idx] = (Math.random() - 0.5) * effectsConfig.smoke.initialVelocityRange;
+    smokeBank.vx[idx] = (Math.random() - 0.5) * vfx.initialVelocityRange;
+    smokeBank.vy[idx] = (Math.random() - 0.5) * vfx.initialVelocityRange;
     smokeBank.scale[idx] = cfg.scaleMin + Math.random() * (cfg.scaleMax - cfg.scaleMin);
     smokeBank.rotation[idx] = Math.random() * Math.PI * 2;
     const baseAlpha = cfg.alphaMin + Math.random() * (cfg.alphaMax - cfg.alphaMin);
@@ -188,7 +183,7 @@ function emitParticle(cloud: SmokeCloud): boolean {
     particleCloudId[idx] = cloud.id;
     particleBaseAlpha[idx] = baseAlpha;
     // Each particle gets its own max radius fraction with some variance
-    particleMaxRadiusFrac[idx] = cfg.radiusFrac * (effectsConfig.smoke.maxRadiusFracBase + Math.random() * effectsConfig.smoke.maxRadiusFracRange);
+    particleMaxRadiusFrac[idx] = cfg.radiusFrac * (vfx.maxRadiusFracBase + Math.random() * vfx.maxRadiusFracRange);
 
     cloud.emitCount++;
     return true;
@@ -229,10 +224,10 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
         }
 
         // Current cloud expansion progress (0 = just spawned, 1 = fully expanded)
-        const expandT = Math.min(1, (timestamp - cloud.spawnTime) / effectsConfig.smoke.expandDuration);
+        const expandT = Math.min(1, (timestamp - cloud.spawnTime) / vfx.expandDuration);
         // Ease-out for natural deceleration
         const expandEased = 1 - (1 - expandT) * (1 - expandT);
-        const currentCloudRadius = cloud.radius * (effectsConfig.smoke.initialRadiusFrac + (1 - effectsConfig.smoke.initialRadiusFrac) * expandEased);
+        const currentCloudRadius = cloud.radius * (vfx.initialRadiusFrac + (1 - vfx.initialRadiusFrac) * expandEased);
 
         // Max distance this particle should be from center
         const maxDist = currentCloudRadius * particleMaxRadiusFrac[i];
@@ -248,22 +243,22 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
 
             if (dist < maxDist) {
                 // Inside boundary: gentle outward drift
-                smokeBank.vx[i] += ndx * effectsConfig.smoke.radialDrift;
-                smokeBank.vy[i] += ndy * effectsConfig.smoke.radialDrift;
+                smokeBank.vx[i] += ndx * vfx.radialDrift;
+                smokeBank.vy[i] += ndy * vfx.radialDrift;
             } else {
                 // Outside boundary: pull back toward center
-                smokeBank.vx[i] -= ndx * effectsConfig.smoke.centeringStrength * (dist - maxDist);
-                smokeBank.vy[i] -= ndy * effectsConfig.smoke.centeringStrength * (dist - maxDist);
+                smokeBank.vx[i] -= ndx * vfx.centeringStrength * (dist - maxDist);
+                smokeBank.vy[i] -= ndy * vfx.centeringStrength * (dist - maxDist);
             }
         }
 
         // Drag
-        smokeBank.vx[i] *= effectsConfig.smoke.particleDrag;
-        smokeBank.vy[i] *= effectsConfig.smoke.particleDrag;
+        smokeBank.vx[i] *= vfx.particleDrag;
+        smokeBank.vy[i] *= vfx.particleDrag;
 
         // Brownian drift
-        smokeBank.vx[i] += (Math.random() - 0.5) * effectsConfig.smoke.brownianStrength;
-        smokeBank.vy[i] += (Math.random() - 0.5) * effectsConfig.smoke.brownianStrength;
+        smokeBank.vx[i] += (Math.random() - 0.5) * vfx.brownianStrength;
+        smokeBank.vy[i] += (Math.random() - 0.5) * vfx.brownianStrength;
 
         // Apply velocity
         smokeBank.x[i] += smokeBank.vx[i];
@@ -273,18 +268,18 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
         resolveWallCollision(i);
 
         // Slow rotation drift
-        smokeBank.rotation[i] += effectsConfig.smoke.rotationDrift;
+        smokeBank.rotation[i] += vfx.rotationDrift;
 
         // Alpha: base alpha with dissipation
         let alpha = particleBaseAlpha[i];
         if (timestamp >= cloud.fadeStart) {
             const fadeElapsed = timestamp - cloud.fadeStart;
             const layerFadeOffset = getLayerFadeOffsets()[particleLayer[i]];
-            if (fadeElapsed >= effectsConfig.smoke.fadeDuration - layerFadeOffset) {
-                const layerFadeT = (fadeElapsed - (effectsConfig.smoke.fadeDuration - layerFadeOffset)) / layerFadeOffset;
+            if (fadeElapsed >= vfx.fadeDuration - layerFadeOffset) {
+                const layerFadeT = (fadeElapsed - (vfx.fadeDuration - layerFadeOffset)) / layerFadeOffset;
                 // Distance-based: farther particles fade first
                 const distFactor = dist / cloud.radius;
-                const adjustedT = Math.min(1, layerFadeT + distFactor * effectsConfig.smoke.distanceFadeFactor);
+                const adjustedT = Math.min(1, layerFadeT + distFactor * vfx.distanceFadeFactor);
                 alpha *= 1 - adjustedT;
             }
         }
@@ -298,7 +293,7 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
             while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
             if (Math.abs(angleDiff) > fovHalfRad) {
-                alpha = Math.max(effectsConfig.smoke.fovMinAlpha, alpha * 0.3);
+                alpha = Math.max(vfx.fovMinAlpha, alpha * 0.3);
             }
         }
 
@@ -310,13 +305,13 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
             const r = (baseTint >> 16) & 0xff;
             const g = (baseTint >> 8) & 0xff;
             const b = baseTint & 0xff;
-            const lr = Math.min(255, Math.floor(r * (effectsConfig.smoke.lightTintBase + lightMult * effectsConfig.smoke.lightTintScale)));
-            const lg = Math.min(255, Math.floor(g * (effectsConfig.smoke.lightTintBase + lightMult * effectsConfig.smoke.lightTintScale)));
-            const lb = Math.min(255, Math.floor(b * (effectsConfig.smoke.lightTintBase + lightMult * effectsConfig.smoke.lightTintScale)));
+            const lr = Math.min(255, Math.floor(r * (vfx.lightTintBase + lightMult * vfx.lightTintScale)));
+            const lg = Math.min(255, Math.floor(g * (vfx.lightTintBase + lightMult * vfx.lightTintScale)));
+            const lb = Math.min(255, Math.floor(b * (vfx.lightTintBase + lightMult * vfx.lightTintScale)));
             smokeBank.sprites[i].tint = (lr << 16) | (lg << 8) | lb;
         }
 
-        smokeBank.alpha[i] = Math.max(effectsConfig.smoke.fovMinAlpha, alpha);
+        smokeBank.alpha[i] = Math.max(vfx.fovMinAlpha, alpha);
         syncSprite(smokeBank, i);
     }
 
@@ -361,16 +356,16 @@ function resolveWallCollision(idx: number) {
 
         if (minD === dLeft) {
             smokeBank.x[idx] = w.x - margin - 1;
-            smokeBank.vx[idx] = -Math.abs(smokeBank.vx[idx]) * effectsConfig.smoke.wallBounceCoefficient;
+            smokeBank.vx[idx] = -Math.abs(smokeBank.vx[idx]) * vfx.wallBounceCoefficient;
         } else if (minD === dRight) {
             smokeBank.x[idx] = w.x + w.w + margin + 1;
-            smokeBank.vx[idx] = Math.abs(smokeBank.vx[idx]) * effectsConfig.smoke.wallBounceCoefficient;
+            smokeBank.vx[idx] = Math.abs(smokeBank.vx[idx]) * vfx.wallBounceCoefficient;
         } else if (minD === dTop) {
             smokeBank.y[idx] = w.y - margin - 1;
-            smokeBank.vy[idx] = -Math.abs(smokeBank.vy[idx]) * effectsConfig.smoke.wallBounceCoefficient;
+            smokeBank.vy[idx] = -Math.abs(smokeBank.vy[idx]) * vfx.wallBounceCoefficient;
         } else {
             smokeBank.y[idx] = w.y + w.h + margin + 1;
-            smokeBank.vy[idx] = Math.abs(smokeBank.vy[idx]) * effectsConfig.smoke.wallBounceCoefficient;
+            smokeBank.vy[idx] = Math.abs(smokeBank.vy[idx]) * vfx.wallBounceCoefficient;
         }
         break;
     }
@@ -431,10 +426,10 @@ function applyBulletWake(projectiles: readonly { id: number; x: number; y: numbe
             const pdx = smokeBank.x[i] - proj.x;
             const pdy = smokeBank.y[i] - proj.y;
             const dist = Math.sqrt(pdx * pdx + pdy * pdy);
-            if (dist >= effectsConfig.smoke.bulletWakeRadius || dist < 1) continue;
+            if (dist >= vfx.bulletWakeRadius || dist < 1) continue;
 
-            const falloff = 1 - dist / effectsConfig.smoke.bulletWakeRadius;
-            const force = effectsConfig.smoke.bulletSmokeStrength * falloff;
+            const falloff = 1 - dist / vfx.bulletWakeRadius;
+            const force = vfx.bulletSmokeStrength * falloff;
 
             const perpX = -dir.dy;
             const perpY = dir.dx;

@@ -1,22 +1,14 @@
 import { Graphics } from 'pixi.js';
 import { grenadeLayer } from './sceneGraph';
-
-const GRENADE_RADIUS = 6;
-
-const GRENADE_COLORS: Record<GrenadeType, number> = {
-    FRAG: 0x2ed573,
-    FLASH: 0xffffff,
-    SMOKE: 0xaaaaaa,
-    C4: 0xff4757,
-};
+import { GRENADE_VFX } from '@simulation/combat/grenades';
 
 const grenadeGraphics = new Map<number, Graphics>();
 
 export function onPixiGrenadeSpawn(grenadeId: number, grenadeType: GrenadeType, x: number, y: number, _isC4: boolean) {
-    const color = GRENADE_COLORS[grenadeType] ?? 0xffffff;
+    const sprite = GRENADE_VFX[grenadeType].sprite;
     const g = new Graphics();
-    g.circle(0, 0, GRENADE_RADIUS).fill({ color, alpha: 0.9 });
-    g.circle(0, 0, GRENADE_RADIUS).stroke({ color: 0xffffff, width: 1, alpha: 0.4 });
+    g.circle(0, 0, sprite.radius).fill({ color: sprite.color, alpha: sprite.fillAlpha });
+    g.circle(0, 0, sprite.radius).stroke({ color: sprite.strokeColor, width: sprite.strokeWidth, alpha: sprite.strokeAlpha });
     g.x = x;
     g.y = y;
     g.cullable = true;

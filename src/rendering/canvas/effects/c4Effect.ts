@@ -9,6 +9,9 @@ import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry'
 import { HALF_HIT_BOX } from '../../../constants';
 import { effectsConfig } from '../config/effectsConfig';
 import { getGraphicsConfig } from '../config/graphicsConfig';
+import { GRENADE_VFX } from '@simulation/combat/grenades';
+
+const vfx = GRENADE_VFX.C4.explosion;
 
 // --- Shockwave ring state ---
 
@@ -95,26 +98,26 @@ export function clearC4Effects() {
 // --- Shockwave rings ---
 
 function spawnRings(x: number, y: number, radius: number) {
-    for (let i = 0; i < effectsConfig.c4.ringCount; i++) {
-        const delay = i * effectsConfig.c4.ringStaggerMs;
-        setTimeout(() => createRing(x, y, radius * effectsConfig.c4.ringRadiusMultiplier, i), delay);
+    for (let i = 0; i < vfx.ringCount; i++) {
+        const delay = i * vfx.ringStaggerMs;
+        setTimeout(() => createRing(x, y, radius * vfx.ringRadiusMultiplier, i), delay);
     }
 }
 
 function createRing(x: number, y: number, radius: number, index: number) {
-    const strokeWidth = 6 + Math.random() * 2;
-    const color = index === 0 ? 0xff4400 : 0xff6622;
+    const strokeWidth = vfx.ringStrokeWidthMin + Math.random() * vfx.ringStrokeWidthRange;
+    const color = vfx.ringColors[Math.min(index, vfx.ringColors.length - 1)];
 
     const g = new Graphics();
     g.circle(0, 0, radius).stroke({ color, width: strokeWidth });
     g.x = x;
     g.y = y;
-    g.scale.set(0.05);
+    g.scale.set(vfx.ringInitialScale);
     g.alpha = 1;
-    g.blendMode = 'add';
+    g.blendMode = vfx.ringBlendMode as any;
     explosionFxLayer.addChild(g);
 
-    activeRings.push({ g, elapsed: 0, duration: effectsConfig.c4.ringDuration + Math.random() * 100 });
+    activeRings.push({ g, elapsed: 0, duration: vfx.ringDuration + Math.random() * vfx.ringDurationRange });
 }
 
 // --- Emissive debris ---
@@ -127,18 +130,17 @@ function spawnEmissiveDebris(x: number, y: number, _radius: number) {
         if (idx === -1) break;
 
         const angle = Math.random() * Math.PI * 2;
-        const speed = effectsConfig.c4.emissiveSpeedMin + Math.random() * effectsConfig.c4.emissiveSpeedRange;
+        const speed = vfx.emissiveSpeedMin + Math.random() * vfx.emissiveSpeedRange;
         emissiveBank.x[idx] = x;
         emissiveBank.y[idx] = y;
         emissiveBank.vx[idx] = Math.cos(angle) * speed;
         emissiveBank.vy[idx] = Math.sin(angle) * speed;
-        emissiveBank.scale[idx] = effectsConfig.c4.emissiveScaleMin + Math.random() * effectsConfig.c4.emissiveScaleRange;
+        emissiveBank.scale[idx] = vfx.emissiveScaleMin + Math.random() * vfx.emissiveScaleRange;
         emissiveBank.rotation[idx] = Math.random() * Math.PI * 2;
-        emissiveBank.alpha[idx] = 1;
-        emissiveBank.duration[idx] = effectsConfig.c4.emissiveDurationMin + Math.random() * effectsConfig.c4.emissiveDurationRange;
+        emissiveBank.alpha[idx] = vfx.emissiveInitialAlpha;
+        emissiveBank.duration[idx] = vfx.emissiveDurationMin + Math.random() * vfx.emissiveDurationRange;
 
-        const tints = [0xff6622, 0xff8844, 0xffaa55, 0xffcc88, 0xffffff];
-        emissiveBank.sprites[idx].tint = tints[Math.floor(Math.random() * tints.length)];
+        emissiveBank.sprites[idx].tint = vfx.emissiveTints[Math.floor(Math.random() * vfx.emissiveTints.length)];
     }
 }
 
@@ -152,18 +154,17 @@ function spawnDarkDebris(x: number, y: number, _radius: number) {
         if (idx === -1) break;
 
         const angle = Math.random() * Math.PI * 2;
-        const speed = effectsConfig.c4.darkDebrisSpeedMin + Math.random() * effectsConfig.c4.darkDebrisSpeedRange;
+        const speed = vfx.darkDebrisSpeedMin + Math.random() * vfx.darkDebrisSpeedRange;
         darkDebrisBank.x[idx] = x;
         darkDebrisBank.y[idx] = y;
         darkDebrisBank.vx[idx] = Math.cos(angle) * speed;
         darkDebrisBank.vy[idx] = Math.sin(angle) * speed;
-        darkDebrisBank.scale[idx] = effectsConfig.c4.darkDebrisScaleMin + Math.random() * effectsConfig.c4.darkDebrisScaleRange;
+        darkDebrisBank.scale[idx] = vfx.darkDebrisScaleMin + Math.random() * vfx.darkDebrisScaleRange;
         darkDebrisBank.rotation[idx] = Math.random() * Math.PI * 2;
-        darkDebrisBank.alpha[idx] = 0.9;
-        darkDebrisBank.duration[idx] = effectsConfig.c4.darkDebrisDurationMin + Math.random() * effectsConfig.c4.darkDebrisDurationRange;
+        darkDebrisBank.alpha[idx] = vfx.darkDebrisInitialAlpha;
+        darkDebrisBank.duration[idx] = vfx.darkDebrisDurationMin + Math.random() * vfx.darkDebrisDurationRange;
 
-        const tints = [0x554433, 0x665544, 0x443322, 0x776655];
-        darkDebrisBank.sprites[idx].tint = tints[Math.floor(Math.random() * tints.length)];
+        darkDebrisBank.sprites[idx].tint = vfx.darkDebrisTints[Math.floor(Math.random() * vfx.darkDebrisTints.length)];
     }
 }
 
@@ -177,17 +178,17 @@ function spawnDust(x: number, y: number, radius: number) {
         if (idx === -1) break;
 
         const angle = Math.random() * Math.PI * 2;
-        const speed = effectsConfig.c4.dustSpeedMin + Math.random() * effectsConfig.c4.dustSpeedRange;
+        const speed = vfx.dustSpeedMin + Math.random() * vfx.dustSpeedRange;
         dustBank.x[idx] = x + (Math.random() - 0.5) * radius;
         dustBank.y[idx] = y + (Math.random() - 0.5) * radius;
         dustBank.vx[idx] = Math.cos(angle) * speed;
         dustBank.vy[idx] = Math.sin(angle) * speed;
-        dustBank.scale[idx] = effectsConfig.c4.dustScaleMin + Math.random() * effectsConfig.c4.dustScaleRange;
+        dustBank.scale[idx] = vfx.dustScaleMin + Math.random() * vfx.dustScaleRange;
         dustBank.rotation[idx] = 0;
-        dustBank.alpha[idx] = effectsConfig.c4.dustAlphaMin + Math.random() * effectsConfig.c4.dustAlphaRange;
-        dustBank.duration[idx] = effectsConfig.c4.dustDurationMin + Math.random() * effectsConfig.c4.dustDurationRange;
+        dustBank.alpha[idx] = vfx.dustAlphaMin + Math.random() * vfx.dustAlphaRange;
+        dustBank.duration[idx] = vfx.dustDurationMin + Math.random() * vfx.dustDurationRange;
 
-        dustBank.sprites[idx].tint = 0x998877;
+        dustBank.sprites[idx].tint = vfx.dustTint;
     }
 }
 
@@ -195,9 +196,9 @@ function spawnDust(x: number, y: number, radius: number) {
 
 function spawnScorch(x: number, y: number, radius: number) {
     const g = new Graphics();
-    g.circle(0, 0, radius * effectsConfig.c4.scorchInnerRadiusFrac).fill({ color: 0x0a0a0a, alpha: effectsConfig.c4.scorchInnerAlpha });
-    g.circle(0, 0, radius * effectsConfig.c4.scorchMiddleRadiusFrac).fill({ color: 0x111111, alpha: effectsConfig.c4.scorchMiddleAlpha });
-    g.circle(0, 0, radius * effectsConfig.c4.scorchOuterRadiusFrac).fill({ color: 0x111111, alpha: effectsConfig.c4.scorchOuterAlpha });
+    g.circle(0, 0, radius * vfx.scorchInnerRadiusFrac).fill({ color: vfx.scorchInnerColor, alpha: vfx.scorchInnerAlpha });
+    g.circle(0, 0, radius * vfx.scorchMiddleRadiusFrac).fill({ color: vfx.scorchOuterColor, alpha: vfx.scorchMiddleAlpha });
+    g.circle(0, 0, radius * vfx.scorchOuterRadiusFrac).fill({ color: vfx.scorchOuterColor, alpha: vfx.scorchOuterAlpha });
     g.x = x;
     g.y = y;
     scorchLayer.addChild(g);
@@ -252,11 +253,12 @@ function spawnHeatShimmer(x: number, y: number, radius: number) {
 // --- Lighting ---
 
 function spawnC4Lights(x: number, y: number) {
-    // Phase 1: massive white-orange flash (0-200ms)
-    addTransientLight(x, y, effectsConfig.c4.lightPhase1Radius, 0xffcc44, effectsConfig.c4.lightPhase1Intensity, effectsConfig.c4.lightPhase1Decay, true);
+    const l1 = vfx.lightPhase1;
+    addTransientLight(x, y, l1.radius, l1.color, l1.intensity, l1.decay, true);
+    const l2 = vfx.lightPhase2;
     setTimeout(() => {
-        addTransientLight(x, y, effectsConfig.c4.lightPhase2Radius, 0xff4400, effectsConfig.c4.lightPhase2Intensity, effectsConfig.c4.lightPhase2Decay, false);
-    }, effectsConfig.c4.lightPhase2Delay);
+        addTransientLight(x, y, l2.radius, l2.color, l2.intensity, l2.decay, false);
+    }, l2.delay ?? 0);
 }
 
 // --- Grid displacement ---
@@ -265,29 +267,29 @@ function spawnC4Displacement(x: number, y: number, radius: number) {
     addDisplacementSource({
         x,
         y,
-        radius: radius * effectsConfig.c4.blastRadiusMultiplier,
-        strength: radius * effectsConfig.c4.blastStrengthMultiplier,
-        duration: effectsConfig.c4.blastDuration,
-        maxDisplacement: effectsConfig.c4.blastMaxDisplacement,
+        radius: radius * vfx.blast.radiusMultiplier,
+        strength: radius * vfx.blast.strengthMultiplier,
+        duration: vfx.blast.duration,
+        maxDisplacement: vfx.blast.maxDisplacement,
     });
     setTimeout(() => {
         addDisplacementSource({
             x,
             y,
-            radius: radius * effectsConfig.c4.vacuumRadiusMultiplier,
-            strength: radius * effectsConfig.c4.vacuumStrengthMultiplier,
-            duration: effectsConfig.c4.vacuumDuration,
+            radius: radius * vfx.vacuum.radiusMultiplier,
+            strength: radius * vfx.vacuum.strengthMultiplier,
+            duration: vfx.vacuum.duration,
         });
-    }, effectsConfig.c4.vacuumDelay);
+    }, vfx.vacuum.delay ?? 0);
     setTimeout(() => {
         addDisplacementSource({
             x,
             y,
-            radius: radius * effectsConfig.c4.rippleRadiusMultiplier,
-            strength: radius * effectsConfig.c4.rippleStrengthMultiplier,
-            duration: effectsConfig.c4.rippleDuration,
+            radius: radius * vfx.ripple.radiusMultiplier,
+            strength: radius * vfx.ripple.strengthMultiplier,
+            duration: vfx.ripple.duration,
         });
-    }, effectsConfig.c4.rippleDelay);
+    }, vfx.ripple.delay ?? 0);
 }
 
 // --- Camera shake ---
@@ -299,10 +301,10 @@ function spawnC4Shake(x: number, y: number, radius: number) {
     const px = p.current_position.x + HALF_HIT_BOX;
     const py = p.current_position.y + HALF_HIT_BOX;
     const dist = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
-    const maxRange = radius * effectsConfig.c4.shakeRangeFactor;
+    const maxRange = radius * vfx.shakeRangeFactor;
     if (dist >= maxRange) return;
     const falloff = 1 - dist / maxRange;
-    addCameraShake(effectsConfig.c4.shakeAmplitude * falloff, effectsConfig.c4.shakeDuration);
+    addCameraShake(vfx.shakeAmplitude * falloff, vfx.shakeDuration);
 }
 
 // --- Screen effects ---
@@ -317,7 +319,7 @@ function tryScreenEffects(x: number, y: number) {
     const dist = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
     if (dist > effectsConfig.c4.desatRange) return;
 
-    const intensity = Math.max(0.2, 1 - dist / effectsConfig.c4.desatRange);
+    const intensity = Math.max(vfx.desatMinIntensity, 1 - dist / effectsConfig.c4.desatRange);
     applyDesaturation(intensity);
 }
 
@@ -357,7 +359,7 @@ Ticker.shared.add((ticker) => {
         ring.elapsed += dt;
         const t = Math.min(1, ring.elapsed / ring.duration);
         const eased = 1 - Math.pow(1 - t, 2); // ease-out quadratic (slower than frag)
-        ring.g.scale.set(0.05 + 0.95 * eased);
+        ring.g.scale.set(vfx.ringInitialScale + (1 - vfx.ringInitialScale) * eased);
         ring.g.alpha = 1 - t;
         if (t >= 1) {
             ring.g.destroy();
@@ -402,12 +404,12 @@ Ticker.shared.add((ticker) => {
     if (emissiveBank) {
         updateBank(emissiveBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
-            bank.vx[idx] *= effectsConfig.c4.emissiveDrag;
-            bank.vy[idx] *= effectsConfig.c4.emissiveDrag;
+            bank.vx[idx] *= vfx.emissiveDrag;
+            bank.vy[idx] *= vfx.emissiveDrag;
             bank.x[idx] += bank.vx[idx];
             bank.y[idx] += bank.vy[idx];
-            bank.alpha[idx] = 1 - t;
-            bank.rotation[idx] += effectsConfig.c4.emissiveRotationSpeed;
+            bank.alpha[idx] = vfx.emissiveInitialAlpha * (1 - t);
+            bank.rotation[idx] += vfx.emissiveRotationSpeed;
             return true;
         });
     }
@@ -416,12 +418,12 @@ Ticker.shared.add((ticker) => {
     if (darkDebrisBank) {
         updateBank(darkDebrisBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
-            bank.vx[idx] *= effectsConfig.c4.darkDebrisDrag;
-            bank.vy[idx] = bank.vy[idx] * effectsConfig.c4.darkDebrisDrag + effectsConfig.c4.darkDebrisGravity;
+            bank.vx[idx] *= vfx.darkDebrisDrag;
+            bank.vy[idx] = bank.vy[idx] * vfx.darkDebrisDrag + vfx.darkDebrisGravity;
             bank.x[idx] += bank.vx[idx];
             bank.y[idx] += bank.vy[idx];
-            bank.alpha[idx] = 0.9 * (1 - t);
-            bank.rotation[idx] += effectsConfig.c4.darkDebrisRotationSpeed;
+            bank.alpha[idx] = vfx.darkDebrisInitialAlpha * (1 - t);
+            bank.rotation[idx] += vfx.darkDebrisRotationSpeed;
             return true;
         });
     }
@@ -430,14 +432,14 @@ Ticker.shared.add((ticker) => {
     if (dustBank) {
         updateBank(dustBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
-            bank.vx[idx] *= effectsConfig.c4.dustDrag;
-            bank.vy[idx] *= effectsConfig.c4.dustDrag;
-            bank.vx[idx] += (Math.random() - 0.5) * effectsConfig.c4.dustBrownian;
-            bank.vy[idx] += (Math.random() - 0.5) * effectsConfig.c4.dustBrownian;
+            bank.vx[idx] *= vfx.dustDrag;
+            bank.vy[idx] *= vfx.dustDrag;
+            bank.vx[idx] += (Math.random() - 0.5) * vfx.dustBrownian;
+            bank.vy[idx] += (Math.random() - 0.5) * vfx.dustBrownian;
             bank.x[idx] += bank.vx[idx];
             bank.y[idx] += bank.vy[idx];
-            if (t > effectsConfig.c4.dustFadeThreshold) {
-                bank.alpha[idx] = bank.alpha[idx] * (1 - (t - effectsConfig.c4.dustFadeThreshold) / (1 - effectsConfig.c4.dustFadeThreshold));
+            if (t > vfx.dustFadeThreshold) {
+                bank.alpha[idx] = bank.alpha[idx] * (1 - (t - vfx.dustFadeThreshold) / (1 - vfx.dustFadeThreshold));
             }
             return true;
         });

@@ -328,12 +328,15 @@ export class GameRoom {
         this.sim.setMap(
             mapData.walls.map((w) => ({ x: w.x, y: w.y, w: w.width, h: w.height })),
             { left: 0, right: mapData.bounds?.width ?? 3000, top: 0, bottom: mapData.bounds?.height ?? 3000 },
-            mapData.walls.flatMap((w) => [
-                { x1: w.x, y1: w.y, x2: w.x + w.width, y2: w.y },
-                { x1: w.x + w.width, y1: w.y, x2: w.x + w.width, y2: w.y + w.height },
-                { x1: w.x + w.width, y1: w.y + w.height, x2: w.x, y2: w.y + w.height },
-                { x1: w.x, y1: w.y + w.height, x2: w.x, y2: w.y },
-            ]),
+            mapData.walls.flatMap((w) => {
+                const l = w.x, r = w.x + w.width, t = w.y, b = w.y + w.height;
+                return [
+                    { x1: l, y1: t, x2: r, y2: t, minX: l, minY: t, maxX: r, maxY: t },
+                    { x1: r, y1: t, x2: r, y2: b, minX: r, minY: t, maxX: r, maxY: b },
+                    { x1: r, y1: b, x2: l, y2: b, minX: l, minY: b, maxX: r, maxY: b },
+                    { x1: l, y1: b, x2: l, y2: t, minX: l, minY: t, maxX: l, maxY: b },
+                ];
+            }),
             mapData.teamSpawns,
             mapData.patrolPoints,
         );

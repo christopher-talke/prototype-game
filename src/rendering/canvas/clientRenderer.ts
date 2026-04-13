@@ -6,7 +6,7 @@ import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerElements } from '@rendering/playerElements';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { HALF_HIT_BOX } from '../../constants';
-import { WALL_SPARK_COLOR } from './renderConstants';
+import { getWeaponVfx, DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
 import { swapRemove } from './renderUtils';
 import { Graphics as PixiGraphics, Text, Ticker } from 'pixi.js';
 import { damageNumberLayer, statusLabelLayer, explosionFxLayer } from './sceneGraph';
@@ -33,17 +33,16 @@ import { spawnSmokeCloud, clearSmokeEffects, trackBulletDirection, removeBulletD
 import { addSmokeData } from '@simulation/combat/smokeData';
 
 type DamageNumber = { text: Text; elapsed: number };
-type WallSpark = { g: PixiGraphics; elapsed: number };
+type WallSpark = { g: PixiGraphics; elapsed: number; duration: number };
 
-const WALL_SPARK_DURATION = 250;
 const activeWallSparks: WallSpark[] = [];
 
 Ticker.shared.add((ticker) => {
     for (let i = activeWallSparks.length - 1; i >= 0; i--) {
         const s = activeWallSparks[i];
         s.elapsed += ticker.deltaMS;
-        const t = Math.min(1, s.elapsed / WALL_SPARK_DURATION);
-        s.g.scale.set(0.2 + 0.8 * t);
+        const t = Math.min(1, s.elapsed / s.duration);
+        s.g.scale.set(DEFAULT_WEAPON_VFX.wallImpact.initialScale + (1 - DEFAULT_WEAPON_VFX.wallImpact.initialScale) * t);
         s.g.alpha = 1 - t;
         if (t >= 1) {
             s.g.destroy();
@@ -54,7 +53,7 @@ Ticker.shared.add((ticker) => {
 
 class PixiClientRendererImpl {
     private initialized = false;
-    private bulletGraphics = new Map<number, { graphic: PixiGraphics; poolIndex: number }>();
+    private bulletGraphics = new Map<number, { graphic: PixiGraphics; poolIndex: number; weaponType?: string }>();
     private detonatedGrenades = new Set<number>();
     private statusLabels = new Map<number, { text: Text; timer: ReturnType<typeof setTimeout> | null }>();
     private activeDamageNumbers: DamageNumber[] = [];
@@ -245,7 +244,7 @@ class PixiClientRendererImpl {
         if (acquired) {
             acquired.graphic.x = event.x;
             acquired.graphic.y = event.y;
-            this.bulletGraphics.set(event.bulletId, acquired);
+            this.bulletGraphics.set(event.bulletId, { ...acquired, weaponType: event.weaponType });
         }
     }
 
@@ -254,16 +253,17 @@ class PixiClientRendererImpl {
 
         const entry = this.bulletGraphics.get(event.bulletId);
         if (entry) {
+            const wi = getWeaponVfx(entry.weaponType).wallImpact;
             // Spawn wall-hit spark at bullet's last position
             const spark = new PixiGraphics();
-            spark.circle(0, 0, 18).fill({ color: WALL_SPARK_COLOR, alpha: 0.9 });
-            spark.circle(0, 0, 12).fill({ color: 0xffffff, alpha: 0.7 });
+            spark.circle(0, 0, wi.outerRadius).fill({ color: wi.outerColor, alpha: wi.outerAlpha });
+            spark.circle(0, 0, wi.innerRadius).fill({ color: wi.innerColor, alpha: wi.innerAlpha });
             spark.x = entry.graphic.x;
             spark.y = entry.graphic.y;
-            spark.scale.set(0.2);
-            spark.blendMode = 'add';
+            spark.scale.set(wi.initialScale);
+            spark.blendMode = wi.blendMode as any;
             explosionFxLayer.addChild(spark);
-            activeWallSparks.push({ g: spark, elapsed: 0 });
+            activeWallSparks.push({ g: spark, elapsed: 0, duration: wi.duration });
 
             releasePixiProjectile(entry.poolIndex);
             this.bulletGraphics.delete(event.bulletId);

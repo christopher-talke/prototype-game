@@ -3,6 +3,8 @@ import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getPixiCameraOffset } from './camera';
 import { swapRemove } from './renderUtils';
 import { gridConfig } from './config/gridConfig';
+import { GRENADE_VFX } from '@simulation/combat/grenades';
+import { DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
 
 // --- Types ---
 
@@ -51,6 +53,7 @@ let prevPlayerValid = false;
 let gridGfx: Graphics | null = null;
 
 let lastTimestamp = 0;
+let gridSettled = true;
 
 // --- Public API ---
 
@@ -113,6 +116,9 @@ export function updateGridDisplacement(
     applyPlayerWake(player, dt);
     applyBulletTravel(dt, projectiles);
     tickSources(dt);
+
+    if (gridSettled) return;
+
     stepPhysics(dt);
     renderGrid();
 }
@@ -125,41 +131,38 @@ export function clearGridDisplacement(): void {
     activeSources.length = 0;
     prevPlayerValid = false;
     lastTimestamp = 0;
+    gridSettled = false; // force one render pass to show cleared state
 }
 
 // --- Event handling ---
 
 function handleEvent(event: GameEvent): void {
-    // GRENADE_DETONATE displacement is now handled per-type by the effect modules
-    // (fragEffect.ts, c4Effect.ts, etc.) for distinct grid signatures.
+
     if (event.type === 'GRENADE_DETONATE') {
-        // Flash and smoke get generic displacement; frag/c4 handled by their effect modules
-        if (event.grenadeType === 'FLASH') {
+        const gvfx = GRENADE_VFX[event.grenadeType];
+        if ('gridDisplacement' in gvfx) {
+            const gd = gvfx.gridDisplacement;
             addDisplacementSource({
                 x: event.x, y: event.y,
                 radius: event.radius,
-                strength: event.radius * gridConfig.flashStrengthMultiplier,
-                duration: gridConfig.flashDuration,
-            });
-        } else if (event.grenadeType === 'SMOKE') {
-            addDisplacementSource({
-                x: event.x, y: event.y,
-                radius: event.radius,
-                strength: event.radius * gridConfig.smokeStrengthMultiplier,
-                duration: gridConfig.smokeDuration,
+                strength: event.radius * gd.strengthMultiplier,
+                duration: gd.duration,
             });
         }
-        // FRAG and C4 displacement is spawned by their respective effect modules
-    } else if (event.type === 'BULLET_HIT') {
+    } 
+    
+    else if (event.type === 'BULLET_HIT') {
         addDisplacementSource({
             x: event.x,
             y: event.y,
-            radius: gridConfig.bulletHitRadius,
-            strength: gridConfig.bulletHitStrength,
+            radius: DEFAULT_WEAPON_VFX.gridHit.radius,
+            strength: DEFAULT_WEAPON_VFX.gridHit.strength,
             duration: 0,
             direction: { dx: event.bulletDx, dy: event.bulletDy },
         });
-    } else if (event.type === 'ROUND_START') {
+    } 
+    
+    else if (event.type === 'ROUND_START') {
         clearGridDisplacement();
     }
 }
@@ -192,7 +195,7 @@ function applyPlayerWake(player: player_info, dt: number): void {
 
 function applyBulletTravel(dt: number, projectiles: readonly { id: number; x: number; y: number }[]): void {
     for (const p of projectiles) {
-        applyRadialForce(p.x, p.y, gridConfig.bulletTravelRadius, gridConfig.bulletTravelStrength, dt);
+        applyRadialForce(p.x, p.y, DEFAULT_WEAPON_VFX.gridTravel.radius, DEFAULT_WEAPON_VFX.gridTravel.strength, dt);
     }
 }
 
@@ -251,6 +254,7 @@ function applyRadialForce(sx: number, sy: number, radius: number, strength: numb
             const i = r * cols + c;
             velocityX[i] += nx * force;
             velocityY[i] += ny * force;
+            gridSettled = false;
         }
     }
 }
@@ -278,6 +282,7 @@ function applyDirectionalForce(sx: number, sy: number, radius: number, strength:
             const i = r * cols + c;
             velocityX[i] += dirX * force;
             velocityY[i] += dirY * force;
+            gridSettled = false;
         }
     }
 }
@@ -293,6 +298,7 @@ function stepPhysics(dt: number): void {
         if (s.maxDisplacement > effectiveMax) effectiveMax = s.maxDisplacement;
     }
 
+    let anyActive = false;
     for (let i = 0; i < pointCount; i++) {
         const ax = -gridConfig.springK * displaceX[i] - gridConfig.damping * velocityX[i];
         const ay = -gridConfig.springK * displaceY[i] - gridConfig.damping * velocityY[i];
@@ -317,7 +323,12 @@ function stepPhysics(dt: number): void {
             displaceY[i] = 0;
             velocityY[i] = 0;
         }
+
+        if (displaceX[i] !== 0 || velocityX[i] !== 0 || displaceY[i] !== 0 || velocityY[i] !== 0) {
+            anyActive = true;
+        }
     }
+    gridSettled = !anyActive;
 }
 
 // --- Rendering ---

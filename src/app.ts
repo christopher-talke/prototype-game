@@ -22,7 +22,7 @@ export const SETTINGS: GameSettings = {
     gameMode: 'tdm',
     renderer: loadRendererSetting(),
     raycast: {
-        type: 'MAIN_THREAD',
+        type: 'CORNERS',
     },
     audio: {
         masterVolume: 0.4,

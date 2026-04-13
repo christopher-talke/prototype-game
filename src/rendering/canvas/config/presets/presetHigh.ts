@@ -6,6 +6,7 @@ export const PRESET_HIGH: GraphicsConfig = {
     lightmapScale: 0.5,
 
     features: {
+        dynamicLighting: true,
         gridDisplacement: true,
         glowFilter: true,
         heatShimmer: true,
