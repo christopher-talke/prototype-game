@@ -12,6 +12,7 @@ export type DisplacementSourceConfig = {
     strength: number;
     duration: number;       // ms, 0 = single-frame impulse
     direction?: { dx: number; dy: number };
+    maxDisplacement?: number; // override MAX_DISPLACEMENT for this source
 };
 
 interface ActiveSource {
@@ -25,20 +26,18 @@ interface ActiveSource {
     dirX: number;
     dirY: number;
     radial: boolean;
+    maxDisplacement: number;
 }
 
 // --- Constants ---
 
-const SPACING = 64;
+const SPACING = 42;
 const SPRING_K = 18;
 const DAMPING = 9;
 const MAX_DISPLACEMENT = 28;
 const VELOCITY_EPSILON = 0.01;
 const DISPLACEMENT_EPSILON = 0.01;
 const MAX_DT = 1 / 30;
-
-const EXPLOSION_STRENGTH_SCALE = 40;
-const EXPLOSION_DURATION = 600;
 
 const BULLET_HIT_RADIUS = 90;
 const BULLET_HIT_STRENGTH = 800;
@@ -88,6 +87,7 @@ export function addDisplacementSource(config: DisplacementSourceConfig): number 
         dirX: hasDir ? config.direction!.dx : 0,
         dirY: hasDir ? config.direction!.dy : 0,
         radial: !hasDir,
+        maxDisplacement: config.maxDisplacement ?? MAX_DISPLACEMENT,
     });
     return id;
 }
@@ -149,14 +149,26 @@ export function clearGridDisplacement(): void {
 // --- Event handling ---
 
 function handleEvent(event: GameEvent): void {
+    // GRENADE_DETONATE displacement is now handled per-type by the effect modules
+    // (fragEffect.ts, c4Effect.ts, etc.) for distinct grid signatures.
     if (event.type === 'GRENADE_DETONATE') {
-        addDisplacementSource({
-            x: event.x,
-            y: event.y,
-            radius: event.radius,
-            strength: event.radius * EXPLOSION_STRENGTH_SCALE,
-            duration: EXPLOSION_DURATION,
-        });
+        // Flash and smoke get generic displacement; frag/c4 handled by their effect modules
+        if (event.grenadeType === 'FLASH') {
+            addDisplacementSource({
+                x: event.x, y: event.y,
+                radius: event.radius,
+                strength: event.radius * 10,
+                duration: 150,
+            });
+        } else if (event.grenadeType === 'SMOKE') {
+            addDisplacementSource({
+                x: event.x, y: event.y,
+                radius: event.radius,
+                strength: event.radius * 8,
+                duration: 1000,
+            });
+        }
+        // FRAG and C4 displacement is spawned by their respective effect modules
     } else if (event.type === 'BULLET_HIT') {
         addDisplacementSource({
             x: event.x,
@@ -294,6 +306,12 @@ function applyDirectionalForce(sx: number, sy: number, radius: number, strength:
 function stepPhysics(dt: number): void {
     if (!displaceX || !displaceY || !velocityX || !velocityY) return;
 
+    // Effective max is the highest among active sources (or default)
+    let effectiveMax = MAX_DISPLACEMENT;
+    for (const s of activeSources) {
+        if (s.maxDisplacement > effectiveMax) effectiveMax = s.maxDisplacement;
+    }
+
     for (let i = 0; i < pointCount; i++) {
         const ax = -SPRING_K * displaceX[i] - DAMPING * velocityX[i];
         const ay = -SPRING_K * displaceY[i] - DAMPING * velocityY[i];
@@ -304,10 +322,10 @@ function stepPhysics(dt: number): void {
         displaceY[i] += velocityY[i] * dt;
 
         // Clamp displacement
-        if (displaceX[i] > MAX_DISPLACEMENT) displaceX[i] = MAX_DISPLACEMENT;
-        else if (displaceX[i] < -MAX_DISPLACEMENT) displaceX[i] = -MAX_DISPLACEMENT;
-        if (displaceY[i] > MAX_DISPLACEMENT) displaceY[i] = MAX_DISPLACEMENT;
-        else if (displaceY[i] < -MAX_DISPLACEMENT) displaceY[i] = -MAX_DISPLACEMENT;
+        if (displaceX[i] > effectiveMax) displaceX[i] = effectiveMax;
+        else if (displaceX[i] < -effectiveMax) displaceX[i] = -effectiveMax;
+        if (displaceY[i] > effectiveMax) displaceY[i] = effectiveMax;
+        else if (displaceY[i] < -effectiveMax) displaceY[i] = -effectiveMax;
 
         // Snap to rest
         if (Math.abs(displaceX[i]) < DISPLACEMENT_EPSILON && Math.abs(velocityX[i]) < VELOCITY_EPSILON) {

@@ -60,7 +60,7 @@ let ambientLevel = lightingConfig.ambientLevel;
 let ambientColor = lightingConfig.ambientColor;
 
 // --- Light data ---
-interface LightEntry {
+export interface LightEntry {
     x: number;
     y: number;
     radius: number;
@@ -69,7 +69,7 @@ interface LightEntry {
     cr: number; cg: number; cb: number; // cached color components (0-1)
 }
 
-interface TransientLight {
+export interface TransientLight {
     id: number;
     x: number;
     y: number;
@@ -313,7 +313,7 @@ interface TransientSpot {
     dirX: number; dirY: number; cosHalf: number; cosOuter: number;
 }
 
-function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0, castShadow: boolean = false, spot?: TransientSpot): number {
+export function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0, castShadow: boolean = false, spot?: TransientSpot): number {
     const id = transientIdCounter++;
     const tl: TransientLight = {
         id, x, y, radius, color, intensity,
@@ -420,15 +420,18 @@ function handleEvent(event: GameEvent) {
             break;
         }
         case 'GRENADE_DETONATE': {
-            const isFlash = event.grenadeType === 'FLASH';
-            addTransientLight(
-                event.x, event.y,
-                isFlash ? lightingConfig.flashRadius : lightingConfig.grenadeRadius,
-                isFlash ? 0xffffff : 0xff8800,
-                isFlash ? lightingConfig.flashIntensity : lightingConfig.grenadeIntensity,
-                isFlash ? lightingConfig.flashDecay : lightingConfig.grenadeDecay,
-                true,
-            );
+            // FRAG and C4 lighting is handled by their effect modules (fragEffect.ts, c4Effect.ts)
+            // with multi-phase light profiles. Only flash gets a generic light here.
+            if (event.grenadeType === 'FLASH') {
+                addTransientLight(
+                    event.x, event.y,
+                    lightingConfig.flashRadius,
+                    0xffffff,
+                    lightingConfig.flashIntensity,
+                    lightingConfig.flashDecay,
+                    true,
+                );
+            }
             break;
         }
         case 'ROUND_START': {
@@ -473,6 +476,20 @@ export function removeLastKnownLight(key: string) {
         removeTransientLight(id);
         lastKnownLightIds.delete(key);
     }
+}
+
+// --- Read-only accessors for external systems (smoke lighting, etc.) ---
+
+export function getStaticLights(): readonly LightEntry[] {
+    return staticLights;
+}
+
+export function getTransientLights(): readonly TransientLight[] {
+    return transientLights;
+}
+
+export function getPlayerLights(): ReadonlyMap<number, LightEntry> {
+    return playerLightMap;
 }
 
 // --- Public API ---

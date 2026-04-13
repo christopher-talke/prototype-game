@@ -20,6 +20,7 @@ import { initPixiAimLine } from '@rendering/canvas/aimLineRenderer';
 import { initPlayerGlowManager } from '@rendering/canvas/playerGlowManager';
 import { initLightingSystem } from '@rendering/canvas/lightingManager';
 import { initGridDisplacement } from '@rendering/canvas/gridDisplacement';
+import { initParticleTextures } from '@rendering/canvas/particlePool';
 import '@ui/debug/lightingDebug';
 
 function nextFrame(): Promise<void> {
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initPixiFogOfWar();
     initLightingSystem();
     initGridDisplacement();
+    initParticleTextures();
     initPixiAimLine();
     
     if (SETTINGS.renderer === 'dom') {

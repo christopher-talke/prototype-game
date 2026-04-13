@@ -2,7 +2,7 @@ import { SETTINGS, saveRendererSetting } from '../app';
 import { showPixiCanvas, hidePixiCanvas } from './canvas/app';
 import { clearPixiWalls, renderPixiWalls } from './canvas/wallRenderer';
 import { setWorldBounds } from './canvas/sceneGraph';
-import { clearPixiSmokeClouds } from './canvas/smokeRenderer';
+import { clearSmokeEffects } from './canvas/effects/smokeEffect';
 import { pixiClientRenderer } from './canvas/clientRenderer';
 import { hidePixiFog } from './canvas/fogOfWar';
 import { clientRenderer } from './dom/clientRenderer';
@@ -20,7 +20,7 @@ export function switchRenderer(newType: RendererType) {
     // Tear down both renderers to clear any stale state
     pixiClientRenderer.teardownVisuals();
     clearPixiWalls();
-    clearPixiSmokeClouds();
+    clearSmokeEffects();
     hidePixiFog();
     clearLighting();
     clearGridDisplacement();

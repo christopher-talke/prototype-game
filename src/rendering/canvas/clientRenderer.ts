@@ -1,6 +1,6 @@
 import { SETTINGS } from '../../app';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
-import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent } from '@net/gameEvent';
+import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent, FlashEffectEvent } from '@net/gameEvent';
 import { ACTIVE_PLAYER, clearPlayerRegistry } from '@simulation/player/playerRegistry';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerElements } from '@rendering/playerElements';
@@ -9,8 +9,7 @@ import { HALF_HIT_BOX } from '../../constants';
 import { WALL_SPARK_COLOR } from './renderConstants';
 import { swapRemove } from './renderUtils';
 import { Graphics as PixiGraphics, Text, Ticker } from 'pixi.js';
-import { damageNumberLayer, statusLabelLayer, explosionLayer } from './sceneGraph';
-import { spawnPixiSmokeCloud } from './smokeRenderer';
+import { damageNumberLayer, statusLabelLayer, explosionFxLayer } from './sceneGraph';
 import {
     updatePixiPlayerVisuals,
     onPixiPlayerDamaged,
@@ -23,12 +22,15 @@ import {
 import { acquirePixiProjectile, releasePixiProjectile } from './projectilePool';
 import {
     onPixiGrenadeSpawn,
-    onPixiGrenadeDetonate,
     onPixiGrenadeRemoved,
     updatePixiGrenadePositions,
     clearPixiGrenades,
 } from './grenadeRenderer';
-import type { Graphics } from 'pixi.js';
+import { spawnFragExplosion, clearFragEffects } from './effects/fragEffect';
+import { spawnC4Explosion, clearC4Effects } from './effects/c4Effect';
+import { triggerFlashEffect, clearFlashEffect } from './effects/flashEffect';
+import { spawnSmokeCloud, clearSmokeEffects, trackBulletDirection, removeBulletDirection } from './effects/smokeEffect';
+import { addSmokeData } from '@simulation/combat/smokeData';
 
 type DamageNumber = { text: Text; elapsed: number };
 type WallSpark = { g: PixiGraphics; elapsed: number };
@@ -52,7 +54,7 @@ Ticker.shared.add((ticker) => {
 
 class PixiClientRendererImpl {
     private initialized = false;
-    private bulletGraphics = new Map<number, { graphic: Graphics; poolIndex: number }>();
+    private bulletGraphics = new Map<number, { graphic: PixiGraphics; poolIndex: number }>();
     private detonatedGrenades = new Set<number>();
     private statusLabels = new Map<number, { text: Text; timer: ReturnType<typeof setTimeout> | null }>();
     private activeDamageNumbers: DamageNumber[] = [];
@@ -109,6 +111,10 @@ class PixiClientRendererImpl {
         this.statusLabels.clear();
         for (const dn of this.activeDamageNumbers) dn.text.destroy();
         this.activeDamageNumbers.length = 0;
+        clearFragEffects();
+        clearC4Effects();
+        clearFlashEffect();
+        clearSmokeEffects();
     }
 
     clearPlayers() {
@@ -130,6 +136,7 @@ class PixiClientRendererImpl {
             case 'GRENADE_DETONATE': this.onGrenadeDetonate(event); break;
             case 'GRENADE_REMOVED': this.onGrenadeRemoved(event); break;
             case 'SMOKE_DEPLOY': this.onSmokeDeploy(event); break;
+            case 'FLASH_EFFECT': this.onFlashEffect(event); break;
             case 'PLAYER_STATUS_CHANGED': this.onPlayerStatusChanged(event); break;
             case 'ROUND_START': this.onRoundStart(); break;
         }
@@ -186,7 +193,14 @@ class PixiClientRendererImpl {
     }
 
     private onSmokeDeploy(event: SmokeDeployEvent) {
-        spawnPixiSmokeCloud(event.x, event.y, event.radius, event.duration);
+        spawnSmokeCloud(event.x, event.y, event.radius, event.duration);
+        addSmokeData(event.x, event.y, event.radius, event.duration);
+    }
+
+    private onFlashEffect(event: FlashEffectEvent) {
+        if (event.targetId === ACTIVE_PLAYER) {
+            triggerFlashEffect(event.intensity, event.duration);
+        }
     }
 
     private removeStatusLabel(playerId: number) {
@@ -223,6 +237,9 @@ class PixiClientRendererImpl {
     }
 
     private onBulletSpawn(event: BulletSpawnEvent) {
+        // Track bullet direction for smoke wake turbulence
+        trackBulletDirection(event.bulletId, event.dx, event.dy);
+
         if (!event.weaponType) return;
         const acquired = acquirePixiProjectile(event.weaponType);
         if (acquired) {
@@ -233,6 +250,8 @@ class PixiClientRendererImpl {
     }
 
     private onBulletRemoved(event: BulletRemovedEvent) {
+        removeBulletDirection(event.bulletId);
+
         const entry = this.bulletGraphics.get(event.bulletId);
         if (entry) {
             // Spawn wall-hit spark at bullet's last position
@@ -243,7 +262,7 @@ class PixiClientRendererImpl {
             spark.y = entry.graphic.y;
             spark.scale.set(0.2);
             spark.blendMode = 'add';
-            explosionLayer.addChild(spark);
+            explosionFxLayer.addChild(spark);
             activeWallSparks.push({ g: spark, elapsed: 0 });
 
             releasePixiProjectile(entry.poolIndex);
@@ -258,7 +277,21 @@ class PixiClientRendererImpl {
     private onGrenadeDetonate(event: GrenadeDetonateEvent) {
         if (this.detonatedGrenades.has(event.grenadeId)) return;
         this.detonatedGrenades.add(event.grenadeId);
-        onPixiGrenadeDetonate(event.grenadeId, event.grenadeType, event.x, event.y, event.radius);
+
+        // Remove the grenade sprite
+        onPixiGrenadeRemoved(event.grenadeId);
+
+        // Route to appropriate effect module
+        switch (event.grenadeType) {
+            case 'FRAG':
+                spawnFragExplosion(event.x, event.y, event.radius);
+                break;
+            case 'C4':
+                spawnC4Explosion(event.x, event.y, event.radius);
+                break;
+            // FLASH and SMOKE detonation visuals are handled by their respective events
+            // (FLASH_EFFECT and SMOKE_DEPLOY) which fire separately after GRENADE_DETONATE
+        }
     }
 
     private onGrenadeRemoved(event: GrenadeRemovedEvent) {
@@ -271,6 +304,10 @@ class PixiClientRendererImpl {
         for (const [id] of this.statusLabels) this.removeStatusLabel(id);
         for (const s of activeWallSparks) s.g.destroy();
         activeWallSparks.length = 0;
+        clearFragEffects();
+        clearC4Effects();
+        clearFlashEffect();
+        clearSmokeEffects();
     }
 }
 

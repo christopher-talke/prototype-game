@@ -12,6 +12,13 @@ let facingRad = 0;
 let cameraX = 0;
 let cameraY = 0;
 
+// --- Camera shake ---
+let shakeIntensity = 0;
+let shakeDuration = 0;
+let shakeStartTime = 0;
+let shakeX = 0;
+let shakeY = 0;
+
 export function setPixiCameraTarget(x: number, y: number) {
     targetX = x;
     targetY = y;
@@ -31,8 +38,35 @@ export function updatePixiCamera(viewportWidth: number, viewportHeight: number) 
     cameraX = targetX + currentOffsetX - viewportWidth / 2;
     cameraY = targetY + currentOffsetY - viewportHeight / 2;
 
-    worldContainer.x = Math.round(-cameraX);
-    worldContainer.y = Math.round(-cameraY);
+    // Apply shake
+    const elapsed = performance.now() - shakeStartTime;
+    if (elapsed < shakeDuration) {
+        const t = elapsed / shakeDuration;
+        const decay = 1 - t * t;
+        const mag = shakeIntensity * decay;
+        shakeX = (Math.random() - 0.5) * 2 * mag;
+        shakeY = (Math.random() - 0.5) * 2 * mag;
+    } else {
+        shakeX = 0;
+        shakeY = 0;
+    }
+
+    worldContainer.x = Math.round(-cameraX + shakeX);
+    worldContainer.y = Math.round(-cameraY + shakeY);
+}
+
+export function addCameraShake(intensity: number, duration: number) {
+    const now = performance.now();
+    const remaining = shakeDuration - (now - shakeStartTime);
+
+    if (remaining > 0) {
+        shakeIntensity = Math.max(shakeIntensity, intensity);
+        shakeDuration = Math.max(remaining, duration);
+    } else {
+        shakeIntensity = intensity;
+        shakeDuration = duration;
+    }
+    shakeStartTime = now;
 }
 
 const _cameraOffset = { x: 0, y: 0 };

@@ -1,7 +1,7 @@
 // ClientRenderer: subscribes to GameEvent stream and handles all DOM/audio side effects.
 // No state mutation happens here -- only visual/audio reactions to events.
 
-import { app } from '../../app';
+import { app, SETTINGS } from '../../app';
 import { HALF_HIT_BOX } from '../../constants';
 import '@rendering/dom/css/combat.css';
 import '@rendering/dom/css/grenade.css';
@@ -328,8 +328,11 @@ class ClientRendererImpl {
 
     private onSmokeDeploy(event: SmokeDeployEvent) {
         playSound('smoke_deploy', { x: event.x, y: event.y });
-        addSmokeData(event.x, event.y, event.radius, event.duration);
-        spawnSmokeCloud(event.x, event.y, event.radius, event.duration);
+        // Pixi handler calls addSmokeData itself; only add here for DOM mode
+        if (SETTINGS.renderer === 'dom') {
+            addSmokeData(event.x, event.y, event.radius, event.duration);
+            spawnSmokeCloud(event.x, event.y, event.radius, event.duration);
+        }
     }
 
     // -- Reload --
@@ -473,11 +476,13 @@ class ClientRendererImpl {
     }
 
     teardownVisuals() {
-        if (app) {
-            app.querySelectorAll('.wall, .player, .player-health-wrap, .player-nametag, .grenade, .projectile, .corpse-marker, .aim-line, .last-known-position, .player-status-label, .damage-number, .explosion-ring, .smoke-cloud').forEach(el => el.remove());
-        }
+        // Release active bullets back to pool (hides them) before DOM sweep
         for (const [, entry] of this.bulletElements) releaseProjectile(entry.poolIndex);
         this.bulletElements.clear();
+        if (app) {
+            // Note: .projectile is intentionally excluded -- pool elements must survive renderer switches
+            app.querySelectorAll('.wall, .player, .player-health-wrap, .player-nametag, .grenade, .corpse-marker, .aim-line, .last-known-position, .player-status-label, .damage-number, .explosion-ring, .smoke-cloud').forEach(el => el.remove());
+        }
         for (const [, el] of this.grenadeElements) el.remove();
         this.grenadeElements.clear();
         for (const { el, timer } of this.corpseMarkers) {

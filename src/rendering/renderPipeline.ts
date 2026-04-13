@@ -21,9 +21,9 @@ import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
 import { applyPixiVisibility, updatePixiLastKnown } from '@rendering/canvas/playerRenderer';
 import { updatePixiFogOfWar, hidePixiFog } from '@rendering/canvas/fogOfWar';
 import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/canvas/aimLineRenderer';
-import { updatePixiSmokeClouds } from '@rendering/canvas/smokeRenderer';
 import { updateLighting } from '@rendering/canvas/lightingManager';
 import { updateGridDisplacement } from '@rendering/canvas/gridDisplacement';
+import { updateSmokeParticles } from '@rendering/canvas/effects/smokeEffect';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -34,12 +34,12 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     if (SETTINGS.renderer === 'pixi') {
         pixiClientRenderer.updateVisuals(projectiles, grenades);
         updateGridDisplacement(player, projectiles);
+        updateSmokeParticles(timestamp, projectiles);
     } else {
         clientRenderer.updateVisuals(projectiles, grenades);
     }
     removeExpiredSmoke(timestamp);
-    updateSmokeClouds(timestamp);
-    if (SETTINGS.renderer === 'pixi') updatePixiSmokeClouds(timestamp);
+    if (SETTINGS.renderer !== 'pixi') updateSmokeClouds(timestamp);
 
     const weapon = getActiveWeapon(player);
     const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
