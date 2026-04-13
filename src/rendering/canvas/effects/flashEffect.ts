@@ -2,6 +2,9 @@ import { Graphics, Sprite, Texture, Ticker, ColorMatrixFilter } from 'pixi.js';
 import { flashLayer, worldContainer } from '../sceneGraph';
 import { getPixiCameraOffset } from '../camera';
 import { effectsConfig } from '../config/effectsConfig';
+import { GRENADE_VFX } from '@simulation/combat/grenades';
+
+const vfx = GRENADE_VFX.FLASH.screenEffect;
 
 // --- State ---
 
@@ -26,10 +29,9 @@ function createRadialGradientTexture(size: number): Texture {
     const ctx = canvas.getContext('2d')!;
     const half = size / 2;
     const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-    grad.addColorStop(0, 'rgba(255,255,255,1)');
-    grad.addColorStop(0.3, 'rgba(255,255,255,0.7)');
-    grad.addColorStop(0.6, 'rgba(255,255,255,0.3)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    for (const stop of vfx.gradientColorStops) {
+        grad.addColorStop(stop.offset, `rgba(255,255,255,${stop.alpha})`);
+    }
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, size, size);
     return Texture.from(canvas);
@@ -118,26 +120,25 @@ Ticker.shared.add((ticker) => {
         return;
     }
 
-    const fc = effectsConfig.flash;
-    if (t < fc.whitePulseEnd) {
-        const pt = t / fc.whitePulseEnd;
+    if (t < vfx.whitePulseEnd) {
+        const pt = t / vfx.whitePulseEnd;
         overlay.alpha = intensity * pt;
         gradient.alpha = 0;
     }
-    else if (t < fc.peakHoldEnd) {
+    else if (t < vfx.peakHoldEnd) {
         overlay.alpha = intensity;
         gradient.alpha = 0;
     }
-    else if (t < fc.retinalBurnEnd) {
-        const pt = (t - fc.peakHoldEnd) / (fc.retinalBurnEnd - fc.peakHoldEnd);
+    else if (t < vfx.retinalBurnEnd) {
+        const pt = (t - vfx.peakHoldEnd) / (vfx.retinalBurnEnd - vfx.peakHoldEnd);
         overlay.alpha = intensity * Math.pow(1 - pt, 2);
-        gradient.alpha = intensity * Math.pow(1 - pt, fc.retinalGradientDecayPower);
-        gradient.scale.set(1 + pt * fc.retinalGradientExpansion);
+        gradient.alpha = intensity * Math.pow(1 - pt, vfx.retinalGradientDecayPower);
+        gradient.scale.set(1 + pt * vfx.retinalGradientExpansion);
     }
-    else if (t < fc.desatPhaseEnd) {
-        const pt = (t - fc.retinalBurnEnd) / (fc.desatPhaseEnd - fc.retinalBurnEnd);
+    else if (t < vfx.desatPhaseEnd) {
+        const pt = (t - vfx.retinalBurnEnd) / (vfx.desatPhaseEnd - vfx.retinalBurnEnd);
         overlay.alpha = 0;
-        gradient.alpha = intensity * fc.desatGradientAlpha * (1 - pt);
+        gradient.alpha = intensity * vfx.desatGradientAlpha * (1 - pt);
 
         if (desatFilter) {
             if (!worldContainer.filters || worldContainer.filters.indexOf(desatFilter) === -1) {
@@ -145,16 +146,16 @@ Ticker.shared.add((ticker) => {
                     ? [...worldContainer.filters, desatFilter]
                     : [desatFilter];
             }
-            desatFilter.alpha = fc.desatPeakAlpha * intensity * (1 - pt);
+            desatFilter.alpha = vfx.desatPeakAlpha * intensity * (1 - pt);
         }
     }
     else {
-        const pt = (t - fc.desatPhaseEnd) / (1 - fc.desatPhaseEnd);
+        const pt = (t - vfx.desatPhaseEnd) / (1 - vfx.desatPhaseEnd);
         overlay.alpha = 0;
-        gradient.alpha = intensity * fc.recoveryGradientAlpha * (1 - pt);
+        gradient.alpha = intensity * vfx.recoveryGradientAlpha * (1 - pt);
 
         if (desatFilter) {
-            desatFilter.alpha = fc.recoveryDesatAlpha * intensity * (1 - pt);
+            desatFilter.alpha = vfx.recoveryDesatAlpha * intensity * (1 - pt);
         }
     }
 });

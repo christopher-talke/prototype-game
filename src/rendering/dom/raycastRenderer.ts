@@ -68,7 +68,7 @@ let adaptiveModalEl: HTMLElement | null = null;
 
 export function tickAdaptiveQuality(timestamp: number) {
     if (adaptivePromptDismissed) return;
-    if (SETTINGS.raycast.type !== 'MAIN_THREAD') return;
+    if (SETTINGS.raycast.type !== 'CORNERS') return;
 
     fpsFrameTimes.push(timestamp);
 

@@ -120,7 +120,13 @@ export class GameSimulation {
 
             const newX = p.x + p.dx * p.speed;
             const newY = p.y + p.dy * p.speed;
+            
+            const bMinX = p.x < newX ? p.x : newX;
+            const bMinY = p.y < newY ? p.y : newY;
+            const bMaxX = p.x > newX ? p.x : newX;
+            const bMaxY = p.y > newY ? p.y : newY;
             for (const seg of segments) {
+                if (seg.maxX < bMinX || seg.minX > bMaxX || seg.maxY < bMinY || seg.minY > bMaxY) continue;
                 const t = raySegmentIntersect(p.x, p.y, p.dx, p.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                 if (t !== null && t >= 0 && t <= p.speed) {
                     p.alive = false;
@@ -153,7 +159,7 @@ export class GameSimulation {
                     if (distSq < HALF_HIT_BOX * HALF_HIT_BOX) {
                         const wasAlive = !player.dead;
                         const dmgEvents = this.applyDamage(player, p.damage, p.ownerId, players);
-                        events.push(...dmgEvents);
+                        for (let j = 0; j < dmgEvents.length; j++) events.push(dmgEvents[j]);
                         const isKill = wasAlive && player.dead;
 
                         events.push({
@@ -238,7 +244,12 @@ export class GameSimulation {
                 const newY = g.y + g.dy * g.speed;
 
                 let bounced = false;
+                const gMinX = g.x < newX ? g.x : newX;
+                const gMinY = g.y < newY ? g.y : newY;
+                const gMaxX = g.x > newX ? g.x : newX;
+                const gMaxY = g.y > newY ? g.y : newY;
                 for (const seg of segments) {
+                    if (seg.maxX < gMinX || seg.minX > gMaxX || seg.maxY < gMinY || seg.minY > gMaxY) continue;
                     const t = raySegmentIntersect(g.x, g.y, g.dx, g.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                     if (t !== null && t >= 0 && t <= g.speed) {
                         const sx = seg.x2 - seg.x1;

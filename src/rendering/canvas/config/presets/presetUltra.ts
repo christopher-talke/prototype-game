@@ -6,6 +6,7 @@ export const PRESET_ULTRA: GraphicsConfig = {
     lightmapScale: 1,
 
     features: {
+        dynamicLighting: true,
         gridDisplacement: true,
         glowFilter: true,
         heatShimmer: true,

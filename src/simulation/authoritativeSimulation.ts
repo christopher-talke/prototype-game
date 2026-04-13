@@ -61,6 +61,7 @@ export class AuthoritativeSimulation {
     private players: player_info[] = [];
     private playerMap = new Map<number, player_info>();
     private teamSpawns: Record<number, coordinates[]> = {};
+    private allSpawnsFlat: coordinates[] = [];
     patrolPoints: coordinates[] = [];
 
     private weaponStates = new Map<number, PlayerWeaponState>();
@@ -87,6 +88,7 @@ export class AuthoritativeSimulation {
         this.simulation.setLimits(limits);
         this.segments = segments;
         this.teamSpawns = teamSpawns;
+        this.allSpawnsFlat = Object.values(teamSpawns).flat();
         this.patrolPoints = patrolPoints;
     }
 
@@ -589,17 +591,17 @@ export class AuthoritativeSimulation {
     tick(timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
 
-        const pushAll = (sub: GameEvent[]) => { if (sub.length > 0) events.push(...sub); };
+        const pushSub = (sub: GameEvent[]) => { for (let i = 0; i < sub.length; i++) events.push(sub[i]); };
 
-        pushAll(this.simulation.tickProjectiles(this.segments, this.players));
-        pushAll(this.simulation.tickGrenades(this.segments, this.players, timestamp));
-        pushAll(this.tickReloads(timestamp));
+        pushSub(this.simulation.tickProjectiles(this.segments, this.players));
+        pushSub(this.simulation.tickGrenades(this.segments, this.players, timestamp));
+        pushSub(this.tickReloads(timestamp));
         this.tickRecoilResets(timestamp);
 
-        pushAll(this.tickRespawns(timestamp));
-        pushAll(this.tickOOBCheck());
-        pushAll(this.tickMatchTimer());
-        pushAll(this.tickIntermission());
+        pushSub(this.tickRespawns(timestamp));
+        pushSub(this.tickOOBCheck());
+        pushSub(this.tickMatchTimer());
+        pushSub(this.tickIntermission());
 
         return this.postProcessEvents(events, timestamp);
     }
@@ -690,7 +692,7 @@ export class AuthoritativeSimulation {
             if (player.dead) continue;
             const { x, y } = player.current_position;
             if (x >= left && x <= right && y >= top && y <= bottom) continue;
-            const spawnPoints = this.teamSpawns[player.team] ?? Object.values(this.teamSpawns).flat();
+            const spawnPoints = this.teamSpawns[player.team] ?? this.allSpawnsFlat;
             const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
             const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
             player.current_position.x = pos.x;
@@ -708,7 +710,7 @@ export class AuthoritativeSimulation {
     }
 
     private respawnPlayer(player: player_info): GameEvent[] {
-        const spawnPoints = this.teamSpawns[player.team] ?? Object.values(this.teamSpawns).flat();
+        const spawnPoints = this.teamSpawns[player.team] ?? this.allSpawnsFlat;
         const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
 
         const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
@@ -791,7 +793,7 @@ export class AuthoritativeSimulation {
 
         for (const player of this.players) {
             teamCounters[player.team] = teamCounters[player.team] ?? 0;
-            const spawns = this.teamSpawns[player.team] ?? Object.values(this.teamSpawns).flat();
+            const spawns = this.teamSpawns[player.team] ?? this.allSpawnsFlat;
             const spawn = spawns[teamCounters[player.team] % spawns.length];
             teamCounters[player.team]++;
 

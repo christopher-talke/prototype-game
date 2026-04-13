@@ -138,6 +138,46 @@ function generateRiflePattern(): { x: number; y: number }[] {
     return pattern;
 }
 
+// --- VFX definitions (read only by the rendering layer) ---
+
+export const DEFAULT_WEAPON_VFX: WeaponVfx = {
+    projectile: { tint: 0xffcc00, scale: 1, baseRadius: 3, blendMode: 'add' },
+    bulletLight: { radius: 80, intensity: 2.0, color: 0xffcc00, trailAngle: 50 },
+    wallImpact: {
+        outerRadius: 18, outerColor: 0xffaa44, outerAlpha: 0.9,
+        innerRadius: 12, innerColor: 0xffffff, innerAlpha: 0.7,
+        duration: 250, initialScale: 0.2, blendMode: 'add',
+        lightRadius: 100, lightColor: 0xffaa44, lightIntensity: 2.5, lightDecay: 300,
+    },
+    deathBurst: { lightRadius: 280, lightColor: 0xff3300, lightIntensity: 3.5, lightDecay: 900 },
+    gridHit: { radius: 90, strength: 800 },
+    gridTravel: { radius: 80, strength: 1500 },
+};
+
+const WEAPON_VFX_OVERRIDES: Partial<Record<string, Partial<WeaponVfx>>> = {
+    SNIPER: {
+        projectile: { tint: 0xffffff, scale: 2, baseRadius: 3, blendMode: 'add' },
+        bulletLight: { radius: 160, intensity: 2.5, color: 0xeeeeff, trailAngle: 50 },
+    },
+    SHRAPNEL: {
+        projectile: { tint: 0xff6600, scale: 0.67, baseRadius: 3, blendMode: 'add' },
+    },
+};
+
+export function getWeaponVfx(weaponType?: string): WeaponVfx {
+    if (!weaponType) return DEFAULT_WEAPON_VFX;
+    const overrides = WEAPON_VFX_OVERRIDES[weaponType];
+    if (!overrides) return DEFAULT_WEAPON_VFX;
+    return {
+        projectile: overrides.projectile ?? DEFAULT_WEAPON_VFX.projectile,
+        bulletLight: overrides.bulletLight ?? DEFAULT_WEAPON_VFX.bulletLight,
+        wallImpact: overrides.wallImpact ?? DEFAULT_WEAPON_VFX.wallImpact,
+        deathBurst: overrides.deathBurst ?? DEFAULT_WEAPON_VFX.deathBurst,
+        gridHit: overrides.gridHit ?? DEFAULT_WEAPON_VFX.gridHit,
+        gridTravel: overrides.gridTravel ?? DEFAULT_WEAPON_VFX.gridTravel,
+    };
+}
+
 import { getConfig } from '@config/activeConfig';
 
 export function getWeaponDef(type: string): WeaponDef {

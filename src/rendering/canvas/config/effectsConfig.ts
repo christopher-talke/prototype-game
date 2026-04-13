@@ -2,14 +2,7 @@ import type { FragQuality, C4Quality, FlashQuality, SmokeQuality } from './graph
 
 export const effectsConfig = {
     frag: {
-        // Rings
-        ringCountMin: 3,
-        ringCountMax: 5,
-        ringStaggerMs: 35,
-        ringDurationMin: 300,
-        ringDurationMax: 500,
-
-        // Particles (quality-managed by GraphicsConfig)
+        // Quality-managed particle counts and capacities
         emissiveCountMin: 40,
         emissiveCountMax: 60,
         darkDebrisCountMin: 15,
@@ -17,73 +10,12 @@ export const effectsConfig = {
         emissiveBankCapacity: 256,
         darkDebrisBankCapacity: 128,
         secondarySparkBankCapacity: 128,
-        scorchFadeDuration: 8000,
         secondarySparkChance: 0.15,
         secondarySparkInterval: 3,
-
-        // Particle physics
-        emissiveSpeedMin: 4,
-        emissiveSpeedRange: 8,
-        emissiveScaleMin: 0.8,
-        emissiveScaleRange: 0.6,
-        emissiveDurationMin: 400,
-        emissiveDurationRange: 400,
-        emissiveDrag: 0.94,
-        emissiveRotationSpeed: 0.05,
-        darkDebrisSpeedMin: 3,
-        darkDebrisSpeedRange: 5,
-        darkDebrisScaleMin: 0.6,
-        darkDebrisScaleRange: 0.8,
-        darkDebrisDurationMin: 500,
-        darkDebrisDurationRange: 500,
-        darkDebrisDrag: 0.92,
-        darkDebrisGravity: 0.15,
-        darkDebrisRotationSpeed: 0.08,
-        secondarySparkScaleMin: 0.3,
-        secondarySparkScaleRange: 0.3,
-        secondarySparkDurationMin: 100,
-        secondarySparkDurationRange: 100,
-        secondarySparkDecay: 0.97,
-
-        // Scorch
-        scorchInnerRadiusFrac: 0.3,
-        scorchMiddleRadiusFrac: 0.6,
-        scorchInnerAlpha: 0.6,
-        scorchMiddleAlpha: 0.3,
-        scorchOuterAlpha: 0.1,
-
-        // Lighting
-        lightPhase1Radius: 500,
-        lightPhase1Intensity: 5.0,
-        lightPhase1Decay: 80,
-        lightPhase2Radius: 400,
-        lightPhase2Intensity: 2.5,
-        lightPhase2Decay: 220,
-        lightPhase2Delay: 80,
-
-        // Displacement
-        blastRadiusMultiplier: 2,
-        blastStrengthMultiplier: 50,
-        blastDuration: 400,
-        vacuumDelay: 200,
-        vacuumRadiusMultiplier: 1.5,
-        vacuumStrengthMultiplier: -15,
-        vacuumDuration: 300,
-
-        // Ring displacement (per-ring)
-        ringDisplacementRadiusFrac: 0.3,
-        ringDisplacementStrengthMultiplier: 12,
-
-        // Camera shake
-        shakeAmplitude: 16,
-        shakeRangeFactor: 5,
-        shakeDuration: 400,
+        scorchFadeDuration: 8000,
     },
     c4: {
-        ringCount: 2,
-        ringDuration: 700,
-        ringStaggerMs: 80,
-        ringRadiusMultiplier: 1.5,
+        // Quality-managed particle counts, capacities, and effect params
         emissiveCountMin: 80,
         emissiveCountMax: 120,
         darkDebrisCountMin: 40,
@@ -94,147 +26,24 @@ export const effectsConfig = {
         darkDebrisBankCapacity: 128,
         dustBankCapacity: 64,
         scorchFadeDuration: 10000,
-        shimmerDuration: 2500,
         shimmerTextureSize: 128,
         shimmerFilterScale: 15,
+        shimmerDuration: 2500,
         desatDuration: 1500,
         desatRange: 600,
         desatAlpha: 0.8,
-
-        // Particle physics
-        emissiveSpeedMin: 6,
-        emissiveSpeedRange: 10,
-        emissiveScaleMin: 1.0,
-        emissiveScaleRange: 0.8,
-        emissiveDurationMin: 500,
-        emissiveDurationRange: 600,
-        emissiveDrag: 0.93,
-        emissiveRotationSpeed: 0.06,
-        darkDebrisSpeedMin: 3,
-        darkDebrisSpeedRange: 6,
-        darkDebrisScaleMin: 0.8,
-        darkDebrisScaleRange: 1.0,
-        darkDebrisDurationMin: 600,
-        darkDebrisDurationRange: 600,
-        darkDebrisDrag: 0.9,
-        darkDebrisGravity: 0.18,
-        darkDebrisRotationSpeed: 0.1,
-        dustSpeedMin: 0.5,
-        dustSpeedRange: 1.5,
-        dustScaleMin: 0.3,
-        dustScaleRange: 0.4,
-        dustAlphaMin: 0.2,
-        dustAlphaRange: 0.2,
-        dustDurationMin: 3000,
-        dustDurationRange: 1000,
-        dustDrag: 0.98,
-        dustBrownian: 0.1,
-        dustFadeThreshold: 0.7,
-
-        // Scorch
-        scorchInnerRadiusFrac: 0.4,
-        scorchMiddleRadiusFrac: 0.7,
-        scorchOuterRadiusFrac: 1.2,
-        scorchInnerAlpha: 0.7,
-        scorchMiddleAlpha: 0.4,
-        scorchOuterAlpha: 0.15,
-
-        // Lighting
-        lightPhase1Radius: 600,
-        lightPhase1Intensity: 6.0,
-        lightPhase1Decay: 200,
-        lightPhase2Radius: 500,
-        lightPhase2Intensity: 2.5,
-        lightPhase2Decay: 800,
-        lightPhase2Delay: 200,
-
-        // Displacement (three phases)
-        blastRadiusMultiplier: 2.5,
-        blastStrengthMultiplier: 100,
-        blastDuration: 600,
-        blastMaxDisplacement: 42,
-        vacuumDelay: 300,
-        vacuumRadiusMultiplier: 2,
-        vacuumStrengthMultiplier: -35,
-        vacuumDuration: 400,
-        rippleDelay: 700,
-        rippleRadiusMultiplier: 1.5,
-        rippleStrengthMultiplier: 20,
-        rippleDuration: 350,
-
-        // Camera shake
-        shakeAmplitude: 32,
-        shakeRangeFactor: 6,
-        shakeDuration: 800,
     },
     flash: {
         gradientTextureSize: 256,
-        whitePulseEnd: 0.05,
-        peakHoldEnd: 0.06,
-        retinalBurnEnd: 0.4,
-        desatPhaseEnd: 0.7,
-        retinalGradientExpansion: 0.5,
-        retinalGradientDecayPower: 0.5,
-        desatPeakAlpha: 0.6,
-        desatGradientAlpha: 0.3,
-        recoveryDesatAlpha: 0.15,
-        recoveryGradientAlpha: 0.1,
     },
     smoke: {
-        expandDuration: 3000,
-        initialRadiusFrac: 0.12,
-        emitDuration: 1200,
         emitCountMin: 40,
         emitCountMax: 55,
-        sustainInterval: 400,
-        radialDrift: 0.15,
-        particleDrag: 0.94,
-        brownianStrength: 0.35,
-        centeringStrength: 0.08,
-        fadeDuration: 2000,
-        fovMinAlpha: 0.08,
-        lightSampleInterval: 3,
-        bulletWakeRadius: 60,
-        bulletSmokeStrength: 3.0,
         bankCapacity: 256,
-        rotationDrift: 0.003,
-        wallBounceCoefficient: 0.3,
-        lightTintBase: 0.5,
-        lightTintScale: 0.8,
-        initialVelocityRange: 0.5,
-        maxRadiusFracBase: 0.7,
-        maxRadiusFracRange: 0.6,
-        boundaryOvershootBounce: 0.3,
-        distanceFadeFactor: 0.3,
+        lightSampleInterval: 3,
         layerCount: 3 as 1 | 3,
     },
 };
-
-// --- Smoke layer visual presets (design constants, not quality-managed) ------
-// Quality controls layerCount (1 vs 3); these define the visual params per layer.
-
-export interface SmokeLayerParams {
-    alphaMin: number;
-    alphaMax: number;
-    scaleMin: number;
-    scaleMax: number;
-    tint: number;
-    radiusFrac: number;
-}
-
-export const SMOKE_LAYERS_3: readonly SmokeLayerParams[] = [
-    { alphaMin: 0.5, alphaMax: 0.7, scaleMin: 1.8, scaleMax: 2.4, tint: 0x445566, radiusFrac: 0.4 },
-    { alphaMin: 0.3, alphaMax: 0.5, scaleMin: 1.2, scaleMax: 1.8, tint: 0x667788, radiusFrac: 0.7 },
-    { alphaMin: 0.15, alphaMax: 0.3, scaleMin: 0.7, scaleMax: 1.2, tint: 0x8899aa, radiusFrac: 1.0 },
-];
-export const SMOKE_LAYER_WEIGHTS_3: readonly number[] = [0.3, 0.4, 0.3];
-export const SMOKE_LAYER_FADE_OFFSETS_3: readonly number[] = [1000, 1500, 2000];
-
-export const SMOKE_LAYERS_1: readonly SmokeLayerParams[] = [
-    { alphaMin: 0.3, alphaMax: 0.5, scaleMin: 1.2, scaleMax: 1.8, tint: 0x667788, radiusFrac: 1.0 },
-];
-export const SMOKE_LAYER_WEIGHTS_1: readonly number[] = [1];
-export const SMOKE_LAYER_FADE_OFFSETS_1: readonly number[] = [1500];
 
 // Compile-time enforcement: each section must include all quality-managed fields.
 // If a field is added to a quality sub-interface but missing here, this errors.

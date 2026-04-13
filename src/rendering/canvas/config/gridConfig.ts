@@ -10,20 +10,10 @@ export const gridConfig = {
     velocityEpsilon: 0.01,
     displacementEpsilon: 0.01,
     maxDt: 1 / 30,
-    bulletHitRadius: 90,
-    bulletHitStrength: 800,
-    bulletTravelRadius: 80,
-    bulletTravelStrength: 1500,
     playerWakeRadius: 100,
     playerWakeStrength: 200,
     playerSpeedThreshold: 0.5,
     playerSpeedDivisor: 200,
-
-    // Grenade-specific (generic handler in gridDisplacement)
-    flashStrengthMultiplier: 10,
-    flashDuration: 150,
-    smokeStrengthMultiplier: 8,
-    smokeDuration: 1000,
 
     // Grid rendering (quality-managed by GraphicsConfig)
     dotBaseAlpha: 0.1,

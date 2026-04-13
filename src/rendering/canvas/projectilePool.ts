@@ -1,7 +1,8 @@
 import { Graphics } from 'pixi.js';
 import { projectileLayer } from './sceneGraph';
-import { BULLET_COLOR } from './renderConstants';
 import { getGraphicsConfig } from './config/graphicsConfig';
+import { getWeaponVfx, DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
+
 const poolGraphics: Graphics[] = [];
 const freeStack: number[] = [];
 
@@ -9,9 +10,9 @@ function allocateGraphics(count: number) {
     const start = poolGraphics.length;
     for (let i = 0; i < count; i++) {
         const g = new Graphics();
-        g.circle(0, 0, 3).fill(0xffffff);
+        g.circle(0, 0, DEFAULT_WEAPON_VFX.projectile.baseRadius).fill(0xffffff);
         g.visible = false;
-        g.blendMode = 'add';
+        g.blendMode = DEFAULT_WEAPON_VFX.projectile.blendMode as any;
         g.cullable = true;
         projectileLayer.addChild(g);
         poolGraphics.push(g);
@@ -34,16 +35,9 @@ export function acquirePixiProjectile(weaponType?: string): { graphic: Graphics;
     const poolIndex = freeStack.pop()!;
     const graphic = poolGraphics[poolIndex];
     graphic.visible = true;
-    if (weaponType === 'SNIPER') {
-        graphic.tint = 0xffffff;
-        graphic.scale.set(2);
-    } else if (weaponType === 'SHRAPNEL') {
-        graphic.tint = 0xff6600;
-        graphic.scale.set(0.67);
-    } else {
-        graphic.tint = BULLET_COLOR;
-        graphic.scale.set(1);
-    }
+    const wvfx = getWeaponVfx(weaponType);
+    graphic.tint = wvfx.projectile.tint;
+    graphic.scale.set(wvfx.projectile.scale);
     return { graphic, poolIndex };
 }
 

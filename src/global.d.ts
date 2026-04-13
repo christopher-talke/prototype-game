@@ -10,7 +10,7 @@ declare global {
         gameMode: GameMode;
         renderer: RendererType;
         raycast: {
-            type: 'MAIN_THREAD' | 'DISABLED' | 'SPRAY';
+            type: 'CORNERS' | 'DISABLED' | 'SPRAY';
         };
         audio: {
             masterVolume: number;
@@ -113,6 +113,304 @@ declare global {
 
     type GrenadeType = 'FRAG' | 'FLASH' | 'SMOKE' | 'C4';
 
+    // --- Grenade VFX types ---
+
+    type GrenadeSpriteVfx = {
+        color: number;
+        radius: number;
+        fillAlpha: number;
+        strokeColor: number;
+        strokeWidth: number;
+        strokeAlpha: number;
+    };
+
+    type GrenadeGridDisplacementVfx = {
+        strengthMultiplier: number;
+        duration: number;
+    };
+
+    type GrenadeLightVfx = {
+        radius: number;
+        color: number;
+        intensity: number;
+        decay: number;
+    };
+
+    type LightPhaseVfx = {
+        radius: number;
+        color: number;
+        intensity: number;
+        decay: number;
+        delay?: number;
+    };
+
+    type DisplacementPhaseVfx = {
+        delay?: number;
+        radiusMultiplier: number;
+        strengthMultiplier: number;
+        duration: number;
+        maxDisplacement?: number;
+    };
+
+    type FragVfx = {
+        sprite: GrenadeSpriteVfx;
+        explosion: {
+            ringCountMin: number;
+            ringCountMax: number;
+            ringStaggerMs: number;
+            ringDurationMin: number;
+            ringDurationMax: number;
+            ringStrokeWidthMin: number;
+            ringStrokeWidthRange: number;
+            ringColors: readonly number[];
+            ringInitialScale: number;
+            ringBlendMode: string;
+            ringDisplacementRadiusFrac: number;
+            ringDisplacementStrengthMultiplier: number;
+
+            emissiveSpeedMin: number;
+            emissiveSpeedRange: number;
+            emissiveScaleMin: number;
+            emissiveScaleRange: number;
+            emissiveDurationMin: number;
+            emissiveDurationRange: number;
+            emissiveDrag: number;
+            emissiveRotationSpeed: number;
+            emissiveTints: readonly number[];
+            emissiveBlendMode: string;
+            emissiveInitialAlpha: number;
+
+            darkDebrisSpeedMin: number;
+            darkDebrisSpeedRange: number;
+            darkDebrisScaleMin: number;
+            darkDebrisScaleRange: number;
+            darkDebrisDurationMin: number;
+            darkDebrisDurationRange: number;
+            darkDebrisDrag: number;
+            darkDebrisGravity: number;
+            darkDebrisRotationSpeed: number;
+            darkDebrisTints: readonly number[];
+            darkDebrisInitialAlpha: number;
+
+            secondarySparkScaleMin: number;
+            secondarySparkScaleRange: number;
+            secondarySparkDurationMin: number;
+            secondarySparkDurationRange: number;
+            secondarySparkDecay: number;
+            secondarySparkTint: number;
+            secondarySparkInitialAlpha: number;
+
+            scorchInnerRadiusFrac: number;
+            scorchMiddleRadiusFrac: number;
+            scorchInnerAlpha: number;
+            scorchMiddleAlpha: number;
+            scorchOuterAlpha: number;
+            scorchColor: number;
+
+            lightPhase1: LightPhaseVfx;
+            lightPhase2: LightPhaseVfx;
+
+            blast: DisplacementPhaseVfx;
+            vacuum: DisplacementPhaseVfx;
+
+            shakeAmplitude: number;
+            shakeRangeFactor: number;
+            shakeDuration: number;
+        };
+    };
+
+    type C4Vfx = {
+        sprite: GrenadeSpriteVfx;
+        explosion: {
+            ringCount: number;
+            ringDuration: number;
+            ringDurationRange: number;
+            ringStaggerMs: number;
+            ringRadiusMultiplier: number;
+            ringStrokeWidthMin: number;
+            ringStrokeWidthRange: number;
+            ringColors: readonly number[];
+            ringInitialScale: number;
+            ringBlendMode: string;
+
+            emissiveSpeedMin: number;
+            emissiveSpeedRange: number;
+            emissiveScaleMin: number;
+            emissiveScaleRange: number;
+            emissiveDurationMin: number;
+            emissiveDurationRange: number;
+            emissiveDrag: number;
+            emissiveRotationSpeed: number;
+            emissiveTints: readonly number[];
+            emissiveBlendMode: string;
+            emissiveInitialAlpha: number;
+
+            darkDebrisSpeedMin: number;
+            darkDebrisSpeedRange: number;
+            darkDebrisScaleMin: number;
+            darkDebrisScaleRange: number;
+            darkDebrisDurationMin: number;
+            darkDebrisDurationRange: number;
+            darkDebrisDrag: number;
+            darkDebrisGravity: number;
+            darkDebrisRotationSpeed: number;
+            darkDebrisTints: readonly number[];
+            darkDebrisInitialAlpha: number;
+
+            dustSpeedMin: number;
+            dustSpeedRange: number;
+            dustScaleMin: number;
+            dustScaleRange: number;
+            dustAlphaMin: number;
+            dustAlphaRange: number;
+            dustDurationMin: number;
+            dustDurationRange: number;
+            dustDrag: number;
+            dustBrownian: number;
+            dustFadeThreshold: number;
+            dustTint: number;
+
+            scorchInnerRadiusFrac: number;
+            scorchMiddleRadiusFrac: number;
+            scorchOuterRadiusFrac: number;
+            scorchInnerAlpha: number;
+            scorchMiddleAlpha: number;
+            scorchOuterAlpha: number;
+            scorchInnerColor: number;
+            scorchOuterColor: number;
+
+            desatMinIntensity: number;
+
+            lightPhase1: LightPhaseVfx;
+            lightPhase2: LightPhaseVfx;
+
+            blast: DisplacementPhaseVfx;
+            vacuum: DisplacementPhaseVfx;
+            ripple: DisplacementPhaseVfx;
+
+            shakeAmplitude: number;
+            shakeRangeFactor: number;
+            shakeDuration: number;
+        };
+    };
+
+    type FlashVfx = {
+        sprite: GrenadeSpriteVfx;
+        screenEffect: {
+            whitePulseEnd: number;
+            peakHoldEnd: number;
+            retinalBurnEnd: number;
+            desatPhaseEnd: number;
+            retinalGradientExpansion: number;
+            retinalGradientDecayPower: number;
+            desatPeakAlpha: number;
+            desatGradientAlpha: number;
+            recoveryDesatAlpha: number;
+            recoveryGradientAlpha: number;
+            gradientColorStops: readonly { offset: number; alpha: number }[];
+        };
+        light: GrenadeLightVfx;
+        gridDisplacement: GrenadeGridDisplacementVfx;
+    };
+
+    type SmokeLayerVfx = {
+        alphaMin: number;
+        alphaMax: number;
+        scaleMin: number;
+        scaleMax: number;
+        tint: number;
+        radiusFrac: number;
+    };
+
+    type SmokeVfx = {
+        sprite: GrenadeSpriteVfx;
+        cloud: {
+            expandDuration: number;
+            initialRadiusFrac: number;
+            emitDuration: number;
+            sustainInterval: number;
+            radialDrift: number;
+            particleDrag: number;
+            brownianStrength: number;
+            centeringStrength: number;
+            fadeDuration: number;
+            fovMinAlpha: number;
+            bulletWakeRadius: number;
+            bulletSmokeStrength: number;
+            rotationDrift: number;
+            wallBounceCoefficient: number;
+            lightTintBase: number;
+            lightTintScale: number;
+            initialVelocityRange: number;
+            maxRadiusFracBase: number;
+            maxRadiusFracRange: number;
+            boundaryOvershootBounce: number;
+            distanceFadeFactor: number;
+            layers3: readonly SmokeLayerVfx[];
+            layerWeights3: readonly number[];
+            layerFadeOffsets3: readonly number[];
+            layers1: readonly SmokeLayerVfx[];
+            layerWeights1: readonly number[];
+            layerFadeOffsets1: readonly number[];
+        };
+        gridDisplacement: GrenadeGridDisplacementVfx;
+    };
+
+    type GrenadeVfxMap = {
+        FRAG: FragVfx;
+        C4: C4Vfx;
+        FLASH: FlashVfx;
+        SMOKE: SmokeVfx;
+    };
+
+    // --- Weapon VFX types ---
+
+    type ProjectileVfx = {
+        tint: number;
+        scale: number;
+        baseRadius: number;
+        blendMode: string;
+    };
+
+    type BulletLightVfx = {
+        radius: number;
+        intensity: number;
+        color: number;
+        trailAngle: number;
+    };
+
+    type WallImpactVfx = {
+        outerRadius: number;
+        outerColor: number;
+        outerAlpha: number;
+        innerRadius: number;
+        innerColor: number;
+        innerAlpha: number;
+        duration: number;
+        initialScale: number;
+        blendMode: string;
+        lightRadius: number;
+        lightColor: number;
+        lightIntensity: number;
+        lightDecay: number;
+    };
+
+    type DeathBurstVfx = {
+        lightRadius: number;
+        lightColor: number;
+        lightIntensity: number;
+        lightDecay: number;
+    };
+
+    type WeaponVfx = {
+        projectile: ProjectileVfx;
+        bulletLight: BulletLightVfx;
+        wallImpact: WallImpactVfx;
+        deathBurst: DeathBurstVfx;
+        gridHit: { radius: number; strength: number };
+        gridTravel: { radius: number; strength: number };
+    };
+
     type GrenadeDef = {
         id: GrenadeType;
         name: string;
@@ -185,6 +483,11 @@ declare global {
         y1: number;
         x2: number;
         y2: number;
+        // Pre-computed AABB for broad-phase culling
+        minX: number;
+        minY: number;
+        maxX: number;
+        maxY: number;
     };
 
     type Corner = {

@@ -7,6 +7,7 @@ import { TEAM_COLORS } from './teamColors';
 import { CRITICAL_HEALTH_COLOR } from './renderConstants';
 import { glowConfig } from './config/glowConfig';
 import { getGraphicsConfig } from './config/graphicsConfig';
+import { getPixiCameraOffset } from './camera';
 
 interface GlowState {
     filter: GlowFilter;
@@ -94,26 +95,65 @@ function handleEvent(event: GameEvent) {
 }
 
 function tick(dt: number) {
+    const cam = getPixiCameraOffset();
+    const vpW = window.visualViewport?.width ?? window.innerWidth;
+    const vpH = window.visualViewport?.height ?? window.innerHeight;
+    const glowMargin = glowConfig.distance + 50; // glow extends beyond sprite
+
     for (const [playerId, state] of glowStates) {
+        const container = getPixiPlayerContainer(playerId);
+        if (container) {
+            const isAnimating = (
+                state.deathDrainRemaining > 0 || 
+                state.respawnFadeRemaining > 0 || 
+                state.damageSpikeRemaining > 0
+            );
+
+            if (!isAnimating) {
+                const info = getPlayerInfo(playerId);
+                if (info) {
+                    const px = info.current_position.x;
+                    const py = info.current_position.y;
+                    const onScreen = px >= cam.x - glowMargin && px <= cam.x + vpW + glowMargin
+                        && py >= cam.y - glowMargin && py <= cam.y + vpH + glowMargin;
+                    if (!onScreen) {
+                        if (container.filters) container.filters = null;
+                        continue;
+                    }
+                }
+            }
+
+            if (!container.filters || container.filters.length === 0) {
+                container.filters = [state.filter];
+            }
+        }
+
         if (state.deathDrainRemaining > 0) {
+
             state.deathDrainRemaining -= dt;
             if (state.deathDrainRemaining <= 0) {
                 state.filter.outerStrength = 0;
                 state.deathDrainRemaining = 0;
-            } else {
+            } 
+            
+            else {
                 const t = 1 - state.deathDrainRemaining / glowConfig.deathDrainMs;
                 state.filter.outerStrength = state.deathDrainStart * (1 - t);
             }
+
             continue;
         }
 
         if (state.respawnFadeRemaining > 0) {
+
             state.respawnFadeRemaining -= dt;
             if (state.respawnFadeRemaining <= 0) {
                 state.filter.outerStrength = glowConfig.normalStrength;
                 state.filter.color = getTeamColor(state.team);
                 state.respawnFadeRemaining = 0;
-            } else {
+            } 
+            
+            else {
                 const t = 1 - state.respawnFadeRemaining / glowConfig.respawnFadeMs;
                 state.filter.outerStrength = glowConfig.normalStrength * t;
                 state.filter.color = getTeamColor(state.team);
@@ -122,11 +162,13 @@ function tick(dt: number) {
         }
 
         if (state.damageSpikeRemaining > 0) {
+
             state.damageSpikeRemaining -= dt;
             if (state.damageSpikeRemaining <= 0) {
                 state.damageSpikeRemaining = 0;
-                // Fall through to normal/low-health below
-            } else {
+            } 
+            
+            else {
                 const t = state.damageSpikeRemaining / glowConfig.spikeDecayMs;
                 const eased = t * t; // ease-out: fast decay then slow
                 const base = baseStrengthForHealth(state.lastKnownHealth, state.team);
@@ -145,12 +187,16 @@ function tick(dt: number) {
             const pulse = 0.5 + 0.5 * Math.sin(state.lowHealthPulsePhase);
             state.filter.outerStrength = 0.6 + 1.4 * pulse;
             state.filter.color = CRITICAL_HEALTH_COLOR;
-        } else if (hp < glowConfig.lowHpThreshold) {
+        } 
+        
+        else if (hp < glowConfig.lowHpThreshold) {
             const redFactor = 1 - hp / glowConfig.lowHpThreshold;
             state.filter.outerStrength = glowConfig.normalStrength + 0.5 * redFactor;
             state.filter.color = lerpColor(getTeamColor(state.team), CRITICAL_HEALTH_COLOR, redFactor);
             state.lowHealthPulsePhase = 0;
-        } else {
+        } 
+        
+        else {
             state.filter.outerStrength = glowConfig.normalStrength;
             state.filter.color = getTeamColor(state.team);
             state.lowHealthPulsePhase = 0;

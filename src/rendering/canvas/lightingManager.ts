@@ -7,9 +7,11 @@ import { getVisibleEnemies, getVisibleTeammates } from './playerRenderer';
 import { getPixiApp } from './app';
 import { environment } from '@simulation/environment/environment';
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
-import { BULLET_COLOR, WALL_SPARK_COLOR, LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
+import { LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
 import { swapRemove } from './renderUtils';
 import { lightingConfig } from './config/lightingConfig';
+import { getWeaponVfx, DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
+import { GRENADE_VFX } from '@simulation/combat/grenades';
 
 // --- Ambient state ---
 let ambientLevel = lightingConfig.ambientLevel;
@@ -61,6 +63,7 @@ let meshContainer: Container | null = null;
 let lightmapRT: RenderTexture | null = null;
 let lightmapSprite: Sprite | null = null;
 let initialized = false;
+let lightsDirty = true;
 
 // --- Color helpers ---
 function hexToRGB(hex: number): [number, number, number] {
@@ -144,7 +147,7 @@ function uploadLightUniforms() {
     u.uLightCount = idx;
 
     // Ambient color (re-read from config each frame for live tuning)
-    const [ar, ag, ab] = computeAmbientRGB(lightingConfig.ambientLevel, ambientColor);
+    const [ar, ag, ab] = computeAmbientRGB(ambientLevel, ambientColor);
     const ambArr = u.uAmbientColor as Float32Array;
     ambArr[0] = ar;
     ambArr[1] = ag;
@@ -185,13 +188,12 @@ function updatePlayerLights() {
 
     for (const player of players) {
         if (player.dead) {
-            playerLightMap.delete(player.id);
+            if (playerLightMap.delete(player.id)) lightsDirty = true;
             continue;
         }
 
-        // Only emit lights for local team + visible enemies
         if (localTeam != null && player.team !== localTeam && !getVisibleEnemies().has(player.id)) {
-            playerLightMap.delete(player.id);
+            if (playerLightMap.delete(player.id)) lightsDirty = true;
             continue;
         }
 
@@ -218,33 +220,56 @@ function updatePlayerLights() {
                 cr: 1, cg: 1, cb: 1, // white
             };
             playerLightMap.set(player.id, light);
-        } else {
+            lightsDirty = true;
+        } 
+        
+        else if (light.x !== px || light.y !== py || light.radius !== radius || light.intensity !== intensity) {
             light.x = px;
             light.y = py;
             light.radius = radius;
             light.intensity = intensity;
+            lightsDirty = true;
         }
     }
 
     for (const [id] of playerLightMap) {
-        if (!_seenPlayers.has(id)) playerLightMap.delete(id);
+        if (!_seenPlayers.has(id)) {
+            playerLightMap.delete(id);
+            lightsDirty = true;
+        }
     }
 }
 
 // --- FOV spotlight ---
 const DEG_TO_RAD = Math.PI / 180;
 let fovSpotlight: { light: LightEntry; dirX: number; dirY: number; cosHalf: number; cosOuter: number } | null = null;
+let prevFovX = 0, prevFovY = 0, prevFovDirX = 0, prevFovDirY = 0;
+let prevFovActive = false;
 
 function updateFOVSpotlight() {
-    if (ACTIVE_PLAYER == null) { fovSpotlight = null; return; }
+    if (ACTIVE_PLAYER == null) {
+        if (prevFovActive) { lightsDirty = true; prevFovActive = false; }
+        fovSpotlight = null;
+        return;
+    }
     const p = getPlayerInfo(ACTIVE_PLAYER);
-    if (!p || p.dead) { fovSpotlight = null; return; }
+    if (!p || p.dead) {
+        if (prevFovActive) { lightsDirty = true; prevFovActive = false; }
+        fovSpotlight = null;
+        return;
+    }
 
     const cx = p.current_position.x + HALF_HIT_BOX;
     const cy = p.current_position.y + HALF_HIT_BOX;
     const facingRad = (p.current_position.rotation - ROTATION_OFFSET) * DEG_TO_RAD;
     const dirX = Math.cos(facingRad);
     const dirY = Math.sin(facingRad);
+
+    if (!prevFovActive || cx !== prevFovX || cy !== prevFovY || dirX !== prevFovDirX || dirY !== prevFovDirY) {
+        lightsDirty = true;
+        prevFovX = cx; prevFovY = cy; prevFovDirX = dirX; prevFovDirY = dirY;
+    }
+    prevFovActive = true;
 
     const halfFovRad = FOV * DEG_TO_RAD;
     const cosHalf = Math.cos(halfFovRad);
@@ -281,12 +306,16 @@ export function addTransientLight(x: number, y: number, radius: number, color: n
     setRGB(tl, color);
     transientLights.push(tl);
     transientLightById.set(id, tl);
+    lightsDirty = true;
     return id;
 }
 
 function removeTransientLight(id: number) {
     const idx = transientLights.findIndex(t => t.id === id);
-    if (idx !== -1) swapRemove(transientLights, idx);
+    if (idx !== -1) {
+        swapRemove(transientLights, idx);
+        lightsDirty = true;
+    }
     transientLightById.delete(id);
 }
 
@@ -294,6 +323,7 @@ function updateTransientDecay(dt: number) {
     for (let i = transientLights.length - 1; i >= 0; i--) {
         const tl = transientLights[i];
         if (tl.decayMs <= 0) continue;
+        lightsDirty = true; // intensity changes each frame while decaying
         tl.elapsed += dt;
         if (tl.elapsed >= tl.decayMs) {
             transientLightById.delete(tl.id);
@@ -303,14 +333,14 @@ function updateTransientDecay(dt: number) {
 }
 
 // --- Bullet tracking ---
-interface BulletLightEntry { lightId: number; dx: number; dy: number }
+interface BulletLightEntry { lightId: number; dx: number; dy: number; weaponType?: string }
 const bulletLights = new Map<number, BulletLightEntry>();
 
-function bulletTrailSpot(dx: number, dy: number): TransientSpot {
+function bulletTrailSpot(dx: number, dy: number, trailAngle = DEFAULT_WEAPON_VFX.bulletLight.trailAngle): TransientSpot {
     // Cone points BACKWARD (opposite travel direction)
-    const halfRad = lightingConfig.bulletTrailAngle * DEG_TO_RAD;
+    const halfRad = trailAngle * DEG_TO_RAD;
     const cosHalf = Math.cos(halfRad);
-    const cosOuter = Math.cos((lightingConfig.bulletTrailAngle + 15) * DEG_TO_RAD);
+    const cosOuter = Math.cos((trailAngle + 15) * DEG_TO_RAD);
     return { dirX: -dx, dirY: -dy, cosHalf, cosOuter };
 }
 
@@ -319,30 +349,32 @@ function handleEvent(event: GameEvent) {
 
     switch (event.type) {
         case 'BULLET_SPAWN': {
-            const isSniper = event.weaponType === 'SNIPER';
+            const wvfx = getWeaponVfx(event.weaponType);
             const spot = bulletTrailSpot(event.dx, event.dy);
             const lightId = addTransientLight(
                 event.x, event.y,
-                isSniper ? lightingConfig.bulletSniperRadius : lightingConfig.bulletRadius,
-                isSniper ? 0xeeeeff : BULLET_COLOR,
-                isSniper ? lightingConfig.bulletSniperIntensity : lightingConfig.bulletIntensity,
+                wvfx.bulletLight.radius,
+                wvfx.bulletLight.color,
+                wvfx.bulletLight.intensity,
                 0, true, spot,
             );
-            bulletLights.set(event.bulletId, { lightId, dx: event.dx, dy: event.dy });
+            bulletLights.set(event.bulletId, { lightId, dx: event.dx, dy: event.dy, weaponType: event.weaponType });
             break;
         }
+        
         case 'BULLET_REMOVED': {
             const entry = bulletLights.get(event.bulletId);
             if (entry) {
                 // Grab position before removing
                 const tl = transientLights.find(t => t.id === entry.lightId);
                 if (tl) {
+                    const wvfx = getWeaponVfx(entry.weaponType);
                     // Wall-hit burst at impact point
                     addTransientLight(
                         tl.x, tl.y,
-                        lightingConfig.wallHitRadius,
-                        WALL_SPARK_COLOR, lightingConfig.wallHitIntensity,
-                        lightingConfig.wallHitDecay, true,
+                        wvfx.wallImpact.lightRadius,
+                        wvfx.wallImpact.lightColor, wvfx.wallImpact.lightIntensity,
+                        wvfx.wallImpact.lightDecay, true,
                     );
                 }
                 removeTransientLight(entry.lightId);
@@ -350,41 +382,45 @@ function handleEvent(event: GameEvent) {
             }
             break;
         }
+
         case 'BULLET_HIT': {
             if (event.isKill) {
-                // Death burst
+                const db = DEFAULT_WEAPON_VFX.deathBurst;
                 addTransientLight(
                     event.x, event.y,
-                    lightingConfig.deathBurstRadius,
-                    0xff3300, lightingConfig.deathBurstIntensity,
-                    lightingConfig.deathBurstDecay, true,
+                    db.lightRadius,
+                    db.lightColor, db.lightIntensity,
+                    db.lightDecay, true,
                 );
             }
             break;
         }
+
         case 'PLAYER_KILLED': {
             const victim = getPlayerInfo(event.targetId);
             if (victim) {
+                const db = DEFAULT_WEAPON_VFX.deathBurst;
                 addTransientLight(
                     victim.current_position.x + HALF_HIT_BOX,
                     victim.current_position.y + HALF_HIT_BOX,
-                    lightingConfig.deathBurstRadius,
-                    0xff3300, lightingConfig.deathBurstIntensity,
-                    lightingConfig.deathBurstDecay, true,
+                    db.lightRadius,
+                    db.lightColor, db.lightIntensity,
+                    db.lightDecay, true,
                 );
             }
             break;
         }
+
         case 'GRENADE_DETONATE': {
-            // FRAG and C4 lighting is handled by their effect modules (fragEffect.ts, c4Effect.ts)
-            // with multi-phase light profiles. Only flash gets a generic light here.
-            if (event.grenadeType === 'FLASH') {
+            const flashVfx = GRENADE_VFX[event.grenadeType];
+            if ('light' in flashVfx) {
+                const lt = flashVfx.light;
                 addTransientLight(
                     event.x, event.y,
-                    lightingConfig.flashRadius,
-                    0xffffff,
-                    lightingConfig.flashIntensity,
-                    lightingConfig.flashDecay,
+                    lt.radius,
+                    lt.color,
+                    lt.intensity,
+                    lt.decay,
                     true,
                 );
             }
@@ -403,9 +439,10 @@ function syncBulletLightPositions(projectiles: readonly { id: number; x: number;
         const entry = bulletLights.get(p.id);
         if (!entry) continue;
         const tl = transientLightById.get(entry.lightId);
-        if (tl) {
+        if (tl && (tl.x !== p.x || tl.y !== p.y)) {
             tl.x = p.x;
             tl.y = p.y;
+            lightsDirty = true;
         }
     }
 }
@@ -511,6 +548,14 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
     lightingLayer.addChild(lightmapSprite);
 
     initialized = true;
+    lightsDirty = true;
+
+    // Render initial static lightmap (needed when dynamicLighting is off)
+    uploadLightUniforms();
+    const app = getPixiApp();
+    if (app && meshContainer && lightmapRT) {
+        app.renderer.render({ container: meshContainer, target: lightmapRT, clear: true });
+    }
 }
 
 export function updateLighting(projectiles: readonly { id: number; x: number; y: number }[] = []) {
@@ -522,6 +567,9 @@ export function updateLighting(projectiles: readonly { id: number; x: number; y:
     updateFOVSpotlight();
     updateTransientDecay(dt);
     syncBulletLightPositions(projectiles);
+
+    if (!lightsDirty) return;
+    lightsDirty = false;
 
     // Upload light data to shader uniforms
     uploadLightUniforms();
@@ -542,6 +590,7 @@ function clearDynamicLights() {
     transientLights.length = 0;
     bulletLights.clear();
     lastKnownLightIds.clear();
+    lightsDirty = true;
 }
 
 export function clearLighting() {
