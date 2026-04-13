@@ -1,8 +1,7 @@
 import { Sprite, Texture, Container } from 'pixi.js';
+import { particleConfig } from './config/particleConfig';
 
 // --- Texture generation ---
-
-const TEXTURE_SIZE = 64;
 
 function generateSoftCircle(size: number, falloff: number = 2.0): Texture {
     const canvas = document.createElement('canvas');
@@ -92,12 +91,12 @@ export let texSoftBlob: Texture;
 export let texSoftCircleLarge: Texture;
 
 export function initParticleTextures() {
-    texSoftCircle = generateSoftCircle(TEXTURE_SIZE);
-    texHardDot = generateHardDot(16);
-    texShard = generateShard(24);
-    texStreak = generateStreak(32, 6);
-    texSoftBlob = generateSoftBlob(TEXTURE_SIZE);
-    texSoftCircleLarge = generateSoftCircle(128, 1.5);
+    texSoftCircle = generateSoftCircle(particleConfig.textureSize);
+    texHardDot = generateHardDot(particleConfig.hardDotSize);
+    texShard = generateShard(particleConfig.shardSize);
+    texStreak = generateStreak(particleConfig.streakWidth, particleConfig.streakHeight);
+    texSoftBlob = generateSoftBlob(particleConfig.textureSize);
+    texSoftCircleLarge = generateSoftCircle(particleConfig.largeSoftCircleSize, particleConfig.largeSoftCircleFalloff);
 }
 
 // --- SoA Particle Bank ---

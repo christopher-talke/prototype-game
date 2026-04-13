@@ -10,24 +10,7 @@ import { addDisplacementSource } from '../gridDisplacement';
 import { addCameraShake } from '../camera';
 import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { HALF_HIT_BOX } from '../../../constants';
-
-// --- Constants ---
-
-const RING_COUNT_MIN = 3;
-const RING_COUNT_MAX = 5;
-const RING_STAGGER_MS = 35;
-const RING_DURATION_MIN = 300;
-const RING_DURATION_MAX = 500;
-
-const EMISSIVE_COUNT_MIN = 40;
-const EMISSIVE_COUNT_MAX = 60;
-const DARK_DEBRIS_COUNT_MIN = 15;
-const DARK_DEBRIS_COUNT_MAX = 25;
-
-const SCORCH_FADE_DURATION = 8000;
-
-const SECONDARY_SPARK_CHANCE = 0.15;
-const SECONDARY_SPARK_INTERVAL = 3; // every N frames
+import { effectsConfig } from '../config/effectsConfig';
 
 // --- Shockwave ring state ---
 
@@ -62,9 +45,9 @@ let frameCounter = 0;
 
 function ensureBanks() {
     if (emissiveBank) return;
-    emissiveBank = createParticleBank(256, texHardDot, sparkLayer, 'add');
-    darkDebrisBank = createParticleBank(128, texShard, debrisLayer);
-    secondarySparkBank = createParticleBank(128, texStreak, sparkLayer, 'add');
+    emissiveBank = createParticleBank(effectsConfig.frag.emissiveBankCapacity, texHardDot, sparkLayer, 'add');
+    darkDebrisBank = createParticleBank(effectsConfig.frag.darkDebrisBankCapacity, texShard, debrisLayer);
+    secondarySparkBank = createParticleBank(effectsConfig.frag.secondarySparkBankCapacity, texStreak, sparkLayer, 'add');
 }
 
 // --- Public API ---
@@ -93,15 +76,15 @@ export function clearFragEffects() {
 // --- Shockwave rings ---
 
 function spawnRings(x: number, y: number, radius: number) {
-    const count = RING_COUNT_MIN + Math.floor(Math.random() * (RING_COUNT_MAX - RING_COUNT_MIN + 1));
+    const count = effectsConfig.frag.ringCountMin + Math.floor(Math.random() * (effectsConfig.frag.ringCountMax - effectsConfig.frag.ringCountMin + 1));
     for (let i = 0; i < count; i++) {
-        const delay = i * RING_STAGGER_MS;
+        const delay = i * effectsConfig.frag.ringStaggerMs;
         setTimeout(() => createRing(x, y, radius, i), delay);
     }
 }
 
 function createRing(x: number, y: number, radius: number, index: number) {
-    const duration = RING_DURATION_MIN + Math.random() * (RING_DURATION_MAX - RING_DURATION_MIN);
+    const duration = effectsConfig.frag.ringDurationMin + Math.random() * (effectsConfig.frag.ringDurationMax - effectsConfig.frag.ringDurationMin);
     const strokeWidth = 4 + Math.random() * 3;
     // Vary color slightly per ring: orange to yellow
     const colors = [0xff9500, 0xffaa22, 0xff8800, 0xffbb33, 0xff7700];
@@ -119,8 +102,8 @@ function createRing(x: number, y: number, radius: number, index: number) {
     // Each ring drives its own displacement at the ring's current radius
     const displacementId = addDisplacementSource({
         x, y,
-        radius: radius * 0.3,
-        strength: radius * 12,
+        radius: radius * effectsConfig.frag.ringDisplacementRadiusFrac,
+        strength: radius * effectsConfig.frag.ringDisplacementStrengthMultiplier,
         duration: duration,
     });
 
@@ -131,21 +114,21 @@ function createRing(x: number, y: number, radius: number, index: number) {
 
 function spawnEmissiveDebris(x: number, y: number, _radius: number) {
     if (!emissiveBank) return;
-    const count = EMISSIVE_COUNT_MIN + Math.floor(Math.random() * (EMISSIVE_COUNT_MAX - EMISSIVE_COUNT_MIN + 1));
+    const count = effectsConfig.frag.emissiveCountMin + Math.floor(Math.random() * (effectsConfig.frag.emissiveCountMax - effectsConfig.frag.emissiveCountMin + 1));
     for (let i = 0; i < count; i++) {
         const idx = acquireParticle(emissiveBank);
         if (idx === -1) break;
 
         const angle = Math.random() * Math.PI * 2;
-        const speed = 4 + Math.random() * 8;
+        const speed = effectsConfig.frag.emissiveSpeedMin + Math.random() * effectsConfig.frag.emissiveSpeedRange;
         emissiveBank.x[idx] = x;
         emissiveBank.y[idx] = y;
         emissiveBank.vx[idx] = Math.cos(angle) * speed;
         emissiveBank.vy[idx] = Math.sin(angle) * speed;
-        emissiveBank.scale[idx] = 0.8 + Math.random() * 0.6;
+        emissiveBank.scale[idx] = effectsConfig.frag.emissiveScaleMin + Math.random() * effectsConfig.frag.emissiveScaleRange;
         emissiveBank.rotation[idx] = Math.random() * Math.PI * 2;
         emissiveBank.alpha[idx] = 1;
-        emissiveBank.duration[idx] = 400 + Math.random() * 400;
+        emissiveBank.duration[idx] = effectsConfig.frag.emissiveDurationMin + Math.random() * effectsConfig.frag.emissiveDurationRange;
 
         // Tint: orange-yellow-white gradient
         const tints = [0xffaa33, 0xffcc44, 0xffdd66, 0xffeebb, 0xffffff];
@@ -157,21 +140,21 @@ function spawnEmissiveDebris(x: number, y: number, _radius: number) {
 
 function spawnDarkDebris(x: number, y: number, _radius: number) {
     if (!darkDebrisBank) return;
-    const count = DARK_DEBRIS_COUNT_MIN + Math.floor(Math.random() * (DARK_DEBRIS_COUNT_MAX - DARK_DEBRIS_COUNT_MIN + 1));
+    const count = effectsConfig.frag.darkDebrisCountMin + Math.floor(Math.random() * (effectsConfig.frag.darkDebrisCountMax - effectsConfig.frag.darkDebrisCountMin + 1));
     for (let i = 0; i < count; i++) {
         const idx = acquireParticle(darkDebrisBank);
         if (idx === -1) break;
 
         const angle = Math.random() * Math.PI * 2;
-        const speed = 3 + Math.random() * 5;
+        const speed = effectsConfig.frag.darkDebrisSpeedMin + Math.random() * effectsConfig.frag.darkDebrisSpeedRange;
         darkDebrisBank.x[idx] = x;
         darkDebrisBank.y[idx] = y;
         darkDebrisBank.vx[idx] = Math.cos(angle) * speed;
         darkDebrisBank.vy[idx] = Math.sin(angle) * speed;
-        darkDebrisBank.scale[idx] = 0.6 + Math.random() * 0.8;
+        darkDebrisBank.scale[idx] = effectsConfig.frag.darkDebrisScaleMin + Math.random() * effectsConfig.frag.darkDebrisScaleRange;
         darkDebrisBank.rotation[idx] = Math.random() * Math.PI * 2;
         darkDebrisBank.alpha[idx] = 0.9;
-        darkDebrisBank.duration[idx] = 500 + Math.random() * 500;
+        darkDebrisBank.duration[idx] = effectsConfig.frag.darkDebrisDurationMin + Math.random() * effectsConfig.frag.darkDebrisDurationRange;
 
         // Gray-brown tints
         const tints = [0x665544, 0x776655, 0x554433, 0x887766];
@@ -184,9 +167,9 @@ function spawnDarkDebris(x: number, y: number, _radius: number) {
 function spawnScorch(x: number, y: number, radius: number) {
     const g = new Graphics();
     // Dark center fading to transparent
-    g.circle(0, 0, radius * 0.3).fill({ color: 0x111111, alpha: 0.6 });
-    g.circle(0, 0, radius * 0.6).fill({ color: 0x111111, alpha: 0.3 });
-    g.circle(0, 0, radius).fill({ color: 0x111111, alpha: 0.1 });
+    g.circle(0, 0, radius * effectsConfig.frag.scorchInnerRadiusFrac).fill({ color: 0x111111, alpha: effectsConfig.frag.scorchInnerAlpha });
+    g.circle(0, 0, radius * effectsConfig.frag.scorchMiddleRadiusFrac).fill({ color: 0x111111, alpha: effectsConfig.frag.scorchMiddleAlpha });
+    g.circle(0, 0, radius).fill({ color: 0x111111, alpha: effectsConfig.frag.scorchOuterAlpha });
     g.x = x;
     g.y = y;
     scorchLayer.addChild(g);
@@ -196,33 +179,29 @@ function spawnScorch(x: number, y: number, radius: number) {
 // --- Lighting ---
 
 function spawnFragLights(x: number, y: number) {
-    // Phase 1: bright spike (0-80ms)
-    addTransientLight(x, y, 500, 0xffcc66, 5.0, 80, true);
-    // Phase 2: orange-red decay (80-300ms), spawned with delay
+    addTransientLight(x, y, effectsConfig.frag.lightPhase1Radius, 0xffcc66, effectsConfig.frag.lightPhase1Intensity, effectsConfig.frag.lightPhase1Decay, true);
     setTimeout(() => {
-        addTransientLight(x, y, 400, 0xff6622, 2.5, 220, true);
-    }, 80);
+        addTransientLight(x, y, effectsConfig.frag.lightPhase2Radius, 0xff6622, effectsConfig.frag.lightPhase2Intensity, effectsConfig.frag.lightPhase2Decay, true);
+    }, effectsConfig.frag.lightPhase2Delay);
 }
 
 // --- Grid displacement ---
 
 function spawnFragDisplacement(x: number, y: number, radius: number) {
-    // Phase 1: outward blast (immediate)
     addDisplacementSource({
         x, y,
-        radius: radius * 2,
-        strength: radius * 50,
-        duration: 400,
+        radius: radius * effectsConfig.frag.blastRadiusMultiplier,
+        strength: radius * effectsConfig.frag.blastStrengthMultiplier,
+        duration: effectsConfig.frag.blastDuration,
     });
-    // Phase 2: vacuum pull (200ms delay)
     setTimeout(() => {
         addDisplacementSource({
             x, y,
-            radius: radius * 1.5,
-            strength: radius * -15,
-            duration: 300,
+            radius: radius * effectsConfig.frag.vacuumRadiusMultiplier,
+            strength: radius * effectsConfig.frag.vacuumStrengthMultiplier,
+            duration: effectsConfig.frag.vacuumDuration,
         });
-    }, 200);
+    }, effectsConfig.frag.vacuumDelay);
 }
 
 // --- Camera shake ---
@@ -234,10 +213,10 @@ function spawnFragShake(x: number, y: number, radius: number) {
     const px = p.current_position.x + HALF_HIT_BOX;
     const py = p.current_position.y + HALF_HIT_BOX;
     const dist = Math.sqrt((px - x) ** 2 + (py - y) ** 2);
-    const maxRange = radius * 5;
+    const maxRange = radius * effectsConfig.frag.shakeRangeFactor;
     if (dist >= maxRange) return;
     const falloff = 1 - dist / maxRange;
-    addCameraShake(16 * falloff, 400);
+    addCameraShake(effectsConfig.frag.shakeAmplitude * falloff, effectsConfig.frag.shakeDuration);
 }
 
 // --- Ticker update ---
@@ -265,7 +244,7 @@ Ticker.shared.add((ticker) => {
     for (let i = activeScorches.length - 1; i >= 0; i--) {
         const scorch = activeScorches[i];
         scorch.elapsed += dt;
-        const t = Math.min(1, scorch.elapsed / SCORCH_FADE_DURATION);
+        const t = Math.min(1, scorch.elapsed / effectsConfig.frag.scorchFadeDuration);
         scorch.g.alpha = 1 - t;
         if (t >= 1) {
             scorch.g.destroy();
@@ -277,29 +256,24 @@ Ticker.shared.add((ticker) => {
     if (emissiveBank) {
         updateBank(emissiveBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
-            // Drag
-            bank.vx[idx] *= 0.94;
-            bank.vy[idx] *= 0.94;
-            // Move
+            bank.vx[idx] *= effectsConfig.frag.emissiveDrag;
+            bank.vy[idx] *= effectsConfig.frag.emissiveDrag;
             bank.x[idx] += bank.vx[idx];
             bank.y[idx] += bank.vy[idx];
-            // Fade
             bank.alpha[idx] = 1 - t;
-            // Spin
-            bank.rotation[idx] += 0.05;
+            bank.rotation[idx] += effectsConfig.frag.emissiveRotationSpeed;
 
-            // Secondary spark emission
-            if (secondarySparkBank && frameCounter % SECONDARY_SPARK_INTERVAL === 0 && Math.random() < SECONDARY_SPARK_CHANCE) {
+            if (secondarySparkBank && frameCounter % effectsConfig.frag.secondarySparkInterval === 0 && Math.random() < effectsConfig.frag.secondarySparkChance) {
                 const si = acquireParticle(secondarySparkBank);
                 if (si !== -1) {
                     secondarySparkBank.x[si] = bank.x[idx];
                     secondarySparkBank.y[si] = bank.y[idx];
                     secondarySparkBank.vx[si] = (Math.random() - 0.5) * 2;
                     secondarySparkBank.vy[si] = (Math.random() - 0.5) * 2;
-                    secondarySparkBank.scale[si] = 0.3 + Math.random() * 0.3;
+                    secondarySparkBank.scale[si] = effectsConfig.frag.secondarySparkScaleMin + Math.random() * effectsConfig.frag.secondarySparkScaleRange;
                     secondarySparkBank.rotation[si] = Math.random() * Math.PI * 2;
                     secondarySparkBank.alpha[si] = 0.8;
-                    secondarySparkBank.duration[si] = 100 + Math.random() * 100;
+                    secondarySparkBank.duration[si] = effectsConfig.frag.secondarySparkDurationMin + Math.random() * effectsConfig.frag.secondarySparkDurationRange;
                     secondarySparkBank.sprites[si].tint = 0xffdd88;
                 }
             }
@@ -311,16 +285,12 @@ Ticker.shared.add((ticker) => {
     if (darkDebrisBank) {
         updateBank(darkDebrisBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
-            // Drag + gravity
-            bank.vx[idx] *= 0.92;
-            bank.vy[idx] = bank.vy[idx] * 0.92 + 0.15;
-            // Move
+            bank.vx[idx] *= effectsConfig.frag.darkDebrisDrag;
+            bank.vy[idx] = bank.vy[idx] * effectsConfig.frag.darkDebrisDrag + effectsConfig.frag.darkDebrisGravity;
             bank.x[idx] += bank.vx[idx];
             bank.y[idx] += bank.vy[idx];
-            // Fade
             bank.alpha[idx] = 0.9 * (1 - t);
-            // Spin
-            bank.rotation[idx] += 0.08;
+            bank.rotation[idx] += effectsConfig.frag.darkDebrisRotationSpeed;
             return true;
         });
     }
@@ -332,7 +302,7 @@ Ticker.shared.add((ticker) => {
             bank.x[idx] += bank.vx[idx];
             bank.y[idx] += bank.vy[idx];
             bank.alpha[idx] = 0.8 * (1 - t);
-            bank.scale[idx] *= 0.97;
+            bank.scale[idx] *= effectsConfig.frag.secondarySparkDecay;
             return true;
         });
     }

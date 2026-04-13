@@ -2,6 +2,7 @@ import { type Graphics } from 'pixi.js';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getPixiCameraOffset } from './camera';
 import { swapRemove } from './renderUtils';
+import { gridConfig } from './config/gridConfig';
 
 // --- Types ---
 
@@ -12,7 +13,7 @@ export type DisplacementSourceConfig = {
     strength: number;
     duration: number;       // ms, 0 = single-frame impulse
     direction?: { dx: number; dy: number };
-    maxDisplacement?: number; // override MAX_DISPLACEMENT for this source
+    maxDisplacement?: number; // override gridConfig.maxDisplacement for this source
 };
 
 interface ActiveSource {
@@ -28,26 +29,6 @@ interface ActiveSource {
     radial: boolean;
     maxDisplacement: number;
 }
-
-// --- Constants ---
-
-const SPACING = 42;
-const SPRING_K = 18;
-const DAMPING = 9;
-const MAX_DISPLACEMENT = 28;
-const VELOCITY_EPSILON = 0.01;
-const DISPLACEMENT_EPSILON = 0.01;
-const MAX_DT = 1 / 30;
-
-const BULLET_HIT_RADIUS = 90;
-const BULLET_HIT_STRENGTH = 800;
-
-const BULLET_TRAVEL_RADIUS = 80;
-const BULLET_TRAVEL_STRENGTH = 1500;
-
-const PLAYER_WAKE_RADIUS = 100;
-const PLAYER_WAKE_STRENGTH = 200;
-const PLAYER_SPEED_THRESHOLD = 0.5;
 
 // --- Module state ---
 
@@ -87,7 +68,7 @@ export function addDisplacementSource(config: DisplacementSourceConfig): number 
         dirX: hasDir ? config.direction!.dx : 0,
         dirY: hasDir ? config.direction!.dy : 0,
         radial: !hasDir,
-        maxDisplacement: config.maxDisplacement ?? MAX_DISPLACEMENT,
+        maxDisplacement: config.maxDisplacement ?? gridConfig.maxDisplacement,
     });
     return id;
 }
@@ -104,8 +85,8 @@ export function initGridDisplacement(): void {
 export function initGridPoints(width: number, height: number, gfx: Graphics): void {
     gridGfx = gfx;
 
-    cols = Math.floor((width - 1) / SPACING);
-    rows = Math.floor((height - 1) / SPACING);
+    cols = Math.floor((width - 1) / gridConfig.spacing);
+    rows = Math.floor((height - 1) / gridConfig.spacing);
     pointCount = cols * rows;
 
     displaceX = new Float32Array(pointCount);
@@ -126,7 +107,7 @@ export function updateGridDisplacement(
 
     const now = performance.now();
     let dt = lastTimestamp > 0 ? (now - lastTimestamp) / 1000 : 1 / 60;
-    if (dt > MAX_DT) dt = MAX_DT;
+    if (dt > gridConfig.maxDt) dt = gridConfig.maxDt;
     lastTimestamp = now;
 
     applyPlayerWake(player, dt);
@@ -157,15 +138,15 @@ function handleEvent(event: GameEvent): void {
             addDisplacementSource({
                 x: event.x, y: event.y,
                 radius: event.radius,
-                strength: event.radius * 10,
-                duration: 150,
+                strength: event.radius * gridConfig.flashStrengthMultiplier,
+                duration: gridConfig.flashDuration,
             });
         } else if (event.grenadeType === 'SMOKE') {
             addDisplacementSource({
                 x: event.x, y: event.y,
                 radius: event.radius,
-                strength: event.radius * 8,
-                duration: 1000,
+                strength: event.radius * gridConfig.smokeStrengthMultiplier,
+                duration: gridConfig.smokeDuration,
             });
         }
         // FRAG and C4 displacement is spawned by their respective effect modules
@@ -173,8 +154,8 @@ function handleEvent(event: GameEvent): void {
         addDisplacementSource({
             x: event.x,
             y: event.y,
-            radius: BULLET_HIT_RADIUS,
-            strength: BULLET_HIT_STRENGTH,
+            radius: gridConfig.bulletHitRadius,
+            strength: gridConfig.bulletHitStrength,
             duration: 0,
             direction: { dx: event.bulletDx, dy: event.bulletDy },
         });
@@ -194,11 +175,11 @@ function applyPlayerWake(player: player_info, dt: number): void {
         const vy = (py - prevPlayerY) / dt;
         const speed = Math.sqrt(vx * vx + vy * vy);
 
-        if (speed > PLAYER_SPEED_THRESHOLD) {
+        if (speed > gridConfig.playerSpeedThreshold) {
             const nx = vx / speed;
             const ny = vy / speed;
-            const speedFactor = Math.min(speed / 200, 1);
-            applyDirectionalForce(px, py, PLAYER_WAKE_RADIUS, PLAYER_WAKE_STRENGTH * speedFactor, nx, ny, dt);
+            const speedFactor = Math.min(speed / gridConfig.playerSpeedDivisor, 1);
+            applyDirectionalForce(px, py, gridConfig.playerWakeRadius, gridConfig.playerWakeStrength * speedFactor, nx, ny, dt);
         }
     }
 
@@ -211,7 +192,7 @@ function applyPlayerWake(player: player_info, dt: number): void {
 
 function applyBulletTravel(dt: number, projectiles: readonly { id: number; x: number; y: number }[]): void {
     for (const p of projectiles) {
-        applyRadialForce(p.x, p.y, BULLET_TRAVEL_RADIUS, BULLET_TRAVEL_STRENGTH, dt);
+        applyRadialForce(p.x, p.y, gridConfig.bulletTravelRadius, gridConfig.bulletTravelStrength, dt);
     }
 }
 
@@ -248,15 +229,15 @@ function tickSources(dt: number): void {
 function applyRadialForce(sx: number, sy: number, radius: number, strength: number, dt: number): void {
     if (!displaceX || !velocityX || !displaceY || !velocityY) return;
 
-    const colMin = Math.max(0, Math.floor((sx - radius) / SPACING) - 1);
-    const colMax = Math.min(cols - 1, Math.floor((sx + radius) / SPACING));
-    const rowMin = Math.max(0, Math.floor((sy - radius) / SPACING) - 1);
-    const rowMax = Math.min(rows - 1, Math.floor((sy + radius) / SPACING));
+    const colMin = Math.max(0, Math.floor((sx - radius) / gridConfig.spacing) - 1);
+    const colMax = Math.min(cols - 1, Math.floor((sx + radius) / gridConfig.spacing));
+    const rowMin = Math.max(0, Math.floor((sy - radius) / gridConfig.spacing) - 1);
+    const rowMax = Math.min(rows - 1, Math.floor((sy + radius) / gridConfig.spacing));
 
     for (let r = rowMin; r <= rowMax; r++) {
         for (let c = colMin; c <= colMax; c++) {
-            const restX = (c + 1) * SPACING;
-            const restY = (r + 1) * SPACING;
+            const restX = (c + 1) * gridConfig.spacing;
+            const restY = (r + 1) * gridConfig.spacing;
             const dx = restX - sx;
             const dy = restY - sy;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -277,15 +258,15 @@ function applyRadialForce(sx: number, sy: number, radius: number, strength: numb
 function applyDirectionalForce(sx: number, sy: number, radius: number, strength: number, dirX: number, dirY: number, dt: number): void {
     if (!displaceX || !velocityX || !displaceY || !velocityY) return;
 
-    const colMin = Math.max(0, Math.floor((sx - radius) / SPACING) - 1);
-    const colMax = Math.min(cols - 1, Math.floor((sx + radius) / SPACING));
-    const rowMin = Math.max(0, Math.floor((sy - radius) / SPACING) - 1);
-    const rowMax = Math.min(rows - 1, Math.floor((sy + radius) / SPACING));
+    const colMin = Math.max(0, Math.floor((sx - radius) / gridConfig.spacing) - 1);
+    const colMax = Math.min(cols - 1, Math.floor((sx + radius) / gridConfig.spacing));
+    const rowMin = Math.max(0, Math.floor((sy - radius) / gridConfig.spacing) - 1);
+    const rowMax = Math.min(rows - 1, Math.floor((sy + radius) / gridConfig.spacing));
 
     for (let r = rowMin; r <= rowMax; r++) {
         for (let c = colMin; c <= colMax; c++) {
-            const restX = (c + 1) * SPACING;
-            const restY = (r + 1) * SPACING;
+            const restX = (c + 1) * gridConfig.spacing;
+            const restY = (r + 1) * gridConfig.spacing;
             const dx = restX - sx;
             const dy = restY - sy;
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -307,14 +288,14 @@ function stepPhysics(dt: number): void {
     if (!displaceX || !displaceY || !velocityX || !velocityY) return;
 
     // Effective max is the highest among active sources (or default)
-    let effectiveMax = MAX_DISPLACEMENT;
+    let effectiveMax = gridConfig.maxDisplacement;
     for (const s of activeSources) {
         if (s.maxDisplacement > effectiveMax) effectiveMax = s.maxDisplacement;
     }
 
     for (let i = 0; i < pointCount; i++) {
-        const ax = -SPRING_K * displaceX[i] - DAMPING * velocityX[i];
-        const ay = -SPRING_K * displaceY[i] - DAMPING * velocityY[i];
+        const ax = -gridConfig.springK * displaceX[i] - gridConfig.damping * velocityX[i];
+        const ay = -gridConfig.springK * displaceY[i] - gridConfig.damping * velocityY[i];
 
         velocityX[i] += ax * dt;
         velocityY[i] += ay * dt;
@@ -328,11 +309,11 @@ function stepPhysics(dt: number): void {
         else if (displaceY[i] < -effectiveMax) displaceY[i] = -effectiveMax;
 
         // Snap to rest
-        if (Math.abs(displaceX[i]) < DISPLACEMENT_EPSILON && Math.abs(velocityX[i]) < VELOCITY_EPSILON) {
+        if (Math.abs(displaceX[i]) < gridConfig.displacementEpsilon && Math.abs(velocityX[i]) < gridConfig.velocityEpsilon) {
             displaceX[i] = 0;
             velocityX[i] = 0;
         }
-        if (Math.abs(displaceY[i]) < DISPLACEMENT_EPSILON && Math.abs(velocityY[i]) < VELOCITY_EPSILON) {
+        if (Math.abs(displaceY[i]) < gridConfig.displacementEpsilon && Math.abs(velocityY[i]) < gridConfig.velocityEpsilon) {
             displaceY[i] = 0;
             velocityY[i] = 0;
         }
@@ -350,11 +331,11 @@ function renderGrid(): void {
     const vpW = window.visualViewport?.width ?? window.innerWidth;
     const vpH = window.visualViewport?.height ?? window.innerHeight;
 
-    const margin = MAX_DISPLACEMENT + SPACING;
-    const colMin = Math.max(0, Math.floor((cam.x - margin) / SPACING) - 1);
-    const colMax = Math.min(cols - 1, Math.floor((cam.x + vpW + margin) / SPACING));
-    const rowMin = Math.max(0, Math.floor((cam.y - margin) / SPACING) - 1);
-    const rowMax = Math.min(rows - 1, Math.floor((cam.y + vpH + margin) / SPACING));
+    const margin = gridConfig.maxDisplacement + gridConfig.spacing;
+    const colMin = Math.max(0, Math.floor((cam.x - margin) / gridConfig.spacing) - 1);
+    const colMax = Math.min(cols - 1, Math.floor((cam.x + vpW + margin) / gridConfig.spacing));
+    const rowMin = Math.max(0, Math.floor((cam.y - margin) / gridConfig.spacing) - 1);
+    const rowMax = Math.min(rows - 1, Math.floor((cam.y + vpH + margin) / gridConfig.spacing));
 
     // Draw dots -- brighter and larger when displaced
     for (let r = rowMin; r <= rowMax; r++) {
@@ -362,11 +343,11 @@ function renderGrid(): void {
             const i = r * cols + c;
             const dx = displaceX[i];
             const dy = displaceY[i];
-            const px = (c + 1) * SPACING + dx;
-            const py = (r + 1) * SPACING + dy;
-            const t = Math.min(1, Math.sqrt(dx * dx + dy * dy) / MAX_DISPLACEMENT);
-            const alpha = 0.1 + t * 0.6;
-            const radius = 1.0 + t * 1.2;
+            const px = (c + 1) * gridConfig.spacing + dx;
+            const py = (r + 1) * gridConfig.spacing + dy;
+            const t = Math.min(1, Math.sqrt(dx * dx + dy * dy) / gridConfig.maxDisplacement);
+            const alpha = gridConfig.dotBaseAlpha + t * gridConfig.dotDisplaceAlpha;
+            const radius = gridConfig.dotBaseRadius + t * gridConfig.dotDisplaceRadius;
             gridGfx.circle(px, py, radius).fill({ color: 0xffffff, alpha });
         }
     }
@@ -377,8 +358,8 @@ function renderGrid(): void {
         for (let c = colMin; c < Math.min(colMax, cols - 1); c++) {
             const i = r * cols + c;
             const i2 = i + 1;
-            gridGfx.moveTo((c + 1) * SPACING + displaceX[i], (r + 1) * SPACING + displaceY[i]);
-            gridGfx.lineTo((c + 2) * SPACING + displaceX[i2], (r + 1) * SPACING + displaceY[i2]);
+            gridGfx.moveTo((c + 1) * gridConfig.spacing + displaceX[i], (r + 1) * gridConfig.spacing + displaceY[i]);
+            gridGfx.lineTo((c + 2) * gridConfig.spacing + displaceX[i2], (r + 1) * gridConfig.spacing + displaceY[i2]);
         }
     }
     // Vertical lines
@@ -386,10 +367,10 @@ function renderGrid(): void {
         for (let c = colMin; c <= colMax; c++) {
             const i = r * cols + c;
             const i2 = i + cols;
-            gridGfx.moveTo((c + 1) * SPACING + displaceX[i], (r + 1) * SPACING + displaceY[i]);
-            gridGfx.lineTo((c + 1) * SPACING + displaceX[i2], (r + 2) * SPACING + displaceY[i2]);
+            gridGfx.moveTo((c + 1) * gridConfig.spacing + displaceX[i], (r + 1) * gridConfig.spacing + displaceY[i]);
+            gridGfx.lineTo((c + 1) * gridConfig.spacing + displaceX[i2], (r + 2) * gridConfig.spacing + displaceY[i2]);
         }
     }
     // Single stroke for all lines
-    gridGfx.stroke({ color: 0xffffff, alpha: 0.05, width: 1 });
+    gridGfx.stroke({ color: 0xffffff, alpha: gridConfig.lineAlpha, width: gridConfig.lineWidth });
 }

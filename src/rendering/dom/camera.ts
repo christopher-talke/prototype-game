@@ -1,4 +1,5 @@
 import { MAP_OFFSET } from '../../constants';
+import { cameraConfig } from '../canvas/config/cameraConfig';
 
 let currentOffsetX = 0;
 let currentOffsetY = 0;
@@ -23,8 +24,8 @@ export function setCameraWeaponOffset(distance: number, rad: number) {
 export function updateCamera(viewportWidth: number, viewportHeight: number) {
     const targetOffsetX = Math.cos(facingRad) * offsetDist;
     const targetOffsetY = Math.sin(facingRad) * offsetDist;
-    currentOffsetX += (targetOffsetX - currentOffsetX) * 0.18;
-    currentOffsetY += (targetOffsetY - currentOffsetY) * 0.18;
+    currentOffsetX += (targetOffsetX - currentOffsetX) * cameraConfig.lerpFactor;
+    currentOffsetY += (targetOffsetY - currentOffsetY) * cameraConfig.lerpFactor;
 
     const cameraX = targetX + currentOffsetX + MAP_OFFSET - viewportWidth / 2;
     const cameraY = targetY + currentOffsetY + MAP_OFFSET - viewportHeight / 2;

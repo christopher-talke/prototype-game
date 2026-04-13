@@ -7,53 +7,9 @@ import { getVisibleEnemies, getVisibleTeammates } from './playerRenderer';
 import { getPixiApp } from './app';
 import { environment } from '@simulation/environment/environment';
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
-import { BULLET_COLOR, WALL_SPARK_COLOR } from './renderConstants';
+import { BULLET_COLOR, WALL_SPARK_COLOR, LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
 import { swapRemove } from './renderUtils';
-
-// --- Configuration---
-export const lightingConfig = {
-  // Base scene
-  ambientLevel: 0.4,           
-  ambientColor: 0x080814,      
-  falloffExponent: 3.5,        
-  coreSharpness: 0.06,         
-
-  // Player
-  playerRadius: 200,
-  playerIntensity: 1.4,
-  fovRadius: 1100,
-  fovIntensity: 2.5,           
-  fovSoftEdge: 8,              
-
-  // Projectiles
-  bulletRadius: 80,             
-  bulletIntensity: 2.0,         
-  bulletSniperRadius: 160,      
-  bulletSniperIntensity: 2.5,
-  bulletTrailAngle: 50,
-
-  // Grenades
-  grenadeRadius: 400,
-  grenadeIntensity: 3.0,
-  grenadeDecay: 400,
-  flashRadius: 1000,
-  flashIntensity: 4.0,          
-  flashDecay: 800,
-
-  // Impact effects
-  deathBurstRadius: 280,
-  deathBurstIntensity: 3.5,
-  deathBurstDecay: 900,        
-  wallHitRadius: 100,
-  wallHitIntensity: 2.5,
-  wallHitDecay: 300,
-
-  // Last known
-  lastKnownRadius: 160,
-  lastKnownIntensity: 1.5,
-};
-
-const LIGHTMAP_SCALE = 0.5;
+import { lightingConfig } from './config/lightingConfig';
 
 // --- Ambient state ---
 let ambientLevel = lightingConfig.ambientLevel;
@@ -464,7 +420,7 @@ export function addLastKnownLight(key: string, x: number, y: number) {
         lightingConfig.lastKnownRadius,
         0xff4444,
         lightingConfig.lastKnownIntensity,
-        3500, // matches LAST_KNOWN_FADE_DURATION + fade
+        LAST_KNOWN_DECAY_MS,
         false,
     );
     lastKnownLightIds.set(key, id);
@@ -504,6 +460,10 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
     ambientLevel = config?.ambientLight ?? lightingConfig.ambientLevel;
     ambientColor = config?.ambientColor ?? lightingConfig.ambientColor;
 
+    /**
+     * Lightmap RenderTexture is created at half world resolution for perf. 
+     * - The shader scales up UVs accordingly, so lights are still positioned correctly in world space. 
+     */
     const w = environment.limits.right;
     const h = environment.limits.bottom;
     const rtW = Math.ceil(w * LIGHTMAP_SCALE);
@@ -521,8 +481,6 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
 
     // Upload wall geometry (once per map)
     uploadWallUniforms(walls);
-
-    // Build static light entries
     for (const def of lights) {
         const color = def.color ?? 0xffffff;
         const entry: LightEntry = {
@@ -577,16 +535,6 @@ export function updateLighting(projectiles: readonly { id: number; x: number; y:
             clear: true,
         });
     }
-}
-
-export function setAmbientLight(level: number) {
-    ambientLevel = Math.max(0, Math.min(1, level));
-}
-
-(window as any).setAmbientLight = setAmbientLight;
-
-export function getAmbientLight(): number {
-    return ambientLevel;
 }
 
 function clearDynamicLights() {

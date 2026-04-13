@@ -1,4 +1,5 @@
 import { worldContainer } from './sceneGraph';
+import { cameraConfig } from './config/cameraConfig';
 
 let currentOffsetX = 0;
 let currentOffsetY = 0;
@@ -32,8 +33,8 @@ export function setPixiCameraWeaponOffset(distance: number, rad: number) {
 export function updatePixiCamera(viewportWidth: number, viewportHeight: number) {
     const targetOffsetX = Math.cos(facingRad) * offsetDist;
     const targetOffsetY = Math.sin(facingRad) * offsetDist;
-    currentOffsetX += (targetOffsetX - currentOffsetX) * 0.18;
-    currentOffsetY += (targetOffsetY - currentOffsetY) * 0.18;
+    currentOffsetX += (targetOffsetX - currentOffsetX) * cameraConfig.lerpFactor;
+    currentOffsetY += (targetOffsetY - currentOffsetY) * cameraConfig.lerpFactor;
 
     cameraX = targetX + currentOffsetX - viewportWidth / 2;
     cameraY = targetY + currentOffsetY - viewportHeight / 2;

@@ -1,14 +1,18 @@
 import { Shader, GlProgram, MeshGeometry, Mesh, Texture } from 'pixi.js';
+import { MAX_GPU_LIGHTS, MAX_GPU_WALLS } from '../renderConstants';
 
 // --- Constants ---
-const MAX_LIGHTS = 32;
-const MAX_WALLS = 128;
+const MAX_LIGHTS = MAX_GPU_LIGHTS;
+const MAX_WALLS = MAX_GPU_WALLS;
 
 // ============================================================
 // GLSL ES 3.0 (WebGL2) -- PixiJS auto-inserts #version 300 es
 // ============================================================
 
-const GLSL_VERT = /* glsl */ `
+/**
+ * Vertex shader is a simple pass-through that transforms normalized UV coordinates to world space and passes them to the fragment shader.
+ */
+const GLSL_VERT = `
 in vec2 aPosition;
 out vec2 vWorldUV;
 
@@ -18,7 +22,12 @@ void main() {
 }
 `;
 
-const GLSL_FRAG = /* glsl */ `
+/**
+ * Fragment shader implements a 2D lighting model with support for multiple point and spotlight sources, hard shadows from axis-aligned rectangular walls, and Reinhard tonemapping for high dynamic range. 
+ * It calculates per-pixel lighting by iterating over all lights, applying distance-based falloff, spotlight cone masks, and shadow checks against the scene geometry. 
+ * The shader is designed to be efficient by using uniform arrays with a maximum count for lights and walls, allowing the CPU to batch updates and minimize draw calls.
+ */
+const GLSL_FRAG = `
 precision highp float;
 
 in vec2 vWorldUV;

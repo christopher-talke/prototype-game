@@ -1,6 +1,7 @@
 import { Graphics, Sprite, Texture, Ticker, ColorMatrixFilter } from 'pixi.js';
 import { flashLayer, worldContainer } from '../sceneGraph';
 import { getPixiCameraOffset } from '../camera';
+import { effectsConfig } from '../config/effectsConfig';
 
 // --- State ---
 
@@ -52,7 +53,7 @@ export function triggerFlashEffect(intensity: number, duration: number) {
 
     // Radial gradient for retinal burn (brighter center, dimmer edges)
     const gradSize = Math.max(vpW, vpH) * 2;
-    const gradientTexture = createRadialGradientTexture(256);
+    const gradientTexture = createRadialGradientTexture(effectsConfig.flash.gradientTextureSize);
     const gradient = new Sprite(gradientTexture);
     gradient.anchor.set(0.5);
     gradient.width = gradSize;
@@ -117,55 +118,43 @@ Ticker.shared.add((ticker) => {
         return;
     }
 
-    // Phase 1: White pulse (0 - 5%)
-    if (t < 0.05) {
-        const pt = t / 0.05;
+    const fc = effectsConfig.flash;
+    if (t < fc.whitePulseEnd) {
+        const pt = t / fc.whitePulseEnd;
         overlay.alpha = intensity * pt;
         gradient.alpha = 0;
     }
-    // Phase 2: Peak hold (5% - 6%)
-    else if (t < 0.06) {
+    else if (t < fc.peakHoldEnd) {
         overlay.alpha = intensity;
         gradient.alpha = 0;
     }
-    // Phase 3: Retinal burn (6% - 40%)
-    // Flat overlay fades, radial gradient takes over (center stays bright longer)
-    else if (t < 0.4) {
-        const pt = (t - 0.06) / 0.34;
-        // Flat overlay fades quickly
+    else if (t < fc.retinalBurnEnd) {
+        const pt = (t - fc.peakHoldEnd) / (fc.retinalBurnEnd - fc.peakHoldEnd);
         overlay.alpha = intensity * Math.pow(1 - pt, 2);
-        // Radial gradient: center bright, edges clear faster
-        // Center alpha = intensity * (1-pt)^0.5 (slow decay)
-        // This is approximated by the gradient sprite's overall alpha
-        gradient.alpha = intensity * Math.pow(1 - pt, 0.5);
-        gradient.scale.set(1 + pt * 0.5); // slight expansion
+        gradient.alpha = intensity * Math.pow(1 - pt, fc.retinalGradientDecayPower);
+        gradient.scale.set(1 + pt * fc.retinalGradientExpansion);
     }
-    // Phase 4: Desaturation (40% - 70%)
-    // Gradient continues fading, scene goes grey
-    else if (t < 0.7) {
-        const pt = (t - 0.4) / 0.3;
+    else if (t < fc.desatPhaseEnd) {
+        const pt = (t - fc.retinalBurnEnd) / (fc.desatPhaseEnd - fc.retinalBurnEnd);
         overlay.alpha = 0;
-        gradient.alpha = intensity * 0.3 * (1 - pt);
+        gradient.alpha = intensity * fc.desatGradientAlpha * (1 - pt);
 
-        // Apply desaturation to world
         if (desatFilter) {
             if (!worldContainer.filters || worldContainer.filters.indexOf(desatFilter) === -1) {
                 worldContainer.filters = worldContainer.filters
                     ? [...worldContainer.filters, desatFilter]
                     : [desatFilter];
             }
-            desatFilter.alpha = 0.6 * intensity * (1 - pt);
+            desatFilter.alpha = fc.desatPeakAlpha * intensity * (1 - pt);
         }
     }
-    // Phase 5: Recovery (70% - 100%)
-    // Final center brightness fades, desaturation lifts
     else {
-        const pt = (t - 0.7) / 0.3;
+        const pt = (t - fc.desatPhaseEnd) / (1 - fc.desatPhaseEnd);
         overlay.alpha = 0;
-        gradient.alpha = intensity * 0.1 * (1 - pt);
+        gradient.alpha = intensity * fc.recoveryGradientAlpha * (1 - pt);
 
         if (desatFilter) {
-            desatFilter.alpha = 0.15 * intensity * (1 - pt);
+            desatFilter.alpha = fc.recoveryDesatAlpha * intensity * (1 - pt);
         }
     }
 });

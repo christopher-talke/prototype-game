@@ -12,6 +12,7 @@ import { getKeyForAction, getKeyDisplayName } from '@ui/settings/keybinds';
 import { playSound } from '@audio/index';
 import { getConfig } from '@config/activeConfig';
 import { cssTransform } from '@rendering/dom/cssTransform';
+import { hudConfig } from '@rendering/canvas/config/hudConfig';
 
 let healthBar: HTMLElement;
 let armorBar: HTMLElement;
@@ -275,7 +276,7 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
         const disableEffects = getConfig().gameplay.disableLowHealthEffects;
         if (!disableEffects) {
             const t = healthPct / 100;
-            const filterStr = `saturate(${t.toFixed(3)}) blur(${((1 - t) * 1.5).toFixed(2)}px)`;
+            const filterStr = `saturate(${t.toFixed(3)}) blur(${((1 - t) * hudConfig.lowHealthBlurMax).toFixed(2)}px)`;
             if (filterStr !== _lastFilterStr) {
                 _lastFilterStr = filterStr;
                 app.style.filter = filterStr;
@@ -353,7 +354,7 @@ export function addKillFeedEntry(killerName: string, victimName: string, weaponT
     entry.textContent = `${killerName} [${weaponType}] ${victimName}`;
     killFeed.appendChild(entry);
 
-    setTimeout(() => entry.remove(), 4000);
+    setTimeout(() => entry.remove(), hudConfig.killFeedTimeout);
 }
 
 let buyMenuOpen = false;
@@ -515,7 +516,7 @@ export function showDamageIndicator(angleDeg: number, playerRotation: number) {
     if (damageIndicatorTimeout) clearTimeout(damageIndicatorTimeout);
     damageIndicatorTimeout = setTimeout(() => {
         el.classList.remove('active');
-    }, 600);
+    }, hudConfig.damageIndicatorTimeout);
 }
 
 export function updateCrosshairPosition(x: number, y: number) {
@@ -541,7 +542,7 @@ export function showHitMarker(isKill: boolean, victimName?: string) {
     if (hitMarkerTimeout) clearTimeout(hitMarkerTimeout);
     hitMarkerTimeout = setTimeout(() => {
         crosshair.classList.remove('hit', 'kill');
-    }, 300);
+    }, hudConfig.hitMarkerTimeout);
 
     if (isKill) {
         playSound('kill');
@@ -573,8 +574,8 @@ function showKillBanner(victimName: string) {
 
     setTimeout(() => {
         el.classList.add('fade-out');
-        setTimeout(() => el.remove(), 500);
-    }, 1200);
+        setTimeout(() => el.remove(), hudConfig.killBannerFadeOut);
+    }, hudConfig.killBannerDuration);
 }
 
 export function showLeaderboard() {
@@ -729,6 +730,6 @@ export function spawnDamageNumber(worldX: number, worldY: number, damage: number
     const app = document.getElementById('app');
     if (app) {
         app.appendChild(el);
-        setTimeout(() => el.remove(), 800);
+        setTimeout(() => el.remove(), hudConfig.damageNumberDuration);
     }
 }

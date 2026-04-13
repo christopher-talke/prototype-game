@@ -1,4 +1,4 @@
-import { lightingConfig } from '@rendering/canvas/lightingManager';
+import { lightingConfig } from '@rendering/canvas/config/lightingConfig';
 
 let panel: HTMLDivElement | null = null;
 
