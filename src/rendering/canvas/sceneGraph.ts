@@ -40,6 +40,9 @@ import { BACKGROUND_COLOR } from './renderConstants';
 
 let backgroundRect: Graphics | null = null;
 export let gridGraphics: Graphics | null = null;
+export let gridTexturesBelowLayer: Container;
+export let gridTexturesAboveLayer: Container;
+export let glossLayer: Container;
 export let worldContainer: Container;
 export let backgroundLayer: Container;
 export let wallLayer: Container;
@@ -77,8 +80,17 @@ export function createSceneGraph(stage: Container) {
     backgroundLayer = addLayer('backgroundLayer');
     backgroundRect = new Graphics();
     backgroundLayer.addChild(backgroundRect);
+    gridTexturesBelowLayer = new Container();
+    gridTexturesBelowLayer.label = 'gridTexturesBelowLayer';
+    backgroundLayer.addChild(gridTexturesBelowLayer);
     gridGraphics = new Graphics();
     backgroundLayer.addChild(gridGraphics);
+    gridTexturesAboveLayer = new Container();
+    gridTexturesAboveLayer.label = 'gridTexturesAboveLayer';
+    backgroundLayer.addChild(gridTexturesAboveLayer);
+    glossLayer = new Container();
+    glossLayer.label = 'glossLayer';
+    backgroundLayer.addChild(glossLayer);
     wallLayer = addLayer('wallLayer');
     scorchLayer = addLayer('scorchLayer');
     lastKnownLayer = addLayer('lastKnownLayer');

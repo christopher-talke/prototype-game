@@ -2,19 +2,18 @@ import { ROTATION_OFFSET } from '../constants';
 import { SETTINGS } from '../app';
 
 import { angleToRadians } from '@utils/angleToRadians';
-import { detectOtherPlayers } from '@simulation/detection/detection';
+import type { DetectionEntry } from '@simulation/detection/detection';
 import { getPlayerElement } from '@rendering/playerElements';
 import { applyVisibility, updateLastKnown, debugLineOfSight } from '@rendering/dom/visibilityRenderer';
 import { generateRayCast, generateFOVCone, hideFOVCone, tickAdaptiveQuality, RaycastTypes } from '@rendering/dom/raycastRenderer';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
 import { updateSmokeClouds } from '@rendering/dom/smokeRenderer';
-import { removeExpiredSmoke } from '@simulation/combat/smokeData';
+
 import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { updateAimLine, updateGrenadeAimLine } from '@rendering/dom/aimLineRenderer';
 import { setCameraTarget, setCameraWeaponOffset, updateCamera } from '@rendering/dom/camera';
 import { updateHUD } from '@rendering/dom/hud';
-import { offlineAdapter } from '@net/offlineAdapter';
 import type { NetAdapter } from '@net/netAdapter';
 import { setPixiCameraTarget, setPixiCameraWeaponOffset, updatePixiCamera } from '@rendering/canvas/camera';
 import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
@@ -23,23 +22,26 @@ import { updatePixiFogOfWar, hidePixiFog } from '@rendering/canvas/fogOfWar';
 import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/canvas/aimLineRenderer';
 import { updateLighting } from '@rendering/canvas/lightingManager';
 import { updateGridDisplacement } from '@rendering/canvas/gridDisplacement';
+import { updateGridTextures } from '@rendering/canvas/gridTextures';
 import { updateSmokeParticles } from '@rendering/canvas/effects/smokeEffect';
+import { updateGloss } from '@rendering/canvas/effects/glossEffect';
 import { getGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 
 let _cachedFogEl: HTMLElement | null = null;
 
-export function updateRenderPipeline(player: player_info, adapter: NetAdapter, timestamp: number) {
+export function updateRenderPipeline(player: player_info, adapter: NetAdapter, timestamp: number, detections: { entries: readonly DetectionEntry[]; count: number }) {
     const projectiles = adapter.getProjectiles();
     const grenades = adapter.getGrenades();
 
     if (SETTINGS.renderer === 'pixi') {
         pixiClientRenderer.updateVisuals(projectiles, grenades);
         if (getGraphicsConfig().features.gridDisplacement) updateGridDisplacement(player, projectiles);
+        updateGridTextures();
+        updateGloss(player.current_position.x, player.current_position.y);
         updateSmokeParticles(timestamp, projectiles);
     } else {
         clientRenderer.updateVisuals(projectiles, grenades);
     }
-    removeExpiredSmoke(timestamp);
     if (SETTINGS.renderer !== 'pixi') updateSmokeClouds(timestamp);
 
     const weapon = getActiveWeapon(player);
@@ -59,7 +61,6 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
         updateCamera(vpWidth, vpHeight);
     }
 
-    const detections = detectOtherPlayers(player.id);
     for (let i = 0; i < detections.count; i++) {
         const entry = detections.entries[i];
         if (SETTINGS.renderer === 'pixi') {
@@ -100,7 +101,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
         updateLighting(projectiles);
     }
 
-    const shots = adapter.mode === 'offline' ? offlineAdapter.authSim.getConsecutiveShots(player.id) : 0;
+    const shots = adapter.getConsecutiveShots(player.id);
     if (SETTINGS.renderer === 'pixi') {
         updatePixiAimLine(player, shots);
         updatePixiGrenadeAimLine(player);

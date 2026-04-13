@@ -1,16 +1,16 @@
 // ClientRenderer: subscribes to GameEvent stream and handles all DOM/audio side effects.
 // No state mutation happens here -- only visual/audio reactions to events.
 
-import { app, SETTINGS } from '../../app';
-import { HALF_HIT_BOX } from '../../constants';
 import '@rendering/dom/css/combat.css';
 import '@rendering/dom/css/grenade.css';
 
+import { app, SETTINGS } from '../../app';
+import { HALF_HIT_BOX } from '../../constants';
+
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
-import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent } from '@net/gameEvent';
-import { acquireProjectile, releaseProjectile } from '@simulation/combat/projectilePool';
+import type { BulletSpawnEvent, BulletRemovedEvent, BulletHitEvent, PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeBounceEvent, GrenadeRemovedEvent, ExplosionHitEvent, FlashEffectEvent, SmokeDeployEvent, KillFeedEvent, RoundEndEvent, ReloadStartEvent, PlayerStatusChangedEvent, FootstepEvent, TeamChangedEvent } from '@net/gameEvent';
+import { acquireProjectile, releaseProjectile } from '@rendering/dom/projectilePool';
 import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
-import { clearPlayerRegistry } from '@simulation/player/playerRegistry';
 import { getPlayerElement, getHealthBarElement, getNametagElement, clearPlayerElements } from '@rendering/playerElements';
 import { updateHealthBar, positionHealthBar, positionNametag } from '@rendering/dom/playerRenderer';
 import { PlayerStatus } from '@simulation/player/playerData';
@@ -20,7 +20,6 @@ import { getWeaponSoundId, getWeaponReloadSoundId } from '@audio/soundMap';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { getWeaponDef } from '@simulation/combat/weapons';
 import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry, showRoundEndBanner } from '@rendering/dom/hud';
-import { addSmokeData } from '@simulation/combat/smokeData';
 import { spawnSmokeCloud } from '@rendering/dom/smokeRenderer';
 import { getConfig } from '@config/activeConfig';
 import { cssTransform } from '@rendering/dom/cssTransform';
@@ -103,6 +102,9 @@ class ClientRendererImpl {
                 break;
             case 'FOOTSTEP':
                 this.onFootstep(event);
+                break;
+            case 'TEAM_CHANGED':
+                this.onTeamChanged(event);
                 break;
         }
     }
@@ -328,9 +330,7 @@ class ClientRendererImpl {
 
     private onSmokeDeploy(event: SmokeDeployEvent) {
         playSound('smoke_deploy', { x: event.x, y: event.y });
-        // Pixi handler calls addSmokeData itself; only add here for DOM mode
         if (SETTINGS.renderer === 'dom') {
-            addSmokeData(event.x, event.y, event.radius, event.duration);
             spawnSmokeCloud(event.x, event.y, event.radius, event.duration);
         }
     }
@@ -427,6 +427,15 @@ class ClientRendererImpl {
         if (player) playFootstep(player, event.timestamp);
     }
 
+    private onTeamChanged(event: TeamChangedEvent) {
+        const el = getPlayerElement(event.playerId);
+        if (el) {
+            el.classList.remove(`team-${event.oldTeam}`);
+            el.classList.add(`team-${event.newTeam}`);
+            el.setAttribute('data-player-team', `${event.newTeam}`);
+        }
+    }
+
     // -- Helpers --
 
     private showHealthBarTemporarily(playerId: number) {
@@ -510,7 +519,6 @@ class ClientRendererImpl {
             if (nt) nt.remove();
             this.removeStatusLabel(playerId);
         }
-        clearPlayerRegistry();
         clearPlayerElements();
         this.lastPlayerTransform.clear();
         this.lastWeaponType.clear();

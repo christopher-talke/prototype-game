@@ -7,12 +7,12 @@ type SmokeData = {
 
 const smokeDatas: SmokeData[] = [];
 
-export function addSmokeData(x: number, y: number, radius: number, duration: number) {
+export function addSmokeData(x: number, y: number, radius: number, duration: number, timestamp: number) {
     smokeDatas.push({
         x,
         y,
         radius,
-        expiresAt: performance.now() + duration,
+        expiresAt: timestamp + duration,
     });
 }
 

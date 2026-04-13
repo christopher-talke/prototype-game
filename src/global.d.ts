@@ -66,21 +66,6 @@ declare global {
         shellReloadTime?: number;
     };
 
-    type ProjectileState = {
-        id: number;
-        x: number;
-        y: number;
-        dx: number;
-        dy: number;
-        speed: number;
-        damage: number;
-        ownerId: number;
-        element: HTMLElement;
-        alive: boolean;
-        poolIndex: number;
-        weaponType?: string;
-    };
-
     type PlayerGameState = {
         playerId: number;
         kills: number;
@@ -425,20 +410,6 @@ declare global {
         shrapnelSpeed?: number;
     };
 
-    type GrenadeState = {
-        id: number;
-        type: GrenadeType;
-        x: number;
-        y: number;
-        dx: number;
-        dy: number;
-        speed: number;
-        ownerId: number;
-        element: HTMLElement;
-        spawnTime: number;
-        detonated: boolean;
-    };
-
     type LightDef = {
         x: number;
         y: number;
@@ -454,6 +425,32 @@ declare global {
         ambientColor?: number;
     };
 
+    type TextureMode = 'cover' | 'tile';
+
+    type TextureLayerDef = {
+        /** Filename in public/maps/<mapId>/ (e.g. "concrete_floor_worn.jpg") */
+        src: string;
+        /** 'cover' = single image UV-mapped 0-1 across entire grid; 'tile' = repeating per cell block */
+        mode: TextureMode;
+        /** Tile mode only: how many grid cells per texture repeat. Default 1. Ignored for cover. */
+        tileCells?: number;
+        /** Opacity 0-1. Default 1. */
+        opacity?: number;
+        /** PixiJS blend mode string. Default 'normal'. */
+        blendMode?: string;
+        /** Hex tint color. Default 0xffffff (no tint). */
+        tint?: number;
+        /** Render below or above the grid dots/lines. Default 'below'. */
+        zPosition?: 'above' | 'below';
+    };
+
+    type FloorGloss = {
+        color?: number;
+        alpha?: number;
+        radius?: number;
+        blendMode?: string;
+    };
+
     type MapData = {
         bounds?: { width: number; height: number };
         teamSpawns: Record<number, coordinates[]>;
@@ -461,6 +458,8 @@ declare global {
         walls: wall_info[];
         lights?: LightDef[];
         lighting?: LightingConfig;
+        textureLayers?: TextureLayerDef[];
+        gloss?: FloorGloss;
     };
 
     type RayPoint = {

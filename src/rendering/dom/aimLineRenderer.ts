@@ -1,4 +1,5 @@
 import '@rendering/dom/css/aimline.css';
+
 import { app } from '../../app';
 import { HALF_HIT_BOX, ROTATION_OFFSET, MAP_OFFSET } from '../../constants';
 import { angleToRadians } from '@utils/angleToRadians';
@@ -7,7 +8,7 @@ import { getWeaponDef } from '@simulation/combat/weapons';
 import { getGrenadeDef } from '@simulation/combat/grenades';
 import { raySegmentIntersect } from '@simulation/detection/rayGeometry';
 import { environment } from '@simulation/environment/environment';
-import { getGrenadeChargePercent, getSelectedGrenadeType } from '@simulation/inputController';
+import { getGrenadeChargePercent, getSelectedGrenadeType } from '@orchestration/inputController';
 import { getConfig } from '@config/activeConfig';
 
 let adsActive = false;

@@ -12,7 +12,7 @@ import { getAdapter, setAdapter } from '@net/activeAdapter';
 import { getLobbyState } from '@ui/lobby/lobbyScreen';
 import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
 
-import { getActiveMap } from '@maps/helpers';
+import { getActiveMap, getActiveMapId } from '@maps/helpers';
 
 import { stopMenuMusic, playMenuMusic } from '@audio/index';
 
@@ -22,19 +22,21 @@ import { environment, setEnvironmentLimits } from '@simulation/environment/envir
 import { createDefaultGrenades } from '@simulation/combat/grenades';
 import { registerWallGeometry, clearAllWallData } from '@simulation/environment/wallData';
 import { generatePlayers, PlayerStatus } from '@simulation/player/playerData';
-import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
+import { setActivePlayer, getAllPlayers, ACTIVE_PLAYER, clearPlayerRegistry } from '@simulation/player/playerRegistry';
 
 import { createPlayer } from '@rendering/dom/playerRenderer';
-import { renderWall } from '@rendering/dom/wallRenderer';
+import { renderWall, clearRenderedWalls } from '@rendering/dom/wallRenderer';
 import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { updateActivePlayerVisual } from '@rendering/playerElements';
 import { setOnReturnToMenuCallback, hideMatchEndOverlay } from '@rendering/dom/hud';
-import { SETTINGS } from '../../app';
+import { SETTINGS } from '../app';
 import { renderPixiWalls, clearPixiWalls } from '@rendering/canvas/wallRenderer';
 import { setWorldBounds } from '@rendering/canvas/sceneGraph';
 import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
 import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
 import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
+import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextures';
+import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 
 const authSim = offlineAdapter.authSim;
 
@@ -42,6 +44,7 @@ function loadMapWalls() {
     const map = getActiveMap();
     setEnvironmentLimits(map.bounds?.width ?? 3000, map.bounds?.height ?? 3000);
     clearAllWallData();
+    clearRenderedWalls();
     clearPixiWalls();
     for (const wall of map.walls) {
         registerWallGeometry(wall);
@@ -53,6 +56,8 @@ function loadMapWalls() {
         setWorldBounds(w, h);
         renderPixiWalls(map.walls);
         initLighting(map.lights ?? [], map.walls, map.lighting);
+        initGridTextures(getActiveMapId(), map.textureLayers);
+        initGloss(map.gloss);
     }
 }
 
@@ -173,6 +178,7 @@ function destroyAllPlayers() {
     } else {
         clientRenderer.clearPlayers();
     }
+    clearPlayerRegistry();
 }
 
 export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConfig>) {
@@ -204,10 +210,13 @@ function returnToMenu() {
     authSim.endMatch();
     destroyAllPlayers();
     clearAllWallData();
+    clearRenderedWalls();
     if (SETTINGS.renderer === 'pixi') {
         clearPixiWalls();
         clearLighting();
         clearGridDisplacement();
+        clearGridTextures();
+        clearGloss();
     }
 
     webSocketAdapter.onGameStart = () => {

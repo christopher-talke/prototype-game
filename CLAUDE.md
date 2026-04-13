@@ -1,8 +1,16 @@
 ## Architecture
 
-- Separation of concerns is strict. Each layer needs to be seperated (simulation, ui, rendering, net etc).
+- Separation of concerns is strict. Each layer needs to be separated (orchestration, simulation, ui, rendering, net etc).
 - If unsure where something belongs or how the system fits together, read ARCHITECTURE.md before proceeding.
 - Do not reach across layer boundaries without a clear reason.
+  
+### Patterns in use
+
+**Clean Architecture** (Dependency Rule): the simulation (innermost ring) imports nothing from outer layers. Rendering and net depend on simulation, not the reverse. Orchestration is the outermost ring and may import freely.
+
+**Ports and Adapters** (Hexagonal): `NetAdapter` is the port. `OfflineAdapter` and `WebSocketAdapter` are the two adapters behind it. The game loop talks only to the interface, never to either adapter directly.
+
+**Event Driven** at the simulation-rendering boundary: `gameEventBus` lets the simulation broadcast state changes without knowing what is listening. Renderers, audio, and HUD all subscribe independently. New listeners never require simulation changes.
 
 ## Output
 

@@ -5,9 +5,11 @@
 
 export const Arena: MapData = {
     lighting: { ambientLight: 0.15, ambientColor: 0x101018 },
-    lights: [
-
+    lights: [],
+    textureLayers: [
+        { src: 'concrete_floor_worn.jpg', mode: 'tile', tileCells: 16, opacity: 0.95, tint: 0x1A1A24, zPosition: 'below' },
     ],
+    gloss: { color: 0xaabbcc, alpha: 0.40, radius: 500 },
     patrolPoints: [
         // Patrol points in corridors
         { x: 1100, y: 300 }, // top corridor

@@ -15,13 +15,21 @@ export const MAP_LIST: MapEntry[] = [
 
 const mapLookup = new Map(MAP_LIST.map((m) => [m.id, m]));
 
+let activeMapId = 'arena';
 let activeMap: MapData = Arena;
 
 export function getActiveMap(): MapData {
     return activeMap;
 }
 
+export function getActiveMapId(): string {
+    return activeMapId;
+}
+
 export function setActiveMap(id: string): void {
     const entry = mapLookup.get(id);
-    if (entry) activeMap = entry.data;
+    if (entry) {
+        activeMapId = id;
+        activeMap = entry.data;
+    }
 }

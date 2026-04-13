@@ -1,7 +1,7 @@
 import { SETTINGS } from '../../app';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent, FlashEffectEvent } from '@net/gameEvent';
-import { ACTIVE_PLAYER, clearPlayerRegistry } from '@simulation/player/playerRegistry';
+import { ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerElements } from '@rendering/playerElements';
 import { PlayerStatus } from '@simulation/player/playerData';
@@ -30,7 +30,7 @@ import { spawnFragExplosion, clearFragEffects } from './effects/fragEffect';
 import { spawnC4Explosion, clearC4Effects } from './effects/c4Effect';
 import { triggerFlashEffect, clearFlashEffect } from './effects/flashEffect';
 import { spawnSmokeCloud, clearSmokeEffects, trackBulletDirection, removeBulletDirection } from './effects/smokeEffect';
-import { addSmokeData } from '@simulation/combat/smokeData';
+
 
 type DamageNumber = { text: Text; elapsed: number };
 type WallSpark = { g: PixiGraphics; elapsed: number; duration: number };
@@ -118,7 +118,6 @@ class PixiClientRendererImpl {
 
     clearPlayers() {
         this.teardownVisuals();
-        clearPlayerRegistry();
         clearPlayerElements();
     }
 
@@ -193,7 +192,6 @@ class PixiClientRendererImpl {
 
     private onSmokeDeploy(event: SmokeDeployEvent) {
         spawnSmokeCloud(event.x, event.y, event.radius, event.duration);
-        addSmokeData(event.x, event.y, event.radius, event.duration);
     }
 
     private onFlashEffect(event: FlashEffectEvent) {

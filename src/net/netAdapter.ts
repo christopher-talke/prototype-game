@@ -39,6 +39,7 @@ export interface NetAdapter {
     getCurrentRound(): number;
     getProjectiles(): readonly { id: number; x: number; y: number }[];
     getGrenades(): readonly { id: number; x: number; y: number; detonated: boolean }[];
+    getConsecutiveShots(playerId: number): number;
 
     connect?(): Promise<void>;
     disconnect?(): void;

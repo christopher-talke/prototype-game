@@ -2,45 +2,56 @@
 
 ## Layers
 
-Four strict layers.
+Five strict layers.
 
 ```
-simulation/  --> may NOT import from rendering/ or ui/
-rendering/   --> may import from simulation/ and net/GameEvent.ts
-net/         --> may import from simulation/, may NOT import from rendering/
-ui/          --> may import from anything except simulation internals
+simulation/    --> may NOT import from rendering/, ui/, or orchestration/
+rendering/     --> may import from simulation/ and net/GameEvent.ts, may NOT mutate simulation state
+net/           --> may import from simulation/, may NOT import from rendering/
+orchestration/ --> may import from everything (simulation, rendering, net, ui, ai)
+ui/            --> may import from anything except simulation internals
 ```
 
-The primary purpose of this is to allow the simulation to be used in isolation for testing, bots, and potentially other game modes in the future. The rendering layer is purely a consumer of simulation state and events, and the UI layer is purely a consumer of both. 
+**The simulation layer** is the source of truth for all game state and logic. It is completely decoupled from rendering and UI concerns, and only communicates via events and read-only state accessors.
 
-The network layer is an adapter that allows the simulation to run in either local or remote mode without changing the simulation code itself.
+**The rendering layer** is purely a consumer of simulation state and events, and the UI layer is purely a consumer of both.
 
-Seperation of concerns so that if we need to swap out the rendering layer (e.g. for a WebGL/Canvas implementation) or add a new game mode with different UI, we can do so without changing the core simulation logic.
+**The network layer** is an adapter that allows the simulation to run in either local or remote mode without changing the simulation code itself.
+
+**The orchestration layer** is application-level glue: it wires all layers together, owns the game loop, input handling, and match lifecycle. It is the only layer that may freely import across all others.
+
+**The ui layer** is seperated from rendering to ensure that the graphics are decoupled from the menu and display systems. This allows for more flexibility in how the UI is implemented (e.g. using a different framework or library) without affecting the core rendering logic.
+
+Separation of concerns so that if we need to swap out the rendering layer (e.g. for a WebGL/Canvas implementation) or add a new game mode with different UI, we can do so without changing the core simulation logic.
 
 ## Directories
 
 ```
-server/          WebSocket multiplayer server (room lifecycle, tick loop)
+server/               WebSocket multiplayer server (room lifecycle, tick loop)
 src/
-  simulation/    Zero DOM. Game state, physics, rules.
-  rendering/     All DOM output.
-  net/           Event bus, transport adapters, wire protocol.
-  ui/            Screens and menus (not in-game rendering).
-  ai/            Bot behavior.
-  audio/         Sound system.
-  combat/        Weapon, grenade, and damage definitions.
-  config/        Game balance and mode definitions.
-  environment/   Map geometry and collision data.
-  hud/           In-game UI elements.
-  maps/          Map data.
-  match/         Match lifecycle.
-  utilities/     Shared pure math helpers.
+  orchestration/      Game loop, match lifecycle, input controller. Wires all layers.
+  simulation/         Zero DOM. Game state, physics, rules.
+    combat/           Weapons, grenades, damage, projectiles, smoke.
+    detection/        Line-of-sight and player detection.
+    environment/      Wall geometry and collision data.
+    match/            Round/match state machine.
+    player/           Player registry, movement, collision, visibility.
+  rendering/          All visual output (DOM and PixiJS).
+    canvas/           PixiJS renderer and all sub-systems.
+    dom/              DOM/CSS renderer.
+  net/                Event bus, transport adapters, wire protocol.
+  ui/                 Screens and menus (not in-game rendering).
+  ai/                 Bot behavior.
+  audio/              Sound system.
+  config/             Game balance and mode definitions.
+  maps/               Map data and helpers.
+  utils/              Shared pure math helpers.
 ```
 
 ## Runtime Flow
 
 ```
-Input -> gameLoop -> adapter.sendInput() -> simulation
+Input -> orchestration/gameLoop -> adapter.sendInput() -> simulation
                                                |
                                            GameEvent[]
                                                |
@@ -49,7 +60,9 @@ Input -> gameLoop -> adapter.sendInput() -> simulation
                                         ClientRenderer -> DOM / Audio
 
 Per-frame (not event-driven):
-  gameLoop -> renderPipeline -> camera, raycasting, visibility
+  orchestration/gameLoop -> detectOtherPlayers() -> updateRenderPipeline()
+                                                         |
+                                               camera, raycasting, visibility
 ```
 
 ## Adapter Pattern
@@ -78,6 +91,8 @@ These are module-level singletons. Do not instantiate new ones.
 
 - **No DOM in simulation.** `simulation/` must stay pure. All rendering side effects go through `ClientRenderer` via events.
 - **All state flows through the adapter.** Do not mutate player positions directly; it bypasses reconciliation in online mode.
+- **Rendering never mutates simulation state.** Renderers subscribe to `gameEventBus` and consume state read-only. Any call to simulation write functions (`addSmokeData`, `clearPlayerRegistry`, etc.) belongs in `orchestration/` or the adapter layer.
+- **Detection and tick-driven logic belong in the game loop.** `renderPipeline.ts` consumes detection results as a parameter; it does not call simulation functions directly.
 
 ## Graphics Quality Config
 
@@ -143,11 +158,11 @@ Eight boolean toggles in `GraphicsConfig.features` guard expensive rendering pat
 
 ## Adding Things
 
-- **Weapon / grenade**: add a definition in `Combat/`. 
+- **Weapon / grenade**: add a definition in `simulation/combat/`.
     - The simulation, rendering, buy menu, and AI all read definitions dynamically.
-- **Game mode**: add an entry to the mode registry in `Config/modes/`. 
+- **Game mode**: add an entry to the mode registry in `config/modes/`.
     - The menu reads it automatically.
-- **Map**: add a file in `Maps/` and register it in the map helper.
-- **Game event**: define the type in `Net/GameEvent.ts`, emit from `AuthoritativeSimulation`, handle in `ClientRenderer`.
-- **HUD element**: add to `HUD/`.
-- **Sound**: add to `Audio/soundMap.ts`.
+- **Map**: add a file in `maps/` and register it in the map helper.
+- **Game event**: define the type in `net/gameEvent.ts`, emit from `AuthoritativeSimulation` (offline) and `WebSocketAdapter.eventHandler` (online), handle in both `ClientRenderer` classes.
+- **HUD element**: add to `rendering/dom/hud.ts` or the relevant rendering sub-system.
+- **Sound**: add to `audio/soundMap.ts`.

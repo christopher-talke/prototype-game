@@ -312,7 +312,7 @@ function doSearch(ai: AIController, _timestamp: number) {
     const dist = getDistance(myCx, myCy, ai.targetLastPos.x, ai.targetLastPos.y);
 
     if (dist < 30) {
-        me.current_position.rotation += getConfig().ai.turnSpeed * 2;
+        offlineAdapter.sendInput({ type: 'ROTATE', playerId: me.id, rotation: me.current_position.rotation + getConfig().ai.turnSpeed * 2 });
         return;
     }
 
@@ -346,11 +346,13 @@ function turnToward(ai: AIController, tx: number, ty: number) {
     const targetAngle = getAngle(myCx, myCy, tx, ty) + ROTATION_OFFSET;
     const diff = normalizeAngle(targetAngle - me.current_position.rotation);
 
+    let newRotation: number;
     if (Math.abs(diff) < getConfig().ai.turnSpeed) {
-        me.current_position.rotation = targetAngle;
+        newRotation = targetAngle;
     } else {
-        me.current_position.rotation += Math.sign(diff) * getConfig().ai.turnSpeed;
+        newRotation = me.current_position.rotation + Math.sign(diff) * getConfig().ai.turnSpeed;
     }
+    offlineAdapter.sendInput({ type: 'ROTATE', playerId: me.id, rotation: newRotation });
 }
 
 function tryAIFire(ai: AIController, timestamp: number) {

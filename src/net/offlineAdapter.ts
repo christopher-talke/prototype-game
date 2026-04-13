@@ -73,6 +73,10 @@ class OfflineAdapter implements NetAdapter {
     getGrenades() {
         return this.authSim.simulation.getGrenades();
     }
+
+    getConsecutiveShots(playerId: number): number {
+        return this.authSim.getConsecutiveShots(playerId);
+    }
 }
 
 export const offlineAdapter = new OfflineAdapter();

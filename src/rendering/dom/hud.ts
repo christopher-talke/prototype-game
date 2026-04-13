@@ -7,7 +7,7 @@ import { getAdapter } from '@net/activeAdapter';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { GRENADE_DEFS } from '@simulation/combat/grenades';
-import { getSelectedGrenadeType } from '@simulation/inputController';
+import { getSelectedGrenadeType } from '@orchestration/inputController';
 import { getKeyForAction, getKeyDisplayName } from '@ui/settings/keybinds';
 import { playSound } from '@audio/index';
 import { getConfig } from '@config/activeConfig';

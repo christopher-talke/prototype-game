@@ -1,16 +1,50 @@
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
-import { ACTIVE_PLAYER, getPlayerInfo } from './player/playerRegistry';
+import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { getAngle } from '@utils/getAngle';
-import { HELD_DIRECTIONS, directions } from './player/playerData';
+import { HELD_DIRECTIONS, directions } from '@simulation/player/playerData';
 import { toggleSettings, isSettingsOpen, closeSettings } from '@ui/settings/settings';
 import { getActionForKey } from '@ui/settings/keybinds';
 import { getAdapter } from '@net/activeAdapter';
 import { toggleBuyMenu, isBuyMenuOpen, closeBuyMenu, updateCrosshairPosition, showLeaderboard, hideLeaderboard, isPauseOpen, openPause, closePause } from '@rendering/dom/hud';
 import { isPlayerDead } from '@simulation/combat/damage';
-import { getIsFiring } from '@simulation/combat/shooting';
 import { setMouseWorldPosition, getMouseWorldPosition } from '@utils/mouseWorldPosition';
 import { getConfig } from '@config/activeConfig';
 import { screenToWorld } from '@rendering/coordConvert';
+
+// --- Firing state (extracted from simulation/combat/shooting.ts) ---
+
+let isFiring = false;
+
+export function getIsFiring(): boolean {
+    return isFiring;
+}
+
+const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #lobby-screen, #hud-pause, #hud-match-end, #lighting-debug-panel';
+
+export function initShooting() {
+    window.addEventListener('mousedown', (e) => {
+        if (e.button === 0) {
+            if ((e.target as HTMLElement).closest(UI_SELECTORS)) return;
+            e.preventDefault();
+            isFiring = true;
+        }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (e.button === 0) {
+            isFiring = false;
+            const playerId = ACTIVE_PLAYER;
+            if (playerId != null) {
+                getAdapter().sendInput({ type: 'STOP_FIRE', playerId, timestamp: performance.now() });
+            }
+        }
+    });
+
+    // Prevent context menu on right click
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+// --- Grenade selection ---
 
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
@@ -92,7 +126,7 @@ export function initInputController() {
 
         if (activePlayer && action === 'grenade' && !isPlayerDead(activePlayer) && !grenadeCharging) {
             const type = getSelectedGrenadeType();
-            
+
             // C4 is placed (inventory empty) - detonate and cycle away
             if (type === 'C4' && activePlayer.grenades[type] === 0) {
                 getAdapter().sendInput({ type: 'DETONATE_C4', playerId: activePlayer.id });
@@ -118,6 +152,7 @@ export function initInputController() {
 
             const newRotation = getAngle(centerX, centerY, mouseWorld.x, mouseWorld.y) + ROTATION_OFFSET;
 
+            // Client-side prediction: set rotation immediately for zero-latency mouse feedback
             activePlayer.current_position.rotation = newRotation;
             getAdapter().sendInput({ type: 'ROTATE', playerId: activePlayer.id, rotation: newRotation });
         }

@@ -123,6 +123,14 @@ export function updateGridDisplacement(
     renderGrid();
 }
 
+export function getGridGeometry() {
+    return { cols, rows, spacing: gridConfig.spacing, displaceX, displaceY };
+}
+
+export function isGridSettled(): boolean {
+    return gridSettled;
+}
+
 export function clearGridDisplacement(): void {
     displaceX?.fill(0);
     displaceY?.fill(0);

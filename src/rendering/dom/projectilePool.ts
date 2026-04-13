@@ -10,10 +10,12 @@ function allocateElements(count: number) {
 
     const start = poolElements.length;
     for (let i = 0; i < count; i++) {
+        
         const el = document.createElement('div');
         el.classList.add('projectile');
         el.style.display = 'none';
         app.appendChild(el);
+
         const idx = start + i;
         poolElements.push(el);
         freeStack.push(idx);
@@ -27,16 +29,20 @@ export function initProjectilePool() {
 export function acquireProjectile(weaponType?: string): { element: HTMLElement; poolIndex: number } | null {
     if (freeStack.length === 0) {
         if (poolElements.length >= MAX_PROJECTILES) return null;
-        // Grow by doubling, capped at MAX
+
         const grow = Math.min(poolElements.length, MAX_PROJECTILES - poolElements.length);
         if (grow <= 0) return null;
+
         allocateElements(grow);
     }
+
     const poolIndex = freeStack.pop()!;
     const element = poolElements[poolIndex];
     element.style.display = '';
+
     if (weaponType === 'SNIPER') element.classList.add('projectile-sniper');
     else if (weaponType === 'SHRAPNEL') element.classList.add('projectile-shrapnel');
+
     return { element, poolIndex };
 }
 

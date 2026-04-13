@@ -39,6 +39,9 @@ export type GameEvent =
     // Player status
     | PlayerStatusChangedEvent
 
+    // Team
+    | TeamChangedEvent
+
     // Movement
     | FootstepEvent;
 
@@ -202,6 +205,15 @@ export type PlayerStatusChangedEvent = {
     playerId: number;
     status: PlayerStatus;
     previousStatus: PlayerStatus;
+};
+
+// -- Team events --
+
+export type TeamChangedEvent = {
+    type: 'TEAM_CHANGED';
+    playerId: number;
+    oldTeam: number;
+    newTeam: number;
 };
 
 // -- Movement events --

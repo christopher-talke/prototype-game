@@ -3,13 +3,14 @@ import type { EventHandler, GameEvent, PlayerInput } from '@net/gameEvent';
 import type { ClientMessage, ServerMessage, PlayerSnapshot } from '@net/protocol';
 import { gameEventBus } from './gameEvent';
 import { getPlayerInfo, getAllPlayers } from '@simulation/player/playerRegistry';
-import { getPlayerElement } from '@rendering/playerElements';
+
 import { getConfig } from '@config/activeConfig';
 import { setLocalPlayerId, updateLobbyState, showCountdown, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import { setActiveMap } from '@maps/helpers';
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { moveWithCollisionPure, getWallAABBs } from '@simulation/player/collision';
 import { environment } from '@simulation/environment/environment';
+import { addSmokeData } from '@simulation/combat/smokeData';
 
 type PendingInput = { seq: number; input: PlayerInput };
 type LocalBullet = { id: number; x: number; y: number; dx: number; dy: number; speed: number };
@@ -288,6 +289,10 @@ class WebSocketAdapter implements NetAdapter {
         return [...this._localGrenades.values()];
     }
 
+    getConsecutiveShots(_playerId: number): number {
+        return 0;
+    }
+
     // ---- Lobby actions ----
 
     sendReady(ready: boolean): void {
@@ -527,6 +532,10 @@ class WebSocketAdapter implements NetAdapter {
                     const statusPlayer = getPlayerInfo(event.playerId);
                     if (statusPlayer) statusPlayer.status = event.status;
                     break;
+
+                case 'SMOKE_DEPLOY':
+                    addSmokeData(event.x, event.y, event.radius, event.duration, performance.now());
+                    break;
             }
         }
         
@@ -630,12 +639,7 @@ class WebSocketAdapter implements NetAdapter {
         if (player.team === serverTeam) return;
         const oldTeam = player.team;
         player.team = serverTeam;
-        const el = getPlayerElement(player.id);
-        if (el) {
-            el.classList.remove(`team-${oldTeam}`);
-            el.classList.add(`team-${serverTeam}`);
-            el.setAttribute('data-player-team', `${serverTeam}`);
-        }
+        gameEventBus.emit({ type: 'TEAM_CHANGED', playerId: player.id, oldTeam, newTeam: serverTeam });
     }
 }
 

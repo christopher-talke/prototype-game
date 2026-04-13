@@ -14,6 +14,7 @@ import { PlayerStatus } from '@simulation/player/playerData';
 import { collidesWithPlayers, collidesWithWalls, moveWithCollisionPure } from '@simulation/player/collision';
 import { getWeaponDef, createDefaultWeapon } from '@simulation/combat/weapons';
 import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
+import { addSmokeData } from '@simulation/combat/smokeData';
 
 type PlayerWeaponState = {
     lastFireTime: number;
@@ -543,6 +544,10 @@ export class AuthoritativeSimulation {
                 const victim = this.playerMap.get(event.targetId);
 
                 if (victim) extra.push(this.emitStatusChange(victim, PlayerStatus.DEAD));
+            }
+            
+            if (event.type === 'SMOKE_DEPLOY') {
+                addSmokeData(event.x, event.y, event.radius, event.duration, timestamp);
             }
         }
         if (extra.length > 0) events.push(...extra);

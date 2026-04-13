@@ -5,6 +5,7 @@ export default defineConfig({
     resolve: {
         alias: {
             '@ai': path.resolve(__dirname, 'src/ai'),
+            '@orchestration': path.resolve(__dirname, 'src/orchestration'),
             '@simulation': path.resolve(__dirname, 'src/simulation'),
             '@rendering': path.resolve(__dirname, 'src/rendering'),
             '@net': path.resolve(__dirname, 'src/net'),

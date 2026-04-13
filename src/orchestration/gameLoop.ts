@@ -1,14 +1,15 @@
-import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from './player/playerRegistry';
+import { ACTIVE_PLAYER, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { getPlayerElement } from '@rendering/playerElements';
 import { SETTINGS } from '../app';
 import { environment } from '@simulation/environment/environment';
-import { initShooting } from '@simulation/combat/shooting';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getAdapter } from '@net/activeAdapter';
 import { updateAllAI } from '@ai/index';
 import { initADS } from '@rendering/dom/aimLineRenderer';
 import { isPauseOpen } from '@rendering/dom/hud';
-import { initInputController, getMovementInput, isFiringInput, isMenuOpen } from './inputController';
+import { initInputController, initShooting, getMovementInput, isFiringInput, isMenuOpen } from '@orchestration/inputController';
+import { removeExpiredSmoke } from '@simulation/combat/smokeData';
+import { detectOtherPlayers } from '@simulation/detection/detection';
 import { updateRenderPipeline } from '@rendering/renderPipeline';
 
 let initialized = false;
@@ -64,7 +65,9 @@ function startLoop() {
 
                 if (adapter.isMatchActive() && !isPauseOpen()) {
                     adapter.tick(environment.segments, getAllPlayers(), timestamp);
-                    updateRenderPipeline(player, adapter, timestamp);
+                    removeExpiredSmoke(timestamp);
+                    const detections = detectOtherPlayers(player.id);
+                    updateRenderPipeline(player, adapter, timestamp, detections);
                 }
                 
                 if (roundRunning && !isPauseOpen() && adapter.mode === 'offline') {

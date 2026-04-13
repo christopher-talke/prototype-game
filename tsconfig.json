@@ -18,6 +18,7 @@
         "baseUrl": ".",
         "paths": {
             "@ai/*": ["src/ai/*"],
+            "@orchestration/*": ["src/orchestration/*"],
             "@simulation/*": ["src/simulation/*"],
             "@rendering/*": ["src/rendering/*"],
             "@net/*": ["src/net/*"],

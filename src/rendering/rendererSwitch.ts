@@ -13,6 +13,9 @@ import { getActiveMap } from '@maps/helpers';
 import { environment } from '@simulation/environment/environment';
 import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
 import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
+import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextures';
+import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
+import { getActiveMapId } from '@maps/helpers';
 
 export function switchRenderer(newType: RendererType) {
     if (SETTINGS.renderer === newType) return;
@@ -24,6 +27,8 @@ export function switchRenderer(newType: RendererType) {
     hidePixiFog();
     clearLighting();
     clearGridDisplacement();
+    clearGridTextures();
+    clearGloss();
 
     clientRenderer.teardownVisuals();
     clearRenderedWalls();
@@ -47,6 +52,8 @@ export function switchRenderer(newType: RendererType) {
         setWorldBounds(environment.limits.right, environment.limits.bottom);
         renderPixiWalls(map.walls);
         initLighting(map.lights ?? [], map.walls, map.lighting);
+        initGridTextures(getActiveMapId(), map.textureLayers);
+        initGloss(map.gloss);
     } else {
         for (const wall of map.walls) renderWall(wall);
     }
