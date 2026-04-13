@@ -1,7 +1,7 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
 export const PRESET_MEDIUM: GraphicsConfig = {
-    resolution: Math.min(window.devicePixelRatio, 1.5),
+    resolution: window.Math.min(window.devicePixelRatio, 1.5),
     antialias: false,
     lightmapScale: 0.35,
 

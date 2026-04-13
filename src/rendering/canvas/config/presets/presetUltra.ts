@@ -1,7 +1,7 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
 export const PRESET_ULTRA: GraphicsConfig = {
-    resolution: window.devicePixelRatio * 4,
+    resolution: window.devicePixelRatio,
     antialias: true,
     lightmapScale: 1,
 

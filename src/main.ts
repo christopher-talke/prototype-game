@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     pixiClientRenderer.init();
 
     setLoadingProgress(30, 'initializing renderer');
-    applyGraphicsConfig('HIGH');
+    applyGraphicsConfig('ULTRA');
     await initPixiApp();
     initPixiProjectilePool();
     initPlayerGlowManager();
