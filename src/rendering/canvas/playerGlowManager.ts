@@ -6,6 +6,7 @@ import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { TEAM_COLORS } from './teamColors';
 import { CRITICAL_HEALTH_COLOR } from './renderConstants';
 import { glowConfig } from './config/glowConfig';
+import { getGraphicsConfig } from './config/graphicsConfig';
 
 interface GlowState {
     filter: GlowFilter;
@@ -22,11 +23,13 @@ interface GlowState {
 const glowStates = new Map<number, GlowState>();
 
 function lerpColor(a: number, b: number, t: number): number {
-    const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-    const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-    return (Math.round(ar + (br - ar) * t) << 16) |
-           (Math.round(ag + (bg - ag) * t) << 8) |
-           Math.round(ab + (bb - ab) * t);
+    const ar = (a >> 16) & 0xff,
+        ag = (a >> 8) & 0xff,
+        ab = a & 0xff;
+    const br = (b >> 16) & 0xff,
+        bg = (b >> 8) & 0xff,
+        bb = b & 0xff;
+    return (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8) | Math.round(ab + (bb - ab) * t);
 }
 
 function getTeamColor(team: number): number {
@@ -92,7 +95,6 @@ function handleEvent(event: GameEvent) {
 
 function tick(dt: number) {
     for (const [playerId, state] of glowStates) {
-
         if (state.deathDrainRemaining > 0) {
             state.deathDrainRemaining -= dt;
             if (state.deathDrainRemaining <= 0) {
@@ -139,7 +141,7 @@ function tick(dt: number) {
         state.lastKnownHealth = hp;
 
         if (hp < glowConfig.criticalHpThreshold) {
-            state.lowHealthPulsePhase += dt * (2 * Math.PI * glowConfig.pulseFreqHz / 1000);
+            state.lowHealthPulsePhase += dt * ((2 * Math.PI * glowConfig.pulseFreqHz) / 1000);
             const pulse = 0.5 + 0.5 * Math.sin(state.lowHealthPulsePhase);
             state.filter.outerStrength = 0.6 + 1.4 * pulse;
             state.filter.color = CRITICAL_HEALTH_COLOR;
@@ -162,6 +164,7 @@ export function initPlayerGlowManager() {
 }
 
 export function onPlayerGlowCreated(playerId: number, team: number) {
+    if (!getGraphicsConfig().features.glowFilter) return;
     const container = getPixiPlayerContainer(playerId);
     if (!container) return;
 

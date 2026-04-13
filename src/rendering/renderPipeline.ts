@@ -24,6 +24,7 @@ import { updatePixiAimLine, updatePixiGrenadeAimLine } from '@rendering/canvas/a
 import { updateLighting } from '@rendering/canvas/lightingManager';
 import { updateGridDisplacement } from '@rendering/canvas/gridDisplacement';
 import { updateSmokeParticles } from '@rendering/canvas/effects/smokeEffect';
+import { getGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -33,7 +34,7 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
 
     if (SETTINGS.renderer === 'pixi') {
         pixiClientRenderer.updateVisuals(projectiles, grenades);
-        updateGridDisplacement(player, projectiles);
+        if (getGraphicsConfig().features.gridDisplacement) updateGridDisplacement(player, projectiles);
         updateSmokeParticles(timestamp, projectiles);
     } else {
         clientRenderer.updateVisuals(projectiles, grenades);

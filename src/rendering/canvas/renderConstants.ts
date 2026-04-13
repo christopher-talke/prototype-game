@@ -8,7 +8,12 @@ export const WALL_SPARK_COLOR = 0xffaa44;
 export const CRITICAL_HEALTH_COLOR = 0xff2222;
 
 // Lighting / GPU limits
-export const LIGHTMAP_SCALE = 0.5;
+// Written by applyGraphicsConfig() -- do not set directly.
+export let LIGHTMAP_SCALE = 0.5;
+export function setLightmapScale(v: number) {
+    LIGHTMAP_SCALE = v;
+}
+
 export const MAX_GPU_LIGHTS = 128;
 export const MAX_GPU_WALLS = 512;
 export const LAST_KNOWN_DECAY_MS = 3500;

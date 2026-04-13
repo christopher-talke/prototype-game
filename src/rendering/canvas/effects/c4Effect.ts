@@ -1,16 +1,14 @@
 import { Graphics, Ticker, ColorMatrixFilter, DisplacementFilter, Sprite, Texture } from 'pixi.js';
 import { explosionFxLayer, sparkLayer, debrisLayer, scorchLayer, postFxLayer, worldContainer } from '../sceneGraph';
 import { swapRemove } from '../renderUtils';
-import {
-    type ParticleBank, createParticleBank, acquireParticle, updateBank,
-    clearBank, texHardDot, texShard, texSoftCircle,
-} from '../particlePool';
+import { type ParticleBank, createParticleBank, acquireParticle, updateBank, clearBank, texHardDot, texShard, texSoftCircle } from '../particlePool';
 import { addTransientLight } from '../lightingManager';
 import { addDisplacementSource } from '../gridDisplacement';
 import { addCameraShake } from '../camera';
 import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { HALF_HIT_BOX } from '../../../constants';
 import { effectsConfig } from '../config/effectsConfig';
+import { getGraphicsConfig } from '../config/graphicsConfig';
 
 // --- Shockwave ring state ---
 
@@ -65,16 +63,17 @@ function ensureBanks() {
 // --- Public API ---
 
 export function spawnC4Explosion(x: number, y: number, radius: number) {
+    const features = getGraphicsConfig().features;
     ensureBanks();
     spawnRings(x, y, radius);
     spawnEmissiveDebris(x, y, radius);
     spawnDarkDebris(x, y, radius);
     spawnDust(x, y, radius);
-    spawnScorch(x, y, radius);
-    spawnHeatShimmer(x, y, radius);
+    if (features.scorchDecals) spawnScorch(x, y, radius);
+    if (features.heatShimmer) spawnHeatShimmer(x, y, radius);
     spawnC4Lights(x, y);
     spawnC4Displacement(x, y, radius);
-    tryScreenEffects(x, y);
+    if (features.screenDesaturation) tryScreenEffects(x, y);
     spawnC4Shake(x, y, radius);
 }
 
@@ -264,7 +263,8 @@ function spawnC4Lights(x: number, y: number) {
 
 function spawnC4Displacement(x: number, y: number, radius: number) {
     addDisplacementSource({
-        x, y,
+        x,
+        y,
         radius: radius * effectsConfig.c4.blastRadiusMultiplier,
         strength: radius * effectsConfig.c4.blastStrengthMultiplier,
         duration: effectsConfig.c4.blastDuration,
@@ -272,7 +272,8 @@ function spawnC4Displacement(x: number, y: number, radius: number) {
     });
     setTimeout(() => {
         addDisplacementSource({
-            x, y,
+            x,
+            y,
             radius: radius * effectsConfig.c4.vacuumRadiusMultiplier,
             strength: radius * effectsConfig.c4.vacuumStrengthMultiplier,
             duration: effectsConfig.c4.vacuumDuration,
@@ -280,7 +281,8 @@ function spawnC4Displacement(x: number, y: number, radius: number) {
     }, effectsConfig.c4.vacuumDelay);
     setTimeout(() => {
         addDisplacementSource({
-            x, y,
+            x,
+            y,
             radius: radius * effectsConfig.c4.rippleRadiusMultiplier,
             strength: radius * effectsConfig.c4.rippleStrengthMultiplier,
             duration: effectsConfig.c4.rippleDuration,
@@ -322,9 +324,7 @@ function tryScreenEffects(x: number, y: number) {
 function applyDesaturation(intensity: number) {
     if (!desatFilter) {
         desatFilter = new ColorMatrixFilter();
-        worldContainer.filters = worldContainer.filters
-            ? [...worldContainer.filters, desatFilter]
-            : [desatFilter];
+        worldContainer.filters = worldContainer.filters ? [...worldContainer.filters, desatFilter] : [desatFilter];
     }
     desatFilter.desaturate();
     desatFilter.alpha = intensity * effectsConfig.c4.desatAlpha;

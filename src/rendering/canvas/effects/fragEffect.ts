@@ -1,16 +1,14 @@
 import { Graphics, Ticker } from 'pixi.js';
 import { explosionFxLayer, sparkLayer, debrisLayer, scorchLayer } from '../sceneGraph';
 import { swapRemove } from '../renderUtils';
-import {
-    type ParticleBank, createParticleBank, acquireParticle, updateBank,
-    clearBank, texHardDot, texShard, texStreak,
-} from '../particlePool';
+import { type ParticleBank, createParticleBank, acquireParticle, updateBank, clearBank, texHardDot, texShard, texStreak } from '../particlePool';
 import { addTransientLight } from '../lightingManager';
 import { addDisplacementSource } from '../gridDisplacement';
 import { addCameraShake } from '../camera';
 import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { HALF_HIT_BOX } from '../../../constants';
 import { effectsConfig } from '../config/effectsConfig';
+import { getGraphicsConfig } from '../config/graphicsConfig';
 
 // --- Shockwave ring state ---
 
@@ -53,11 +51,12 @@ function ensureBanks() {
 // --- Public API ---
 
 export function spawnFragExplosion(x: number, y: number, radius: number) {
+    const features = getGraphicsConfig().features;
     ensureBanks();
     spawnRings(x, y, radius);
     spawnEmissiveDebris(x, y, radius);
     spawnDarkDebris(x, y, radius);
-    spawnScorch(x, y, radius);
+    if (features.scorchDecals) spawnScorch(x, y, radius);
     spawnFragLights(x, y);
     spawnFragDisplacement(x, y, radius);
     spawnFragShake(x, y, radius);
@@ -101,7 +100,8 @@ function createRing(x: number, y: number, radius: number, index: number) {
 
     // Each ring drives its own displacement at the ring's current radius
     const displacementId = addDisplacementSource({
-        x, y,
+        x,
+        y,
         radius: radius * effectsConfig.frag.ringDisplacementRadiusFrac,
         strength: radius * effectsConfig.frag.ringDisplacementStrengthMultiplier,
         duration: duration,
@@ -189,14 +189,16 @@ function spawnFragLights(x: number, y: number) {
 
 function spawnFragDisplacement(x: number, y: number, radius: number) {
     addDisplacementSource({
-        x, y,
+        x,
+        y,
         radius: radius * effectsConfig.frag.blastRadiusMultiplier,
         strength: radius * effectsConfig.frag.blastStrengthMultiplier,
         duration: effectsConfig.frag.blastDuration,
     });
     setTimeout(() => {
         addDisplacementSource({
-            x, y,
+            x,
+            y,
             radius: radius * effectsConfig.frag.vacuumRadiusMultiplier,
             strength: radius * effectsConfig.frag.vacuumStrengthMultiplier,
             duration: effectsConfig.frag.vacuumDuration,
@@ -263,7 +265,7 @@ Ticker.shared.add((ticker) => {
             bank.alpha[idx] = 1 - t;
             bank.rotation[idx] += effectsConfig.frag.emissiveRotationSpeed;
 
-            if (secondarySparkBank && frameCounter % effectsConfig.frag.secondarySparkInterval === 0 && Math.random() < effectsConfig.frag.secondarySparkChance) {
+            if (getGraphicsConfig().features.secondarySparks && secondarySparkBank && frameCounter % effectsConfig.frag.secondarySparkInterval === 0 && Math.random() < effectsConfig.frag.secondarySparkChance) {
                 const si = acquireParticle(secondarySparkBank);
                 if (si !== -1) {
                     secondarySparkBank.x[si] = bank.x[idx];

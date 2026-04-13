@@ -1,3 +1,5 @@
+import type { FragQuality, C4Quality, FlashQuality, SmokeQuality } from './graphicsConfig';
+
 export const effectsConfig = {
     frag: {
         // Rings
@@ -7,7 +9,7 @@ export const effectsConfig = {
         ringDurationMin: 300,
         ringDurationMax: 500,
 
-        // Particles
+        // Particles (quality-managed by GraphicsConfig)
         emissiveCountMin: 40,
         emissiveCountMax: 60,
         darkDebrisCountMin: 15,
@@ -204,5 +206,40 @@ export const effectsConfig = {
         maxRadiusFracRange: 0.6,
         boundaryOvershootBounce: 0.3,
         distanceFadeFactor: 0.3,
+        layerCount: 3 as 1 | 3,
     },
 };
+
+// --- Smoke layer visual presets (design constants, not quality-managed) ------
+// Quality controls layerCount (1 vs 3); these define the visual params per layer.
+
+export interface SmokeLayerParams {
+    alphaMin: number;
+    alphaMax: number;
+    scaleMin: number;
+    scaleMax: number;
+    tint: number;
+    radiusFrac: number;
+}
+
+export const SMOKE_LAYERS_3: readonly SmokeLayerParams[] = [
+    { alphaMin: 0.5, alphaMax: 0.7, scaleMin: 1.8, scaleMax: 2.4, tint: 0x445566, radiusFrac: 0.4 },
+    { alphaMin: 0.3, alphaMax: 0.5, scaleMin: 1.2, scaleMax: 1.8, tint: 0x667788, radiusFrac: 0.7 },
+    { alphaMin: 0.15, alphaMax: 0.3, scaleMin: 0.7, scaleMax: 1.2, tint: 0x8899aa, radiusFrac: 1.0 },
+];
+export const SMOKE_LAYER_WEIGHTS_3: readonly number[] = [0.3, 0.4, 0.3];
+export const SMOKE_LAYER_FADE_OFFSETS_3: readonly number[] = [1000, 1500, 2000];
+
+export const SMOKE_LAYERS_1: readonly SmokeLayerParams[] = [
+    { alphaMin: 0.3, alphaMax: 0.5, scaleMin: 1.2, scaleMax: 1.8, tint: 0x667788, radiusFrac: 1.0 },
+];
+export const SMOKE_LAYER_WEIGHTS_1: readonly number[] = [1];
+export const SMOKE_LAYER_FADE_OFFSETS_1: readonly number[] = [1500];
+
+// Compile-time enforcement: each section must include all quality-managed fields.
+// If a field is added to a quality sub-interface but missing here, this errors.
+type AssertExtends<_T extends _Q, _Q> = true;
+export type _FragOk = AssertExtends<typeof effectsConfig.frag, FragQuality>;
+export type _C4Ok = AssertExtends<typeof effectsConfig.c4, C4Quality>;
+export type _FlashOk = AssertExtends<typeof effectsConfig.flash, FlashQuality>;
+export type _SmokeOk = AssertExtends<typeof effectsConfig.smoke, SmokeQuality>;

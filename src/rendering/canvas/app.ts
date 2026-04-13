@@ -1,19 +1,21 @@
 import { Application } from 'pixi.js';
 import { createSceneGraph } from './sceneGraph';
 import { BACKGROUND_COLOR } from './renderConstants';
+import { getGraphicsConfig } from './config/graphicsConfig';
 
 let pixiApp: Application | null = null;
 
 export async function initPixiApp(): Promise<Application> {
     if (pixiApp) return pixiApp;
 
+    const gc = getGraphicsConfig();
     pixiApp = new Application();
     await pixiApp.init({
         background: BACKGROUND_COLOR,
-        resolution: window.devicePixelRatio,
+        resolution: gc.resolution,
         autoDensity: true,
         resizeTo: window,
-        antialias: true,
+        antialias: gc.antialias,
         preference: 'webgl',
     });
 

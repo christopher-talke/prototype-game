@@ -9,14 +9,19 @@ import type { LOSResult } from '@simulation/player/visibility';
 import { TEAM_COLORS } from './teamColors';
 import { onPlayerGlowCreated, clearPlayerGlows } from './playerGlowManager';
 import { addLastKnownLight, removeLastKnownLight } from './lightingManager';
+import { getGraphicsConfig } from './config/graphicsConfig';
 
 const RADIUS = 21;
 const HIT_COLOR = 0xff943c;
 
 const visibleEnemies = new Set<number>();
-export function getVisibleEnemies(): ReadonlySet<number> { return visibleEnemies; }
+export function getVisibleEnemies(): ReadonlySet<number> {
+    return visibleEnemies;
+}
 const visibleTeammates = new Set<number>();
-export function getVisibleTeammates(): ReadonlySet<number> { return visibleTeammates; }
+export function getVisibleTeammates(): ReadonlySet<number> {
+    return visibleTeammates;
+}
 const HEALTH_COLOR = 0x4ade80;
 const ARMOR_COLOR = 0x60a5fa;
 const BAR_WIDTH = 44;
@@ -43,8 +48,6 @@ const pixiPlayers = new Map<number, PlayerEntry>();
 const healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const corpseList: { g: Container; timer: ReturnType<typeof setTimeout> }[] = [];
 
-const SHARD_COUNT = 28;
-const SPARK_COUNT = 16;
 const SHATTER_DURATION = 1400;
 
 interface Particle {
@@ -79,9 +82,10 @@ Ticker.shared.add((ticker) => {
 });
 
 function spawnShatter(x: number, y: number, color: number) {
+    const { shardCount, sparkCount } = getGraphicsConfig().deathEffect;
     // Angular shards - the main body fragments
-    for (let i = 0; i < SHARD_COUNT; i++) {
-        const angle = (Math.PI * 2 * i) / SHARD_COUNT + (Math.random() - 0.5) * 0.5;
+    for (let i = 0; i < shardCount; i++) {
+        const angle = (Math.PI * 2 * i) / shardCount + (Math.random() - 0.5) * 0.5;
         const speed = 3 + Math.random() * 5;
         const w = 3 + Math.random() * 6;
         const h = 2 + Math.random() * 4;
@@ -104,7 +108,7 @@ function spawnShatter(x: number, y: number, color: number) {
     }
 
     // Bright sparks - small fast dots
-    for (let i = 0; i < SPARK_COUNT; i++) {
+    for (let i = 0; i < sparkCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 5 + Math.random() * 6;
 
@@ -132,7 +136,9 @@ function spawnShatter(x: number, y: number, color: number) {
     corpseLayer.addChild(flash);
     activeParticles.push({
         g: flash,
-        vx: 0, vy: 0, rotSpeed: 0,
+        vx: 0,
+        vy: 0,
+        rotSpeed: 0,
         elapsed: 0,
         duration: 250,
     });
@@ -144,14 +150,17 @@ const lastKnownFading: { g: Graphics; elapsed: number }[] = [];
 
 const weaponTextureCache = new Map<string, Texture>();
 
-
 async function loadWeaponTexture(weaponType: string): Promise<Texture | null> {
     const key = weaponType.toLowerCase();
     if (weaponTextureCache.has(key)) return weaponTextureCache.get(key)!;
     try {
         const url = `/icons/weapons/${key}.svg`;
         const img = new Image();
-        await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = url; });
+        await new Promise<void>((res, rej) => {
+            img.onload = () => res();
+            img.onerror = () => rej();
+            img.src = url;
+        });
         const canvas = document.createElement('canvas');
         canvas.width = 32;
         canvas.height = 32;
@@ -378,9 +387,7 @@ function showLastKnown(key: string, targetPlayer: player_info) {
     g.y = targetPlayer.current_position.y + HALF_HIT_BOX - 10;
     lastKnownLayer.addChild(g);
 
-    addLastKnownLight(key,
-        targetPlayer.current_position.x + HALF_HIT_BOX,
-        targetPlayer.current_position.y + HALF_HIT_BOX);
+    addLastKnownLight(key, targetPlayer.current_position.x + HALF_HIT_BOX, targetPlayer.current_position.y + HALF_HIT_BOX);
 
     const fadeTimer = setTimeout(() => {
         lastKnownMarkers.delete(key);
@@ -425,7 +432,7 @@ export function updatePixiPlayerVisuals() {
         if (entry.lastWeaponType !== weaponType) {
             entry.lastWeaponType = weaponType;
             if (weaponType && entry.weaponIcon) {
-                loadWeaponTexture(weaponType).then(texture => {
+                loadWeaponTexture(weaponType).then((texture) => {
                     if (!entry.weaponIcon || entry.weaponIcon.destroyed) return;
                     if (texture) {
                         entry.weaponIcon.texture = texture;
@@ -440,7 +447,7 @@ export function updatePixiPlayerVisuals() {
         }
 
         if (entry.weaponIcon && entry.weaponIcon.visible) {
-            entry.weaponIcon.scale.y = (pos.rotation > 180 && pos.rotation < 360) ? -Math.abs(entry.weaponIcon.scale.x) : Math.abs(entry.weaponIcon.scale.x);
+            entry.weaponIcon.scale.y = pos.rotation > 180 && pos.rotation < 360 ? -Math.abs(entry.weaponIcon.scale.x) : Math.abs(entry.weaponIcon.scale.x);
         }
     }
 }

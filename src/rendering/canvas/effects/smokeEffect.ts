@@ -1,25 +1,32 @@
 import { Ticker } from 'pixi.js';
 import { smokeParticleLayer } from '../sceneGraph';
 import { swapRemove } from '../renderUtils';
-import {
-    type ParticleBank, createParticleBank, acquireParticle, releaseParticle,
-    syncSprite, clearBank, texSoftBlob,
-} from '../particlePool';
+import { type ParticleBank, createParticleBank, acquireParticle, releaseParticle, syncSprite, clearBank, texSoftBlob } from '../particlePool';
 import { getStaticLights, getTransientLights, getPlayerLights } from '../lightingManager';
 import { getWallAABBs } from '@simulation/player/collision';
 import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../../constants';
-import { effectsConfig } from '../config/effectsConfig';
+import {
+    effectsConfig,
+    SMOKE_LAYERS_3,
+    SMOKE_LAYERS_1,
+    SMOKE_LAYER_WEIGHTS_3,
+    SMOKE_LAYER_WEIGHTS_1,
+    SMOKE_LAYER_FADE_OFFSETS_3,
+    SMOKE_LAYER_FADE_OFFSETS_1,
+} from '../config/effectsConfig';
 import { lightingConfig } from '../config/lightingConfig';
+import { getGraphicsConfig } from '../config/graphicsConfig';
 
-// Layer config: inner particles stay close, outer drift far
-const LAYER_CONFIG = [
-    { alphaMin: 0.5, alphaMax: 0.7, scaleMin: 1.8, scaleMax: 2.4, tint: 0x445566, radiusFrac: 0.4 },
-    { alphaMin: 0.3, alphaMax: 0.5, scaleMin: 1.2, scaleMax: 1.8, tint: 0x667788, radiusFrac: 0.7 },
-    { alphaMin: 0.15, alphaMax: 0.3, scaleMin: 0.7, scaleMax: 1.2, tint: 0x8899aa, radiusFrac: 1.0 },
-];
-const LAYER_WEIGHTS = [0.3, 0.4, 0.3]; // probability distribution
-const LAYER_FADE_OFFSETS = [1000, 1500, 2000]; // inner fades last
+function getLayerConfig() {
+    return effectsConfig.smoke.layerCount === 3 ? SMOKE_LAYERS_3 : SMOKE_LAYERS_1;
+}
+function getLayerWeights() {
+    return effectsConfig.smoke.layerCount === 3 ? SMOKE_LAYER_WEIGHTS_3 : SMOKE_LAYER_WEIGHTS_1;
+}
+function getLayerFadeOffsets() {
+    return effectsConfig.smoke.layerCount === 3 ? SMOKE_LAYER_FADE_OFFSETS_3 : SMOKE_LAYER_FADE_OFFSETS_1;
+}
 
 // --- Types ---
 
@@ -50,7 +57,10 @@ let nextCloudId = 1;
 let frameCounter = 0;
 
 // Bullet tracking for wake turbulence
-interface BulletDir { dx: number; dy: number }
+interface BulletDir {
+    dx: number;
+    dy: number;
+}
 const bulletDirections = new Map<number, BulletDir>();
 
 function ensureBank() {
@@ -85,10 +95,7 @@ export function spawnSmokeCloud(x: number, y: number, radius: number, duration: 
     });
 }
 
-export function updateSmokeParticles(
-    timestamp: number,
-    projectiles: readonly { id: number; x: number; y: number }[],
-) {
+export function updateSmokeParticles(timestamp: number, projectiles: readonly { id: number; x: number; y: number }[]) {
     if (!smokeBank) return;
     const dt = Ticker.shared.deltaMS;
     frameCounter++;
@@ -151,13 +158,16 @@ function emitParticle(cloud: SmokeCloud): boolean {
     if (idx === -1) return false;
 
     // Pick layer by weighted random
+    const weights = getLayerWeights();
+    const layerCfg = getLayerConfig();
     const r = Math.random();
     let layer: number;
-    if (r < LAYER_WEIGHTS[0]) layer = 0;
-    else if (r < LAYER_WEIGHTS[0] + LAYER_WEIGHTS[1]) layer = 1;
+    if (weights.length === 1) layer = 0;
+    else if (r < weights[0]) layer = 0;
+    else if (r < weights[0] + weights[1]) layer = 1;
     else layer = 2;
 
-    const cfg = LAYER_CONFIG[layer];
+    const cfg = layerCfg[layer];
 
     // Spawn in a tight cluster around the center with small random offset
     const angle = Math.random() * Math.PI * 2;
@@ -186,24 +196,24 @@ function emitParticle(cloud: SmokeCloud): boolean {
 
 // --- Particle update ---
 
-function updateParticles(
-    timestamp: number,
-    projectiles: readonly { id: number; x: number; y: number }[],
-) {
+function updateParticles(timestamp: number, projectiles: readonly { id: number; x: number; y: number }[]) {
     if (!smokeBank || !particleLayer || !particleCloudId || !particleBaseAlpha || !particleMaxRadiusFrac) return;
 
-    const doLightSample = frameCounter % effectsConfig.smoke.lightSampleInterval === 0;
+    const doLightSample = getGraphicsConfig().features.smokeLightSampling && frameCounter % effectsConfig.smoke.lightSampleInterval === 0;
 
     // Get player FOV data
-    let playerX = 0, playerY = 0, facingRad = 0, fovHalfRad = 0;
+    let playerX = 0,
+        playerY = 0,
+        facingRad = 0,
+        fovHalfRad = 0;
     let hasPlayer = false;
     if (ACTIVE_PLAYER != null) {
         const p = getPlayerInfo(ACTIVE_PLAYER);
         if (p && !p.dead) {
             playerX = p.current_position.x + HALF_HIT_BOX;
             playerY = p.current_position.y + HALF_HIT_BOX;
-            facingRad = (p.current_position.rotation - ROTATION_OFFSET) * Math.PI / 180;
-            fovHalfRad = FOV * Math.PI / 180;
+            facingRad = ((p.current_position.rotation - ROTATION_OFFSET) * Math.PI) / 180;
+            fovHalfRad = (FOV * Math.PI) / 180;
             hasPlayer = true;
         }
     }
@@ -212,7 +222,7 @@ function updateParticles(
         if (!smokeBank.alive[i]) continue;
 
         const cloudId = particleCloudId[i];
-        const cloud = activeClouds.find(c => c.id === cloudId);
+        const cloud = activeClouds.find((c) => c.id === cloudId);
         if (!cloud) {
             releaseParticle(smokeBank, i);
             continue;
@@ -269,13 +279,13 @@ function updateParticles(
         let alpha = particleBaseAlpha[i];
         if (timestamp >= cloud.fadeStart) {
             const fadeElapsed = timestamp - cloud.fadeStart;
-            const layerFadeOffset = LAYER_FADE_OFFSETS[particleLayer[i]];
+            const layerFadeOffset = getLayerFadeOffsets()[particleLayer[i]];
             if (fadeElapsed >= effectsConfig.smoke.fadeDuration - layerFadeOffset) {
                 const layerFadeT = (fadeElapsed - (effectsConfig.smoke.fadeDuration - layerFadeOffset)) / layerFadeOffset;
                 // Distance-based: farther particles fade first
                 const distFactor = dist / cloud.radius;
                 const adjustedT = Math.min(1, layerFadeT + distFactor * effectsConfig.smoke.distanceFadeFactor);
-                alpha *= (1 - adjustedT);
+                alpha *= 1 - adjustedT;
             }
         }
 
@@ -295,11 +305,11 @@ function updateParticles(
         // Light sampling
         if (doLightSample) {
             const lightMult = sampleLightAt(smokeBank.x[i], smokeBank.y[i]);
-            const cfg = LAYER_CONFIG[particleLayer[i]];
+            const cfg = getLayerConfig()[particleLayer[i]];
             const baseTint = cfg.tint;
-            const r = ((baseTint >> 16) & 0xff);
-            const g = ((baseTint >> 8) & 0xff);
-            const b = (baseTint & 0xff);
+            const r = (baseTint >> 16) & 0xff;
+            const g = (baseTint >> 8) & 0xff;
+            const b = baseTint & 0xff;
             const lr = Math.min(255, Math.floor(r * (effectsConfig.smoke.lightTintBase + lightMult * effectsConfig.smoke.lightTintScale)));
             const lg = Math.min(255, Math.floor(g * (effectsConfig.smoke.lightTintBase + lightMult * effectsConfig.smoke.lightTintScale)));
             const lb = Math.min(255, Math.floor(b * (effectsConfig.smoke.lightTintBase + lightMult * effectsConfig.smoke.lightTintScale)));
@@ -340,14 +350,13 @@ function resolveWallCollision(idx: number) {
 
     for (const w of walls) {
         // Expand AABB by margin for overlap test
-        if (px < w.x - margin || px > w.x + w.w + margin ||
-            py < w.y - margin || py > w.y + w.h + margin) continue;
+        if (px < w.x - margin || px > w.x + w.w + margin || py < w.y - margin || py > w.y + w.h + margin) continue;
 
         // Check if center is inside the expanded AABB
         const dLeft = px - (w.x - margin);
-        const dRight = (w.x + w.w + margin) - px;
+        const dRight = w.x + w.w + margin - px;
         const dTop = py - (w.y - margin);
-        const dBottom = (w.y + w.h + margin) - py;
+        const dBottom = w.y + w.h + margin - py;
         const minD = Math.min(dLeft, dRight, dTop, dBottom);
 
         if (minD === dLeft) {

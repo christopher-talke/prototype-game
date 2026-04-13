@@ -21,6 +21,7 @@ import { initPlayerGlowManager } from '@rendering/canvas/playerGlowManager';
 import { initLightingSystem } from '@rendering/canvas/lightingManager';
 import { initGridDisplacement } from '@rendering/canvas/gridDisplacement';
 import { initParticleTextures } from '@rendering/canvas/particlePool';
+import { applyGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 import '@ui/debug/lightingDebug';
 
 function nextFrame(): Promise<void> {
@@ -28,7 +29,6 @@ function nextFrame(): Promise<void> {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-
     showLoadingScreen();
     await nextFrame();
 
@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     pixiClientRenderer.init();
 
     setLoadingProgress(30, 'initializing renderer');
+    applyGraphicsConfig('HIGH');
     await initPixiApp();
     initPixiProjectilePool();
     initPlayerGlowManager();
@@ -54,11 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initGridDisplacement();
     initParticleTextures();
     initPixiAimLine();
-    
+
     if (SETTINGS.renderer === 'dom') {
         hidePixiCanvas();
-    } 
-    else {
+    } else {
         document.body.classList.add('renderer-pixi');
     }
     await nextFrame();
