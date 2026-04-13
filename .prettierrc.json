@@ -2,5 +2,7 @@
     "semi": true,
     "singleQuote": true,
     "printWidth": 1200,
-    "tabWidth": 4
+    "tabWidth": 4,
+    "bracketSameLine": false,
+    "proseWrap": "always"
 }
