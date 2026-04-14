@@ -78,10 +78,14 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     }
 
     if (SETTINGS.raycast.type === 'CORNERS') {
+    if (SETTINGS.raycast.type === 'CORNERS') {
         const rayResult = generateRayCast(player, { type: RaycastTypes.CORNERS });
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
         tickAdaptiveQuality(timestamp);
+    } 
+    
+    else if (SETTINGS.raycast.type === 'SPRAY') {
     } 
     
     else if (SETTINGS.raycast.type === 'SPRAY') {
@@ -91,12 +95,18 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     } 
     
     else {
+    } 
+    
+    else {
         generateFOVCone(player);
         if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');
         _cachedFogEl?.classList.add('d-none');
         if (SETTINGS.renderer === 'pixi') hidePixiFog();
     }
 
+    if (SETTINGS.renderer === 'pixi' && getGraphicsConfig().features.dynamicLighting) {
+        updateLighting(projectiles);
+    }
     if (SETTINGS.renderer === 'pixi' && getGraphicsConfig().features.dynamicLighting) {
         updateLighting(projectiles);
     }
