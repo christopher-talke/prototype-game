@@ -7,7 +7,6 @@ import { getAdapter } from '@net/activeAdapter';
 import { isPlayerDead } from '@simulation/combat/damage';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { GRENADE_DEFS } from '@simulation/combat/grenades';
-import { getSelectedGrenadeType } from '@orchestration/inputController';
 import { getKeyForAction, getKeyDisplayName } from '@ui/settings/keybinds';
 import { playSound } from '@audio/index';
 import { getConfig } from '@config/activeConfig';
@@ -253,7 +252,7 @@ export function initHUD() {
     });
 }
 
-export function updateHUD(playerInfo: player_info, timeRemaining: number) {
+export function updateHUD(playerInfo: player_info, timeRemaining: number, selectedGrenadeType?: GrenadeType) {
     if (app === undefined) return;
 
     const adapter = getAdapter();
@@ -329,8 +328,8 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number) {
     if (scoreStr !== _lastScore) { _lastScore = scoreStr; scoreDisplay.textContent = scoreStr; }
 
 
-    if (playerInfo.grenades) {
-        const selected = getSelectedGrenadeType();
+    if (playerInfo.grenades && selectedGrenadeType) {
+        const selected = selectedGrenadeType;
         for (const [type, { slot, count }] of grenadeSlotCache) {
             const has = playerInfo.grenades[type] || 0;
             count.textContent = `${has}`;

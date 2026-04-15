@@ -7,10 +7,12 @@ import { getAdapter } from '@net/activeAdapter';
 import { updateAllAI } from '@ai/index';
 import { initADS } from '@rendering/dom/aimLineRenderer';
 import { isPauseOpen } from '@rendering/dom/hud';
-import { initInputController, initShooting, getMovementInput, isFiringInput, isMenuOpen } from '@orchestration/inputController';
+import { initInputController, initShooting, getMovementInput, isFiringInput, isMenuOpen, getGrenadeChargePercent, getSelectedGrenadeType } from '@orchestration/inputController';
 import { removeExpiredSmoke } from '@simulation/combat/smokeData';
 import { detectOtherPlayers } from '@simulation/detection/detection';
 import { updateRenderPipeline } from '@rendering/renderPipeline';
+import { getActiveWeapon } from '@simulation/combat/shooting';
+import { getWeaponDef } from '@simulation/combat/weapons';
 
 let initialized = false;
 
@@ -67,7 +69,10 @@ function startLoop() {
                     adapter.tick(environment.segments, getAllPlayers(), timestamp);
                     removeExpiredSmoke(timestamp);
                     const detections = detectOtherPlayers(player.id);
-                    updateRenderPipeline(player, adapter, timestamp, detections);
+                    const weapon = getActiveWeapon(player);
+                    const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
+                    const cameraOffset = weaponDef ? weaponDef.cameraOffset : 0;
+                    updateRenderPipeline(player, adapter, timestamp, detections, cameraOffset, getGrenadeChargePercent(), getSelectedGrenadeType());
                 }
                 
                 if (roundRunning && !isPauseOpen() && adapter.mode === 'offline') {

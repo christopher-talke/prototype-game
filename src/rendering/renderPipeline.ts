@@ -6,8 +6,6 @@ import type { DetectionEntry } from '@simulation/detection/detection';
 import { getPlayerElement } from '@rendering/playerElements';
 import { applyVisibility, updateLastKnown, debugLineOfSight } from '@rendering/dom/visibilityRenderer';
 import { generateRayCast, generateFOVCone, hideFOVCone, tickAdaptiveQuality, RaycastTypes } from '@rendering/dom/raycastRenderer';
-import { getActiveWeapon } from '@simulation/combat/shooting';
-import { getWeaponDef } from '@simulation/combat/weapons';
 import { updateSmokeClouds } from '@rendering/dom/smokeRenderer';
 
 import { clientRenderer } from '@rendering/dom/clientRenderer';
@@ -29,7 +27,15 @@ import { getGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 
 let _cachedFogEl: HTMLElement | null = null;
 
-export function updateRenderPipeline(player: player_info, adapter: NetAdapter, timestamp: number, detections: { entries: readonly DetectionEntry[]; count: number }) {
+export function updateRenderPipeline(
+    player: player_info,
+    adapter: NetAdapter,
+    timestamp: number,
+    detections: { entries: readonly DetectionEntry[]; count: number },
+    cameraOffset: number,
+    grenadeChargePercent: number,
+    selectedGrenadeType: GrenadeType,
+) {
     const projectiles = adapter.getProjectiles();
     const grenades = adapter.getGrenades();
 
@@ -44,20 +50,17 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     }
     if (SETTINGS.renderer !== 'pixi') updateSmokeClouds(timestamp);
 
-    const weapon = getActiveWeapon(player);
-    const weaponDef = weapon ? getWeaponDef(weapon.type) : null;
-    const cameraOffsetDist = weaponDef ? weaponDef.cameraOffset : 0;
     const facingRad = angleToRadians(player.current_position.rotation - ROTATION_OFFSET);
     const vpWidth = window.visualViewport!.width;
     const vpHeight = window.visualViewport!.height;
 
     if (SETTINGS.renderer === 'pixi') {
         setPixiCameraTarget(player.current_position.x, player.current_position.y);
-        setPixiCameraWeaponOffset(cameraOffsetDist, facingRad);
+        setPixiCameraWeaponOffset(cameraOffset, facingRad);
         updatePixiCamera(vpWidth, vpHeight);
     } else {
         setCameraTarget(player.current_position.x, player.current_position.y);
-        setCameraWeaponOffset(cameraOffsetDist, facingRad);
+        setCameraWeaponOffset(cameraOffset, facingRad);
         updateCamera(vpWidth, vpHeight);
     }
 
@@ -78,26 +81,15 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     }
 
     if (SETTINGS.raycast.type === 'CORNERS') {
-    if (SETTINGS.raycast.type === 'CORNERS') {
         const rayResult = generateRayCast(player, { type: RaycastTypes.CORNERS });
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
         tickAdaptiveQuality(timestamp);
-    } 
-    
-    else if (SETTINGS.raycast.type === 'SPRAY') {
-    } 
-    
-    else if (SETTINGS.raycast.type === 'SPRAY') {
+    } else if (SETTINGS.raycast.type === 'SPRAY') {
         const rayResult = generateRayCast(player, { type: RaycastTypes.SPRAY });
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
-    } 
-    
-    else {
-    } 
-    
-    else {
+    } else {
         generateFOVCone(player);
         if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');
         _cachedFogEl?.classList.add('d-none');
@@ -107,18 +99,15 @@ export function updateRenderPipeline(player: player_info, adapter: NetAdapter, t
     if (SETTINGS.renderer === 'pixi' && getGraphicsConfig().features.dynamicLighting) {
         updateLighting(projectiles);
     }
-    if (SETTINGS.renderer === 'pixi' && getGraphicsConfig().features.dynamicLighting) {
-        updateLighting(projectiles);
-    }
 
     const shots = adapter.getConsecutiveShots(player.id);
     if (SETTINGS.renderer === 'pixi') {
         updatePixiAimLine(player, shots);
-        updatePixiGrenadeAimLine(player);
+        updatePixiGrenadeAimLine(player, grenadeChargePercent, selectedGrenadeType);
     } else {
         updateAimLine(player, shots);
-        updateGrenadeAimLine(player);
+        updateGrenadeAimLine(player, grenadeChargePercent, selectedGrenadeType);
     }
 
-    updateHUD(player, adapter.getMatchTimeRemaining());
+    updateHUD(player, adapter.getMatchTimeRemaining(), selectedGrenadeType);
 }

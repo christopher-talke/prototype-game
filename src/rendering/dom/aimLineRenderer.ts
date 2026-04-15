@@ -8,7 +8,6 @@ import { getWeaponDef } from '@simulation/combat/weapons';
 import { getGrenadeDef } from '@simulation/combat/grenades';
 import { raySegmentIntersect } from '@simulation/detection/rayGeometry';
 import { environment } from '@simulation/environment/environment';
-import { getGrenadeChargePercent, getSelectedGrenadeType } from '@orchestration/inputController';
 import { getConfig } from '@config/activeConfig';
 
 let adsActive = false;
@@ -128,8 +127,7 @@ function computeGrenadeTravelDistance(throwSpeed: number, chargeFraction: number
     return dist;
 }
 
-export function updateGrenadeAimLine(playerInfo: player_info) {
-    const chargePercent = getGrenadeChargePercent();
+export function updateGrenadeAimLine(playerInfo: player_info, chargePercent: number, selectedType: GrenadeType) {
     if (chargePercent <= 0) { hideGrenadeAimLine(); return; }
 
     if (app && !grenadeAimEl) {
@@ -138,7 +136,7 @@ export function updateGrenadeAimLine(playerInfo: player_info) {
         app.appendChild(grenadeAimEl);
     }
 
-    const type = getSelectedGrenadeType();
+    const type = selectedType;
     const def = getGrenadeDef(type);
 
     const minFraction = getConfig().grenades.minThrowFraction;
