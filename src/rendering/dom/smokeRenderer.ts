@@ -1,5 +1,12 @@
+/**
+ * DOM smoke cloud renderer. Creates circular div elements that fade out
+ * before expiration. Used only when the DOM renderer is active; the PixiJS
+ * renderer has its own volumetric smoke system.
+ */
+
 import { app } from '../../app';
 
+/** Internal tracking for a single active smoke cloud DOM element. */
 type SmokeCloud = {
     x: number;
     y: number;
@@ -13,6 +20,13 @@ type SmokeCloud = {
 const FADE_DURATION = 2000;
 const activeClouds: SmokeCloud[] = [];
 
+/**
+ * Creates a smoke cloud DOM element at the given world position.
+ * @param x - World X center of the smoke cloud
+ * @param y - World Y center of the smoke cloud
+ * @param radius - Radius of the smoke cloud in pixels
+ * @param duration - Total lifetime in milliseconds (includes fade)
+ */
 export function spawnSmokeCloud(x: number, y: number, radius: number, duration: number) {
     if (app === undefined) return;
 
@@ -37,6 +51,12 @@ export function spawnSmokeCloud(x: number, y: number, radius: number, duration: 
     });
 }
 
+/**
+ * Ticks all active smoke clouds, applying fade CSS class when nearing
+ * expiration and removing expired clouds from the DOM.
+ * Called once per frame.
+ * @param timestamp - Current frame timestamp from performance.now()
+ */
 export function updateSmokeClouds(timestamp: number) {
     for (let i = activeClouds.length - 1; i >= 0; i--) {
         const cloud = activeClouds[i];

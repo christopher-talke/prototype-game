@@ -1,13 +1,21 @@
+/**
+ * PixiJS v8 custom lighting shader for the 2D world-space lightmap.
+ *
+ * Implements per-pixel Reinhard-tonemapped lighting with hard AABB shadows,
+ * spotlight cone masks, and bloom falloff. Compiled once and reused across
+ * frames via LightingManager.
+ *
+ * Rendering layer - canvas sub-system, consumed exclusively by lightingManager.ts.
+ */
+
 import { Shader, GlProgram, MeshGeometry, Mesh, Texture } from 'pixi.js';
+
 import { MAX_GPU_LIGHTS, MAX_GPU_WALLS } from '../renderConstants';
 
-// --- Constants ---
 const MAX_LIGHTS = MAX_GPU_LIGHTS;
 const MAX_WALLS = MAX_GPU_WALLS;
 
-// ============================================================
 // GLSL ES 3.0 (WebGL2) -- PixiJS auto-inserts #version 300 es
-// ============================================================
 
 /**
  * Vertex shader is a simple pass-through that transforms normalized UV coordinates to world space and passes them to the fragment shader.
@@ -132,10 +140,12 @@ void main() {
 }
 `;
 
-// ============================================================
-// Factory functions
-// ============================================================
-
+/**
+ * Creates a PixiJS Shader instance configured with the world-space lighting
+ * program and all required uniform buffers pre-allocated.
+ *
+ * @returns A shader ready for attachment to a full-screen lightmap Mesh
+ */
 export function createLightingShader(): Shader {
     const glProgram = GlProgram.from({
         vertex: GLSL_VERT,
@@ -162,6 +172,13 @@ export function createLightingShader(): Shader {
     });
 }
 
+/**
+ * Creates a full-screen quad Mesh that covers the entire world in UV [0,1] space.
+ * The mesh is rendered with the lighting shader to produce the lightmap texture.
+ *
+ * @param shader - The lighting Shader returned by createLightingShader
+ * @returns A PixiJS Mesh covering [0,0] to [1,1] in normalized UV coordinates
+ */
 export function createLightingMesh(shader: Shader): Mesh {
     const geometry = new MeshGeometry({
         positions: new Float32Array([

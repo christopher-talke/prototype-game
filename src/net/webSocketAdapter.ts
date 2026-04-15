@@ -1,3 +1,12 @@
+/**
+ * Online adapter - connects to a remote authoritative server over WebSocket.
+ *
+ * Net layer - implements {@link NetAdapter} with client-side prediction,
+ * server reconciliation, remote player interpolation, and input throttling.
+ * Projectiles and grenades are predicted locally and corrected by server
+ * snapshots each tick.
+ */
+
 import type { NetAdapter } from '@net/netAdapter';
 import type { EventHandler, GameEvent, PlayerInput } from '@net/gameEvent';
 import type { ClientMessage, ServerMessage, PlayerSnapshot } from '@net/protocol';
@@ -12,13 +21,29 @@ import { moveWithCollisionPure, getWallAABBs } from '@simulation/player/collisio
 import { environment } from '@simulation/environment/environment';
 import { addSmokeData } from '@simulation/combat/smokeData';
 
+/** An input awaiting server acknowledgement, keyed by sequence number. */
 type PendingInput = { seq: number; input: PlayerInput };
+
+/** Client-predicted bullet state for rendering between server snapshots. */
 type LocalBullet = { id: number; x: number; y: number; dx: number; dy: number; speed: number };
+
+/** Client-predicted grenade state for rendering between server snapshots. */
 type LocalGrenade = { id: number; x: number; y: number; dx: number; dy: number; speed: number; detonated: boolean };
+
+/** Target position/rotation for interpolating a remote player. */
 type InterpTarget = { x: number; y: number; rotation: number };
 
-const MOVE_SEND_INTERVAL = 1000 / 60; // 60 inputs/sec - match frame rate so prediction speed equals server speed
+/** Max rate for sending MOVE inputs - matches the 60 fps frame rate. */
+const MOVE_SEND_INTERVAL = 1000 / 60;
 
+/**
+ * WebSocket-based implementation of {@link NetAdapter}.
+ *
+ * Handles the full online lifecycle: connection, lobby actions, game-start
+ * signaling, input sending with throttling, client-side movement prediction,
+ * server reconciliation via input_ack, remote player interpolation, and
+ * local projectile/grenade prediction corrected by server snapshots.
+ */
 class WebSocketAdapter implements NetAdapter {
     readonly mode = 'online' as const;
 
@@ -35,32 +60,35 @@ class WebSocketAdapter implements NetAdapter {
     private _currentRound = 0;
     private _onGameStart: (() => void) | null = null;
 
-    // Client-side projectile/grenade tracking
     private _localBullets = new Map<number, LocalBullet>();
     private _localGrenades = new Map<number, LocalGrenade>();
 
-    // Player interpolation targets (remote players only)
     private _interpTargets = new Map<number, InterpTarget>();
 
-    // Move input throttling
     private _lastMoveSendTime = 0;
     private _pendingMove: { dx: number; dy: number } | null = null;
 
-    // Rotation throttling
     private _lastRotationSendTime = 0;
     private _pendingRotation: number | null = null;
 
-    // Smoothed reconciliation target for local player
     private _reconTarget: { x: number; y: number } | null = null;
 
-    // Late-join snapshot data (populated when joining a playing game)
     private _lateJoinPlayers: PlayerSnapshot[] | null = null;
 
-    /** Register a callback that fires once when the server signals game start. */
+    /**
+     * Register a callback that fires once when the server signals game start.
+     * @param cb - Callback to invoke, or null to clear.
+     */
     set onGameStart(cb: (() => void) | null) {
         this._onGameStart = cb;
     }
 
+    /**
+     * Opens a WebSocket connection and sends a join message.
+     * Resolves once the server responds with a welcome message.
+     * @param url - WebSocket server URL.
+     * @param name - Display name for this player.
+     */
     async connect(url = 'ws://localhost:8080/room/local', name = 'Player'): Promise<void> {
         if (this.connected) return;
 
@@ -92,6 +120,7 @@ class WebSocketAdapter implements NetAdapter {
         });
     }
 
+    /** Sends a leave message, closes the socket, and resets all local state. */
     disconnect(): void {
         if (!this.ws) return;
         if (this.ws.readyState === WebSocket.OPEN) {
@@ -115,18 +144,32 @@ class WebSocketAdapter implements NetAdapter {
         this._lateJoinPlayers = null;
     }
 
+    /** Returns the server-assigned player ID, or null before welcome. */
     getLocalPlayerId(): number | null {
         return this.localPlayerId;
     }
 
+    /**
+     * Returns and consumes the late-join player snapshot array.
+     * Non-null only when the client joined a match already in progress.
+     * @returns Player snapshots, or null if none are pending.
+     */
     getLateJoinPlayers(): PlayerSnapshot[] | null {
         const data = this._lateJoinPlayers;
         this._lateJoinPlayers = null;
         return data;
     }
 
+    /**
+     * Callback invoked when a new player joins the room.
+     * Set by the orchestration layer to spawn the player's visual.
+     */
     onPlayerJoined: ((player: PlayerSnapshot) => void) | null = null;
 
+    /**
+     * Returns an existing PlayerGameState or creates a zeroed one.
+     * @param playerId - Player to look up or create state for.
+     */
     private ensurePlayerState(playerId: number): PlayerGameState {
         let state = this._playerStates.get(playerId);
         if (!state) {
@@ -136,22 +179,27 @@ class WebSocketAdapter implements NetAdapter {
         return state;
     }
 
+    /** @inheritdoc */
     onEvent(callback: EventHandler): void {
         gameEventBus.subscribe(callback);
     }
 
+    /**
+     * Sends an input to the server. MOVE and ROTATE inputs are throttled -
+     * they are buffered and flushed in {@link tick}. Other input types are
+     * sent immediately with a sequence number.
+     * @param input - The player input to send.
+     */
     sendInput(input: PlayerInput): void {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
         if (input.type === 'MOVE') {
-            // Throttle move inputs to ~30/sec; apply prediction immediately
             this.applyLocalPrediction(input);
             this._pendingMove = { dx: input.dx, dy: input.dy };
             return;
         }
 
         if (input.type === 'ROTATE') {
-            // Throttle rotation inputs
             this._pendingRotation = input.rotation;
             return;
         }
@@ -161,8 +209,15 @@ class WebSocketAdapter implements NetAdapter {
         this.ws.send(JSON.stringify(msg));
     }
 
+    /**
+     * Per-frame update. Flushes throttled move/rotation inputs, advances
+     * client-predicted projectiles and grenades, smooths the local player
+     * toward the reconciled position, and interpolates remote players.
+     * @param _segments - Unused (wall segments provided by environment).
+     * @param _players - Unused (players accessed via registry).
+     * @param _timestamp - Unused (timing handled internally).
+     */
     tick(_segments: WallSegment[], _players: player_info[], _timestamp: number): void {
-        // Flush throttled move input
         if (this._pendingMove && this.ws && this.ws.readyState === WebSocket.OPEN) {
             const now = performance.now();
             if (now - this._lastMoveSendTime >= MOVE_SEND_INTERVAL) {
@@ -177,7 +232,6 @@ class WebSocketAdapter implements NetAdapter {
             }
         }
 
-        // Flush throttled rotation input
         if (this._pendingRotation !== null && this.ws && this.ws.readyState === WebSocket.OPEN) {
             const now = performance.now();
             if (now - this._lastRotationSendTime >= MOVE_SEND_INTERVAL) {
@@ -191,7 +245,6 @@ class WebSocketAdapter implements NetAdapter {
             }
         }
 
-        // Advance local bullets
         for (const [id, b] of this._localBullets) {
             b.x += b.dx * b.speed;
             b.y += b.dy * b.speed;
@@ -200,7 +253,6 @@ class WebSocketAdapter implements NetAdapter {
             }
         }
 
-        // Advance local grenades
         const friction = getConfig().physics.grenadeFriction;
         for (const [, g] of this._localGrenades) {
             if (g.detonated) continue;
@@ -210,7 +262,6 @@ class WebSocketAdapter implements NetAdapter {
             if (g.speed < 0.3) g.speed = 0;
         }
 
-        // Smooth local player toward reconciled position
         if (this._reconTarget && this.localPlayerId !== null) {
             const player = getPlayerInfo(this.localPlayerId);
             if (player) {
@@ -220,7 +271,9 @@ class WebSocketAdapter implements NetAdapter {
                     player.current_position.x = this._reconTarget.x;
                     player.current_position.y = this._reconTarget.y;
                     this._reconTarget = null;
-                } else {
+                }
+
+                else {
                     player.current_position.x += dx * 0.3;
                     player.current_position.y += dy * 0.3;
                 }
@@ -239,13 +292,19 @@ class WebSocketAdapter implements NetAdapter {
 
             if (dx * dx + dy * dy < 0.01 && dr * dr < 0.01) continue;
             const lerpFactor = 0.5;
-            
+
             player.current_position.x += dx * lerpFactor;
             player.current_position.y += dy * lerpFactor;
             player.current_position.rotation += dr * lerpFactor;
         }
     }
 
+    /**
+     * Returns the shortest-arc angular difference scaled by t.
+     * @param current - Current angle in degrees.
+     * @param target - Target angle in degrees.
+     * @param t - Interpolation factor (0-1).
+     */
     private angleLerp(current: number, target: number, t: number): number {
         let diff = target - current;
         while (diff > 180) diff -= 360;
@@ -253,80 +312,117 @@ class WebSocketAdapter implements NetAdapter {
         return diff * t;
     }
 
+    /** @inheritdoc */
     isRoundActive(): boolean {
         return this._roundActive;
     }
 
+    /** @inheritdoc */
     isMatchActive(): boolean {
         return this._matchActive;
     }
 
+    /** @inheritdoc */
     getMatchTimeRemaining(): number {
         return this._matchTimeRemaining;
     }
 
+    /** @inheritdoc */
     getPlayerState(playerId: number): PlayerGameState | undefined {
         return this._playerStates.get(playerId);
     }
 
+    /** @inheritdoc */
     getAllPlayerStates(): PlayerGameState[] {
         return [...this._playerStates.values()];
     }
 
+    /** @inheritdoc */
     getTeamRoundWins(): Record<number, number> {
         return { ...this._teamRoundWins };
     }
 
+    /** @inheritdoc */
     getCurrentRound(): number {
         return this._currentRound;
     }
 
+    /** @inheritdoc */
     getProjectiles() {
         return [...this._localBullets.values()];
     }
 
+    /** @inheritdoc */
     getGrenades() {
         return [...this._localGrenades.values()];
     }
 
+    /** @inheritdoc */
     getConsecutiveShots(_playerId: number): number {
         return 0;
     }
 
-    // ---- Lobby actions ----
-
+    /**
+     * Sends a ready-state toggle to the server.
+     * @param ready - Whether this player is ready to start.
+     */
     sendReady(ready: boolean): void {
         this.send({ v: 1, t: 'ready', ready });
     }
 
+    /**
+     * Asks the server to move a player to a different team in the lobby.
+     * @param playerId - Player to move.
+     * @param team - Target team number.
+     */
     sendMovePlayer(playerId: number, team: number): void {
         this.send({ v: 1, t: 'move_player', playerId, team });
     }
 
+    /**
+     * Sends updated game mode configuration overrides to the server.
+     * @param config - Partial config to merge on the server.
+     */
     sendSetConfig(config: DeepPartial<GameModeConfig>): void {
         this.send({ v: 1, t: 'set_config', config });
     }
 
+    /**
+     * Tells the server to switch to a different map.
+     * @param mapName - Map identifier to load.
+     */
     sendSetMap(mapName: string): void {
         this.send({ v: 1, t: 'set_map', mapName });
     }
 
+    /** Tells the server the host wants to start the game. */
     sendStartGame(): void {
         this.send({ v: 1, t: 'start_game' });
     }
 
+    /**
+     * Sends a message to the server if the socket is open.
+     * @param msg - Fully formed client message.
+     */
     private send(msg: ClientMessage): void {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(msg));
         }
     }
 
+    /**
+     * Parses and dispatches a raw server message by type.
+     * Handles welcome, events, input_ack, snapshot, lobby_state,
+     * game_starting, player_joined, and player_left.
+     * @param raw - Raw data from the WebSocket message event.
+     */
     private handleMessage(raw: unknown): void {
         const text = typeof raw === 'string' ? raw : String(raw);
         let msg: ServerMessage;
         try {
             msg = JSON.parse(text) as ServerMessage;
-        } catch {
+        }
+        catch {
             return;
         }
 
@@ -395,7 +491,9 @@ class WebSocketAdapter implements NetAdapter {
                 console.log('[CLIENT] game_starting countdown:', msg.countdown, 'hasOnGameStart:', !!this._onGameStart);
                 if (msg.countdown > 0) {
                     showCountdown(msg.countdown);
-                } else {
+                }
+
+                else {
                     console.log('[CLIENT] countdown=0, firing onGameStart');
                     this._matchActive = true;
                     this._roundActive = true;
@@ -403,7 +501,9 @@ class WebSocketAdapter implements NetAdapter {
                     if (this._onGameStart) {
                         this._onGameStart();
                         this._onGameStart = null;
-                    } else {
+                    }
+
+                    else {
                         console.warn('[CLIENT] onGameStart callback was null!');
                     }
                 }
@@ -418,6 +518,13 @@ class WebSocketAdapter implements NetAdapter {
         }
     }
 
+    /**
+     * Processes an array of authoritative game events from the server.
+     * Updates local match/round state, player health/inventory, and
+     * client-predicted projectile/grenade maps, then emits all events
+     * onto the {@link gameEventBus}.
+     * @param events - Events from a server 'events' message.
+     */
     private eventHandler(events: GameEvent[]): void {
         console.log('[CLIENT] events received:', events.length, events.map((e: any) => e.type));
         for (const event of events) {
@@ -472,7 +579,6 @@ class WebSocketAdapter implements NetAdapter {
                     }
                     break;
 
-                
                 case 'RELOAD_START':
                     const reloadingPlayer = getPlayerInfo(event.playerId);
                     if (reloadingPlayer) {
@@ -480,7 +586,7 @@ class WebSocketAdapter implements NetAdapter {
                         if (weapon) weapon.reloading = true;
                     }
                     break;
-                    
+
                 case 'RELOAD_COMPLETE':
                     const reloadPlayer = getPlayerInfo(event.playerId);
                     if (reloadPlayer) {
@@ -538,10 +644,15 @@ class WebSocketAdapter implements NetAdapter {
                     break;
             }
         }
-        
+
         gameEventBus.emitAll(events);
     }
 
+    /**
+     * Applies client-side movement prediction for the local player so
+     * movement feels instant despite network latency.
+     * @param input - The MOVE input being predicted.
+     */
     private applyLocalPrediction(input: Extract<PlayerInput, { type: 'MOVE' }>): void {
         const id = this.localPlayerId ?? input.playerId;
         const player = getPlayerInfo(id);
@@ -562,13 +673,21 @@ class WebSocketAdapter implements NetAdapter {
         player.current_position.y = result.y;
     }
 
+    /**
+     * Reconciles the local player's position after a server input_ack.
+     * Replays all unacknowledged inputs on top of the server position to
+     * compute the correct predicted position. Snaps if far away (teleport
+     * or respawn), otherwise smoothly blends via {@link _reconTarget}.
+     * @param seq - Sequence number acknowledged by the server.
+     * @param x - Server-authoritative X position at that sequence.
+     * @param y - Server-authoritative Y position at that sequence.
+     */
     private reconcileInputAck(seq: number, x: number, y: number): void {
         if (this.localPlayerId === null) return;
 
         const player = getPlayerInfo(this.localPlayerId);
         if (!player) return;
 
-        // Compute where we should be: server pos + replay unacked inputs
         let reconX = x;
         let reconY = y;
 
@@ -581,7 +700,6 @@ class WebSocketAdapter implements NetAdapter {
             reconY = result.y;
         }
 
-        // If far away, snap immediately (teleport/respawn); otherwise blend
         const dx = reconX - player.current_position.x;
         const dy = reconY - player.current_position.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -589,19 +707,28 @@ class WebSocketAdapter implements NetAdapter {
             player.current_position.x = reconX;
             player.current_position.y = reconY;
             this._reconTarget = null;
-        } else if (dist > 1) {
+        }
+
+        else if (dist > 1) {
             this._reconTarget = { x: reconX, y: reconY };
-        } else {
+        }
+
+        else {
             this._reconTarget = null;
         }
     }
 
+    /**
+     * Applies a server snapshot to all players. For the local player only
+     * non-position state is synced (position is handled by input_ack
+     * reconciliation). Remote players get interpolation targets set.
+     * @param players - Player snapshots from the server.
+     */
     private applySnapshot(players: PlayerSnapshot[]): void {
         for (const snapshot of players) {
             const player = getPlayerInfo(snapshot.id);
 
             if (snapshot.id === this.localPlayerId) {
-                // For local player: only sync non-position state (position handled by input_ack)
                 if (player) {
                     player.health = snapshot.health;
                     player.armour = snapshot.armour;
@@ -615,7 +742,6 @@ class WebSocketAdapter implements NetAdapter {
                 continue;
             }
 
-            // Hidden players: only update interpolation target for last-known rendering
             if (snapshot.hidden) {
                 this._interpTargets.set(snapshot.id, {
                     x: snapshot.x,
@@ -625,7 +751,6 @@ class WebSocketAdapter implements NetAdapter {
                 continue;
             }
 
-            // Remote players: interpolate position, snap other state
             this._interpTargets.set(snapshot.id, {
                 x: snapshot.x,
                 y: snapshot.y,
@@ -645,6 +770,12 @@ class WebSocketAdapter implements NetAdapter {
         }
     }
 
+    /**
+     * Emits a TEAM_CHANGED event if the server's team for a player differs
+     * from the local value, then updates the local value.
+     * @param player - Local player_info to check and update.
+     * @param serverTeam - Team number from the server snapshot.
+     */
     private syncTeam(player: player_info, serverTeam: number): void {
         if (player.team === serverTeam) return;
         const oldTeam = player.team;

@@ -1,3 +1,11 @@
+/**
+ * Match lifecycle management - start, round transitions, and return to menu.
+ *
+ * Orchestration layer - coordinates between the simulation, net adapters, AI,
+ * rendering, and UI to manage the full match lifecycle. Handles offline
+ * (local with AI) and online (WebSocket) match flows.
+ */
+
 import { registerAI, clearAllAI } from '@ai/index';
 
 import { GAME_MODES_MAP } from '@config/modes/index';
@@ -40,6 +48,11 @@ import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 
 const authSim = offlineAdapter.authSim;
 
+/**
+ * Loads the active map's walls into the environment, clears previous wall
+ * geometry, and renders walls via the current renderer. For the Pixi
+ * renderer also initializes lighting, grid textures, and gloss.
+ */
 function loadMapWalls() {
     const map = getActiveMap();
     setEnvironmentLimits(map.bounds?.width ?? 3000, map.bounds?.height ?? 3000);
@@ -61,6 +74,11 @@ function loadMapWalls() {
     }
 }
 
+/**
+ * Pushes the current map's wall AABBs, segments, spawn points, and patrol
+ * points into the authoritative simulation so it can run collision and
+ * grenade physics.
+ */
 function syncMapToSim() {
     const map = getActiveMap();
     authSim.setMap(
@@ -72,6 +90,11 @@ function syncMapToSim() {
     );
 }
 
+/**
+ * Initializes the match system by wiring up the return-to-menu callback
+ * and the WebSocket adapter's game-start and player-joined hooks.
+ * Should be called once at application startup.
+ */
 export function initMatchSystem() {
     setOnReturnToMenuCallback(returnToMenu);
 
@@ -108,6 +131,10 @@ export function initMatchSystem() {
     };
 }
 
+/**
+ * Spawns all players for an offline match. Player 1 is the local human;
+ * all others get AI controllers registered.
+ */
 function spawnOfflinePlayers() {
     const config = getConfig();
 
@@ -125,6 +152,11 @@ function spawnOfflinePlayers() {
     authSim.setPlayers(getAllPlayers());
 }
 
+/**
+ * Spawns players for an online match. Uses late-join snapshot data if
+ * available (player joined a match in progress), otherwise falls back
+ * to lobby state to build player_info objects.
+ */
 function spawnOnlinePlayers() {
     const localId = webSocketAdapter.getLocalPlayerId();
 
@@ -171,16 +203,30 @@ function spawnOnlinePlayers() {
     }
 }
 
+/**
+ * Removes all player visuals from whichever renderer is active, clears
+ * AI controllers, and empties the player registry.
+ */
 function destroyAllPlayers() {
     clearAllAI();
     if (SETTINGS.renderer === 'pixi') {
         pixiClientRenderer.clearPlayers();
-    } else {
+    }
+
+    else {
         clientRenderer.clearPlayers();
     }
     clearPlayerRegistry();
 }
 
+/**
+ * Launches an offline match with the given game mode and optional config
+ * overrides. Loads the map, spawns players with AI, initializes the
+ * simulation match, starts the first round, hides the main menu, and
+ * hides the cursor.
+ * @param modeId - Key into GAME_MODES_MAP for the desired game mode.
+ * @param overrides - Optional partial config merged on top of the mode defaults.
+ */
 export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConfig>) {
     const entry = GAME_MODES_MAP.get(modeId);
     if (entry) setGameMode(entry.partial);
@@ -196,11 +242,16 @@ export function launchMatch(modeId: string, overrides?: DeepPartial<GameModeConf
 
     const events = authSim.startRound();
     gameEventBus.emitAll(events);
-    
+
     hideMainMenu();
     document.body.style.cursor = 'none';
 }
 
+/**
+ * Ends the current match, tears down all players and environment state,
+ * and returns to the main menu. For online matches, disconnects the
+ * WebSocket and switches back to the offline adapter.
+ */
 function returnToMenu() {
     if (getAdapter().mode === 'online') {
         webSocketAdapter.disconnect();

@@ -25,12 +25,23 @@ const INDICATOR_TIP_OFFSET = aimLineConfig.indicatorTipOffset;
 const SPREAD_GROWTH_PER_SHOT = aimLineConfig.spreadGrowthPerShot;
 const MAX_SPREAD_MULTIPLIER = aimLineConfig.maxSpreadMultiplier;
 
+/**
+ * Registers mouse listeners for aim-down-sights (right-click hold) and cursor tracking.
+ * Must be called once during game initialization.
+ */
 export function initADS() {
     window.addEventListener('mousedown', (e) => { if (e.button === 2) adsActive = true; });
     window.addEventListener('mouseup', (e) => { if (e.button === 2) adsActive = false; });
     window.addEventListener('mousemove', (e) => { mouseClientX = e.clientX; mouseClientY = e.clientY; });
 }
 
+/**
+ * Updates the weapon aim line and spread cone DOM elements for the local player.
+ * Raycasts against wall segments to clip lines at collision points.
+ * Only visible while ADS (right mouse button held).
+ * @param playerInfo - The local player's state
+ * @param shots - Number of shots fired recently, used to compute spread bloom
+ */
 export function updateAimLine(playerInfo: player_info, shots: number) {
     if (!adsActive) { hideAimLine(); return; }
     if (!aimLineEl) createAimLineElements();
@@ -116,6 +127,13 @@ function hideAimLine() {
     if (aimConeRight) aimConeRight.style.display = 'none';
 }
 
+/**
+ * Simulates grenade travel distance by iterating friction deceleration until speed
+ * drops below the minimum threshold.
+ * @param throwSpeed - Base throw speed from grenade definition
+ * @param chargeFraction - Charge fraction (0-1) applied to throw speed
+ * @returns Total travel distance in world units
+ */
 function computeGrenadeTravelDistance(throwSpeed: number, chargeFraction: number): number {
     const friction = getConfig().physics.grenadeFriction;
     const minSpeed = 0.3;
@@ -125,9 +143,18 @@ function computeGrenadeTravelDistance(throwSpeed: number, chargeFraction: number
         dist += speed;
         speed *= friction;
     }
+
     return dist;
 }
 
+/**
+ * Updates the grenade aim line DOM element showing projected throw distance.
+ * Raycasts against wall segments to clip at collision points.
+ * Hidden when charge percent is zero (not charging).
+ * @param playerInfo - The local player's state
+ * @param chargePercent - Current grenade charge (0-1), 0 means not charging
+ * @param selectedType - The grenade type currently selected
+ */
 export function updateGrenadeAimLine(playerInfo: player_info, chargePercent: number, selectedType: GrenadeType) {
     if (chargePercent <= 0) { hideGrenadeAimLine(); return; }
 

@@ -1,4 +1,5 @@
 import { Ticker } from 'pixi.js';
+
 import { smokeParticleLayer } from '../sceneGraph';
 import { swapRemove } from '../renderUtils';
 import { type ParticleBank, createParticleBank, acquireParticle, releaseParticle, syncSprite, clearBank, texSoftBlob } from '../particlePool';
@@ -11,20 +12,42 @@ import { lightingConfig } from '../config/lightingConfig';
 import { getGraphicsConfig } from '../config/graphicsConfig';
 import { GRENADE_VFX } from '@simulation/combat/grenades';
 
+/**
+ * Smoke grenade volumetric particle system.
+ *
+ * AABB-aware particle simulation that renders persistent smoke clouds.
+ * Particles are emitted in a burst then sustained, confined within the
+ * cloud radius via centering forces, and steered around walls via AABB
+ * collision resolution. Supports three volumetric layers (inner/mid/outer)
+ * with staged dissipation, per-particle FOW handling based on the active
+ * player's view cone, CPU-side light sampling from static/dynamic/transient
+ * lights, and bullet wake turbulence from passing projectiles.
+ *
+ * Rendering layer, part of the effects sub-system under canvas rendering.
+ * Consumes SmokeVfx config from simulation/combat/grenades.ts.
+ */
+
 const vfx = GRENADE_VFX.SMOKE.cloud;
 
+/** Returns the layer config array (3-layer or 1-layer) based on effectsConfig. */
 function getLayerConfig() {
     return effectsConfig.smoke.layerCount === 3 ? vfx.layers3 : vfx.layers1;
 }
+
+/** Returns the layer weight distribution for weighted-random layer selection. */
 function getLayerWeights() {
     return effectsConfig.smoke.layerCount === 3 ? vfx.layerWeights3 : vfx.layerWeights1;
 }
+
+/** Returns per-layer fade offset timings for staged dissipation. */
 function getLayerFadeOffsets() {
     return effectsConfig.smoke.layerCount === 3 ? vfx.layerFadeOffsets3 : vfx.layerFadeOffsets1;
 }
 
-// --- Types ---
-
+/**
+ * Tracks the lifetime and emission state of a single smoke cloud instance.
+ * Multiple clouds can be active simultaneously from different grenades.
+ */
 interface SmokeCloud {
     id: number;
     cx: number;
@@ -39,25 +62,30 @@ interface SmokeCloud {
     spawnTime: number;
 }
 
-// --- State ---
-
 let smokeBank: ParticleBank | null = null;
 let particleLayer: Uint8Array | null = null;
 let particleCloudId: Int32Array | null = null;
 let particleBaseAlpha: Float32Array | null = null;
-let particleMaxRadiusFrac: Float32Array | null = null; // per-particle max distance as fraction of cloud radius
+/** Per-particle max distance as fraction of cloud radius. */
+let particleMaxRadiusFrac: Float32Array | null = null;
 
 const activeClouds: SmokeCloud[] = [];
 let nextCloudId = 1;
 let frameCounter = 0;
 
-// Bullet tracking for wake turbulence
+/** Cached bullet travel direction for wake turbulence calculation. */
 interface BulletDir {
     dx: number;
     dy: number;
 }
+
 const bulletDirections = new Map<number, BulletDir>();
 
+/**
+ * Lazily initializes the SoA particle bank and parallel typed arrays for
+ * per-particle metadata (layer index, cloud ID, base alpha, max radius
+ * fraction). Capacity is read from effectsConfig.smoke.bankCapacity.
+ */
 function ensureBank() {
     if (smokeBank) return;
     const cap = effectsConfig.smoke.bankCapacity;
@@ -68,8 +96,17 @@ function ensureBank() {
     particleMaxRadiusFrac = new Float32Array(cap);
 }
 
-// --- Public API ---
-
+/**
+ * Spawns a new smoke cloud at the given world position. The cloud will
+ * burst-emit particles over emitDuration, then sustain with periodic
+ * replacement particles until fadeStart, then dissipate with per-layer
+ * staged fading.
+ *
+ * @param x - World X center of the smoke cloud
+ * @param y - World Y center of the smoke cloud
+ * @param radius - Cloud confinement radius
+ * @param duration - Total cloud lifetime in milliseconds
+ */
 export function spawnSmokeCloud(x: number, y: number, radius: number, duration: number) {
     ensureBank();
     const now = performance.now();
@@ -90,12 +127,23 @@ export function spawnSmokeCloud(x: number, y: number, radius: number, duration: 
     });
 }
 
+/**
+ * Main per-frame update for all smoke clouds and their particles. Called
+ * from the render pipeline with the current timestamp and active
+ * projectile list (for bullet wake turbulence).
+ *
+ * Handles cloud expiry, burst and sustain emission, particle physics
+ * (radial confinement, drag, Brownian drift, wall collision), FOW
+ * visibility, and optional CPU-side light sampling.
+ *
+ * @param timestamp - Current performance.now() value
+ * @param projectiles - Active projectiles for bullet wake calculation
+ */
 export function updateSmokeParticles(timestamp: number, projectiles: readonly { id: number; x: number; y: number }[]) {
     if (!smokeBank) return;
     const dt = Ticker.shared.deltaMS;
     frameCounter++;
 
-    // Remove expired clouds
     for (let i = activeClouds.length - 1; i >= 0; i--) {
         if (timestamp >= activeClouds[i].expiresAt) {
             removeCloud(activeClouds[i]);
@@ -103,7 +151,6 @@ export function updateSmokeParticles(timestamp: number, projectiles: readonly { 
         }
     }
 
-    // Emit particles for active clouds
     for (const cloud of activeClouds) {
         cloud.emitElapsed += dt;
 
@@ -129,14 +176,31 @@ export function updateSmokeParticles(timestamp: number, projectiles: readonly { 
     updateParticles(timestamp, projectiles);
 }
 
+/**
+ * Registers a bullet's normalized travel direction for wake turbulence.
+ * Called when a projectile enters or updates near a smoke cloud.
+ *
+ * @param bulletId - Unique projectile ID
+ * @param dx - Normalized X direction component
+ * @param dy - Normalized Y direction component
+ */
 export function trackBulletDirection(bulletId: number, dx: number, dy: number) {
     bulletDirections.set(bulletId, { dx, dy });
 }
 
+/**
+ * Removes a bullet's direction tracking when the projectile is destroyed.
+ *
+ * @param bulletId - Unique projectile ID to stop tracking
+ */
 export function removeBulletDirection(bulletId: number) {
     bulletDirections.delete(bulletId);
 }
 
+/**
+ * Destroys all active smoke state: clouds, particles, and bullet tracking.
+ * Called on round reset or renderer teardown.
+ */
 export function clearSmokeEffects() {
     for (const cloud of activeClouds) removeCloud(cloud);
     activeClouds.length = 0;
@@ -144,8 +208,15 @@ export function clearSmokeEffects() {
     bulletDirections.clear();
 }
 
-// --- Particle emission ---
-
+/**
+ * Emits a single particle into the smoke bank for the given cloud.
+ * Layer is selected by weighted random from getLayerWeights(). Particle
+ * spawns in a tight cluster near the cloud center with small random offset
+ * and slow initial velocity.
+ *
+ * @param cloud - The parent smoke cloud to emit into
+ * @returns true if a particle was acquired, false if bank is full
+ */
 function emitParticle(cloud: SmokeCloud): boolean {
     if (!smokeBank || !particleLayer || !particleCloudId || !particleBaseAlpha || !particleMaxRadiusFrac) return false;
 
@@ -164,7 +235,6 @@ function emitParticle(cloud: SmokeCloud): boolean {
 
     const cfg = layerCfg[layer];
 
-    // Spawn in a tight cluster around the center with small random offset
     const angle = Math.random() * Math.PI * 2;
     const spawnDist = Math.random() * cloud.radius * vfx.initialRadiusFrac;
 
@@ -189,14 +259,28 @@ function emitParticle(cloud: SmokeCloud): boolean {
     return true;
 }
 
-// --- Particle update ---
-
+/**
+ * Core per-particle update loop. For each alive particle:
+ * 1. Finds its parent cloud (orphans are released)
+ * 2. Computes cloud expansion progress (ease-out quadratic)
+ * 3. Applies radial confinement (outward drift inside boundary,
+ *    centering pull outside)
+ * 4. Applies drag and Brownian drift
+ * 5. Resolves wall AABB collisions
+ * 6. Computes alpha from base, staged layer fade, and distance fade
+ * 7. Applies FOW dimming based on player view cone
+ * 8. Optionally samples lighting and tints the sprite
+ * 9. Syncs sprite transform
+ * 10. Applies bullet wake turbulence
+ *
+ * @param timestamp - Current performance.now() value
+ * @param projectiles - Active projectiles for bullet wake
+ */
 function updateParticles(timestamp: number, projectiles: readonly { id: number; x: number; y: number }[]) {
     if (!smokeBank || !particleLayer || !particleCloudId || !particleBaseAlpha || !particleMaxRadiusFrac) return;
 
     const doLightSample = getGraphicsConfig().features.smokeLightSampling && frameCounter % effectsConfig.smoke.lightSampleInterval === 0;
 
-    // Get player FOV data
     let playerX = 0,
         playerY = 0,
         facingRad = 0,
@@ -223,16 +307,14 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
             continue;
         }
 
-        // Current cloud expansion progress (0 = just spawned, 1 = fully expanded)
+        // Cloud expansion progress (0 = just spawned, 1 = fully expanded)
         const expandT = Math.min(1, (timestamp - cloud.spawnTime) / vfx.expandDuration);
         // Ease-out for natural deceleration
         const expandEased = 1 - (1 - expandT) * (1 - expandT);
         const currentCloudRadius = cloud.radius * (vfx.initialRadiusFrac + (1 - vfx.initialRadiusFrac) * expandEased);
 
-        // Max distance this particle should be from center
         const maxDist = currentCloudRadius * particleMaxRadiusFrac[i];
 
-        // Distance from cloud center
         const dx = smokeBank.x[i] - cloud.cx;
         const dy = smokeBank.y[i] - cloud.cy;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -245,32 +327,29 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
                 // Inside boundary: gentle outward drift
                 smokeBank.vx[i] += ndx * vfx.radialDrift;
                 smokeBank.vy[i] += ndy * vfx.radialDrift;
-            } else {
+            }
+
+            else {
                 // Outside boundary: pull back toward center
                 smokeBank.vx[i] -= ndx * vfx.centeringStrength * (dist - maxDist);
                 smokeBank.vy[i] -= ndy * vfx.centeringStrength * (dist - maxDist);
             }
         }
 
-        // Drag
         smokeBank.vx[i] *= vfx.particleDrag;
         smokeBank.vy[i] *= vfx.particleDrag;
 
-        // Brownian drift
         smokeBank.vx[i] += (Math.random() - 0.5) * vfx.brownianStrength;
         smokeBank.vy[i] += (Math.random() - 0.5) * vfx.brownianStrength;
 
-        // Apply velocity
         smokeBank.x[i] += smokeBank.vx[i];
         smokeBank.y[i] += smokeBank.vy[i];
 
-        // Wall collision: push particle out of any AABB it overlaps
         resolveWallCollision(i);
 
-        // Slow rotation drift
         smokeBank.rotation[i] += vfx.rotationDrift;
 
-        // Alpha: base alpha with dissipation
+        // Alpha: base alpha with staged layer dissipation
         let alpha = particleBaseAlpha[i];
         if (timestamp >= cloud.fadeStart) {
             const fadeElapsed = timestamp - cloud.fadeStart;
@@ -284,7 +363,7 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
             }
         }
 
-        // FOW per-particle
+        // FOW per-particle: dim particles outside player's view cone
         if (hasPlayer) {
             const dpx = smokeBank.x[i] - playerX;
             const dpy = smokeBank.y[i] - playerY;
@@ -297,7 +376,7 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
             }
         }
 
-        // Light sampling
+        // CPU-side light sampling: tint sprite based on nearby light intensity
         if (doLightSample) {
             const lightMult = sampleLightAt(smokeBank.x[i], smokeBank.y[i]);
             const cfg = getLayerConfig()[particleLayer[i]];
@@ -315,17 +394,14 @@ function updateParticles(timestamp: number, projectiles: readonly { id: number; 
         syncSprite(smokeBank, i);
     }
 
-    // Bullet wake turbulence
     applyBulletWake(projectiles);
 }
-
-// --- Wall collision ---
 
 let cachedWalls: readonly { x: number; y: number; w: number; h: number }[] | null = null;
 let wallCacheFrame = -1;
 
+/** Returns wall AABBs, cached per frame to avoid repeated collision queries. */
 function getWalls() {
-    // Cache per frame to avoid repeated calls
     if (wallCacheFrame !== frameCounter) {
         cachedWalls = getWallAABBs();
         wallCacheFrame = frameCounter;
@@ -333,21 +409,27 @@ function getWalls() {
     return cachedWalls!;
 }
 
-const BLOB_BASE_RADIUS = 32; // half of 64px texSoftBlob texture
+/** Half of the 64px texSoftBlob texture, used as collision margin. */
+const BLOB_BASE_RADIUS = 32;
 
+/**
+ * Pushes a smoke particle out of any overlapping wall AABB. Uses the
+ * minimum penetration axis to resolve: the particle is placed just outside
+ * the expanded AABB (wall + visual margin) and its velocity component on
+ * the penetration axis is reflected with a bounce coefficient.
+ *
+ * @param idx - Particle index in the smoke bank
+ */
 function resolveWallCollision(idx: number) {
     if (!smokeBank) return;
     const px = smokeBank.x[idx];
     const py = smokeBank.y[idx];
-    // Margin = visual radius of the blob sprite
     const margin = BLOB_BASE_RADIUS * smokeBank.scale[idx];
     const walls = getWalls();
 
     for (const w of walls) {
-        // Expand AABB by margin for overlap test
         if (px < w.x - margin || px > w.x + w.w + margin || py < w.y - margin || py > w.y + w.h + margin) continue;
 
-        // Check if center is inside the expanded AABB
         const dLeft = px - (w.x - margin);
         const dRight = w.x + w.w + margin - px;
         const dTop = py - (w.y - margin);
@@ -357,13 +439,19 @@ function resolveWallCollision(idx: number) {
         if (minD === dLeft) {
             smokeBank.x[idx] = w.x - margin - 1;
             smokeBank.vx[idx] = -Math.abs(smokeBank.vx[idx]) * vfx.wallBounceCoefficient;
-        } else if (minD === dRight) {
+        }
+
+        else if (minD === dRight) {
             smokeBank.x[idx] = w.x + w.w + margin + 1;
             smokeBank.vx[idx] = Math.abs(smokeBank.vx[idx]) * vfx.wallBounceCoefficient;
-        } else if (minD === dTop) {
+        }
+
+        else if (minD === dTop) {
             smokeBank.y[idx] = w.y - margin - 1;
             smokeBank.vy[idx] = -Math.abs(smokeBank.vy[idx]) * vfx.wallBounceCoefficient;
-        } else {
+        }
+
+        else {
             smokeBank.y[idx] = w.y + w.h + margin + 1;
             smokeBank.vy[idx] = Math.abs(smokeBank.vy[idx]) * vfx.wallBounceCoefficient;
         }
@@ -371,8 +459,16 @@ function resolveWallCollision(idx: number) {
     }
 }
 
-// --- Lighting ---
-
+/**
+ * Samples cumulative light intensity at a world position by iterating all
+ * static, player, and transient lights. Uses inverse-square-ish falloff
+ * (configurable via lightingConfig.falloffExponent). Result is clamped to
+ * 3.0 to prevent oversaturation.
+ *
+ * @param x - World X to sample
+ * @param y - World Y to sample
+ * @returns Accumulated light intensity (0 to 3.0)
+ */
 function sampleLightAt(x: number, y: number): number {
     let total = 0;
 
@@ -410,8 +506,15 @@ function sampleLightAt(x: number, y: number): number {
     return Math.min(total, 3.0);
 }
 
-// --- Bullet wake ---
-
+/**
+ * Applies wake turbulence from passing projectiles to nearby smoke
+ * particles. Each bullet pushes particles perpendicular to its travel
+ * direction (left or right depending on which side the particle is on)
+ * plus a small forward component. Force falls off linearly within
+ * bulletWakeRadius.
+ *
+ * @param projectiles - Active projectiles with position data
+ */
 function applyBulletWake(projectiles: readonly { id: number; x: number; y: number }[]) {
     if (!smokeBank || !particleCloudId || activeClouds.length === 0) return;
 
@@ -419,7 +522,6 @@ function applyBulletWake(projectiles: readonly { id: number; x: number; y: numbe
         const dir = bulletDirections.get(proj.id);
         if (!dir) continue;
 
-        // Iterate bank directly -- avoids stale index issues
         for (let i = 0; i < smokeBank.capacity; i++) {
             if (!smokeBank.alive[i]) continue;
 
@@ -441,8 +543,11 @@ function applyBulletWake(projectiles: readonly { id: number; x: number; y: numbe
     }
 }
 
-// --- Cleanup ---
-
+/**
+ * Releases all particles belonging to a cloud from the smoke bank.
+ *
+ * @param cloud - The cloud whose particles should be released
+ */
 function removeCloud(cloud: SmokeCloud) {
     if (!smokeBank || !particleCloudId) return;
     for (let i = 0; i < smokeBank.capacity; i++) {

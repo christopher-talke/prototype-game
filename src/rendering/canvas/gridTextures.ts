@@ -1,8 +1,18 @@
+/**
+ * Grid-deformable texture layer system.
+ *
+ * Loads texture images defined in a map's layer definitions and renders them
+ * as deformable meshes whose vertices are tied to the grid displacement system.
+ * Supports two UV modes: "cover" (stretch to world bounds) and "tile" (repeating).
+ * Each mesh is placed either below or above the grid dots layer.
+ *
+ * Part of the canvas rendering layer.
+ */
+
 import { Assets, Geometry, Mesh, Texture, type Container } from 'pixi.js';
+
 import { getGridGeometry, isGridSettled } from './gridDisplacement';
 import { gridTexturesBelowLayer, gridTexturesAboveLayer } from './sceneGraph';
-
-// --- Module state ---
 
 interface ActiveMesh {
     mesh: Mesh;
@@ -12,8 +22,12 @@ interface ActiveMesh {
 const activeMeshes: ActiveMesh[] = [];
 let synced = false;
 
-// --- Public API ---
-
+/**
+ * Load texture layers for a map and build deformable meshes on the grid topology.
+ * Replaces any previously loaded textures.
+ * @param mapId - Map identifier used to resolve texture asset paths.
+ * @param layers - Texture layer definitions from the map data.
+ */
 export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]): Promise<void> {
     clearGridTextures();
     if (!layers || layers.length === 0) return;
@@ -45,7 +59,6 @@ export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]
         }
     }
 
-    // Build shared initial positions (rest state)
     const positions = buildRestPositions(cols, rows, spacing);
 
     for (const layer of layers) {
@@ -87,6 +100,10 @@ export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]
     synced = false;
 }
 
+/**
+ * Sync mesh vertex positions with current grid displacement values.
+ * Skips the update when the grid is settled and positions are already in sync.
+ */
 export function updateGridTextures(): void {
     if (activeMeshes.length === 0) return;
 
@@ -116,6 +133,7 @@ export function updateGridTextures(): void {
     synced = isGridSettled();
 }
 
+/** Destroy all texture meshes and reset state. */
 export function clearGridTextures(): void {
     for (const entry of activeMeshes) {
         entry.container.removeChild(entry.mesh);
@@ -125,8 +143,7 @@ export function clearGridTextures(): void {
     synced = false;
 }
 
-// --- Internal helpers ---
-
+/** Build a flat Float32Array of rest-state (x, y) positions for all grid vertices. */
 function buildRestPositions(cols: number, rows: number, spacing: number): Float32Array {
     const positions = new Float32Array(cols * rows * 2);
     for (let r = 0; r < rows; r++) {
@@ -139,6 +156,11 @@ function buildRestPositions(cols: number, rows: number, spacing: number): Float3
     return positions;
 }
 
+/**
+ * Build UV coordinates for a texture layer.
+ * "cover" mode maps UVs to [0,1] across the full world.
+ * "tile" mode repeats based on the configured tile cell count.
+ */
 function buildUVs(
     cols: number,
     rows: number,
@@ -157,8 +179,9 @@ function buildUVs(
                 uvs[i + 1] = ((r + 1) * spacing) / worldHeight;
             }
         }
-    } else {
-        // tile mode
+    }
+
+    else {
         const n = layer.tileCells ?? 1;
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {

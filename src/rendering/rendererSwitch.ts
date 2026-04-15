@@ -17,10 +17,15 @@ import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextu
 import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 import { getActiveMapId } from '@maps/helpers';
 
+/**
+ * Tears down both renderers and rebuilds the target renderer from current game state.
+ * Handles canvas/DOM visibility toggling, wall rebuilding, lighting/grid re-init,
+ * and player visual recreation.
+ * @param newType - The renderer to switch to ('dom' or 'pixi').
+ */
 export function switchRenderer(newType: RendererType) {
     if (SETTINGS.renderer === newType) return;
 
-    // Tear down both renderers to clear any stale state
     pixiClientRenderer.teardownVisuals();
     clearPixiWalls();
     clearSmokeEffects();
@@ -33,20 +38,19 @@ export function switchRenderer(newType: RendererType) {
     clientRenderer.teardownVisuals();
     clearRenderedWalls();
 
-    // Switch the setting
     SETTINGS.renderer = newType;
     saveRendererSetting(newType);
 
-    // Toggle canvas / DOM visibility
     if (newType === 'pixi') {
         showPixiCanvas();
         document.body.classList.add('renderer-pixi');
-    } else {
+    }
+
+    else {
         hidePixiCanvas();
         document.body.classList.remove('renderer-pixi');
     }
 
-    // Rebuild walls from current map
     const map = getActiveMap();
     if (newType === 'pixi') {
         setWorldBounds(environment.limits.right, environment.limits.bottom);
@@ -54,11 +58,12 @@ export function switchRenderer(newType: RendererType) {
         initLighting(map.lights ?? [], map.walls, map.lighting);
         initGridTextures(getActiveMapId(), map.textureLayers);
         initGloss(map.gloss);
-    } else {
+    }
+
+    else {
         for (const wall of map.walls) renderWall(wall);
     }
 
-    // Rebuild player visuals from current registry
     const localPlayer = ACTIVE_PLAYER != null ? getPlayerInfo(ACTIVE_PLAYER) : null;
     const localTeam = localPlayer?.team;
     for (const player of getAllPlayers()) {

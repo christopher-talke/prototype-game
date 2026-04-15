@@ -1,5 +1,6 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
+/** LOW quality preset -- all optional features disabled, reduced particle counts and texture sizes. */
 export const PRESET_LOW: GraphicsConfig = {
     resolution: Math.min(window.devicePixelRatio, 1),
     antialias: false,

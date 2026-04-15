@@ -5,6 +5,7 @@ import { isSmoked } from '@simulation/combat/smokeData';
 import { raySegmentIntersect, isLineBlocked as _geoLineBlocked } from '@simulation/detection/rayGeometry';
 import { normalizeAngle } from '@utils/normalizeAngle';
 
+/** Raycast strategy used by `computeRaycastPolygon`. */
 export enum RaycastTypes {
     SPRAY = 'SPRAY',
     CORNERS = 'CORNERS',
@@ -22,12 +23,24 @@ function angleToRadians(deg: number): number {
 
 export { raySegmentIntersect } from './rayGeometry';
 
+/**
+ * Returns true if the straight line between two world points is blocked by
+ * smoke or wall geometry.
+ *
+ * Delegates smoke check to `isSmoked`, then wall check to `rayGeometry`.
+ *
+ * @param sx - Start x.
+ * @param sy - Start y.
+ * @param tx - Target x.
+ * @param ty - Target y.
+ * @param segments - Wall segments to test against.
+ */
 export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     if (isSmoked(sx, sy, tx, ty)) return true;
     return _geoLineBlocked(sx, sy, tx, ty, segments);
 }
 
-// Frame skipping state
+// Frame-skip state - avoids re-casting when the player has barely moved.
 let lastCastX = NaN;
 let lastCastY = NaN;
 let lastCastRot = NaN;
@@ -41,15 +54,20 @@ const vertexBuffer: coordinates[] = [];
 const _filteredSegments: WallSegment[] = [];
 
 /**
- * Filters wall segments based on the player's field of view (FOV) and a maximum distance.
- * Only segments within the FOV and distance are returned.
- * @param cx The x-coordinate of the player's position.
- * @param cy The y-coordinate of the player's position.
- * @param lowerRad The lower bound of the FOV in radians.
- * @param upperRad The upper bound of the FOV in radians.
- * @param maxDist The maximum distance to consider.
- * @param segments The array of wall segments to filter.
- * @returns An array of wall segments within the FOV and distance.
+ * Filters `segments` to those whose AABB overlaps the bounding box of the
+ * player's FOV cone, eliminating wall segments that cannot possibly contribute
+ * to the raycast polygon.
+ *
+ * The bounding box is derived from the two FOV boundary rays extended to
+ * `maxDist`, plus a small padding to catch segments that straddle the edge.
+ *
+ * @param cx - Observer x.
+ * @param cy - Observer y.
+ * @param lowerRad - Lower FOV boundary angle in radians.
+ * @param upperRad - Upper FOV boundary angle in radians.
+ * @param maxDist - Maximum ray length in world units.
+ * @param segments - Full wall segment list to filter.
+ * @returns Module-scoped buffer containing only the relevant segments (reused each call).
  */
 function filterSegmentsByFOV(cx: number, cy: number, lowerRad: number, upperRad: number, maxDist: number, segments: WallSegment[]): WallSegment[] {
     const cosL = Math.cos(lowerRad);
@@ -88,6 +106,18 @@ function filterSegmentsByFOV(cx: number, cy: number, lowerRad: number, upperRad:
     return result;
 }
 
+/**
+ * Casts a single ray from `(originX, originY)` in direction `(dirX, dirY)`
+ * and writes the nearest wall-hit point into `outPoint`. Falls back to 5000
+ * units when no segment is hit.
+ *
+ * @param originX - Ray origin x.
+ * @param originY - Ray origin y.
+ * @param dirX - Normalised ray direction x.
+ * @param dirY - Normalised ray direction y.
+ * @param segments - Candidate wall segments (pre-filtered).
+ * @param outPoint - Mutated in place with the hit coordinates.
+ */
 function castRay(originX: number, originY: number, dirX: number, dirY: number, segments: WallSegment[], outPoint: coordinates): void {
     let nearestT = Infinity;
 
@@ -105,20 +135,29 @@ function castRay(originX: number, originY: number, dirX: number, dirY: number, s
     outPoint.y = originY + dirY * nearestT;
 }
 
-// Cache values to improve GC performance by avoiding object creation in the raycast loop, which is a major bottleneck.
+// Module-scope hit-point objects reused across raycast calls to avoid GC pressure.
 const _lowerHit: coordinates = { x: 0, y: 0 };
 const _upperHit: coordinates = { x: 0, y: 0 };
 const _hitA: coordinates = { x: 0, y: 0 };
 const _hitB: coordinates = { x: 0, y: 0 };
 
-// Only consider corners within 1500px; not good for wide monitors, but helps a lot with performance by reducing the number of rays we have to cast.
+// Corners beyond this distance cannot meaningfully contribute to the polygon.
 const MAX_CORNER_DIST_SQ = 1500 * 1500;
 
 /**
- * Computes the raycast polygon for a given player (absolute hell on earth, sorry).
- * @param playerInfo The player information.
- * @param config The raycast configuration.
- * @returns Vertex buffer and count, or null if the frame can be skipped.
+ * Builds the 2D visibility polygon for a player using either corner-based or
+ * spray raycasting. Returns `null` when the player has not moved enough since
+ * the last call to warrant re-computing (frame-skip optimisation).
+ *
+ * Corner mode: casts a pair of offset rays around each wall corner inside the
+ * FOV, then insertion-sorts them by angle for correct winding.
+ *
+ * Spray mode: casts rays at a fixed 1-degree interval across the FOV arc; less
+ * accurate but cheaper when the map has many corners.
+ *
+ * @param playerInfo - Current player state (position + rotation).
+ * @param config - Raycast strategy selector (`CORNERS` or `SPRAY`).
+ * @returns Reused vertex buffer and point count, or `null` to signal skip.
  */
 export function computeRaycastPolygon(playerInfo: player_info, config: raycast_config): { vertices: coordinates[]; count: number } | null {
     const centerX = playerInfo.current_position.x + HALF_HIT_BOX;
@@ -128,7 +167,7 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
     const dx = centerX - lastCastX;
     const dy = centerY - lastCastY;
     const dr = Math.abs(normalizeAngle(rotation - lastCastRot));
-    if (dx * dx + dy * dy < POSITION_THRESHOLD * POSITION_THRESHOLD && dr < ROTATION_THRESHOLD) return null; // Skip raycast if player hasn't moved/rotated enough since last cast: +20 fps
+    if (dx * dx + dy * dy < POSITION_THRESHOLD * POSITION_THRESHOLD && dr < ROTATION_THRESHOLD) return null;
 
     lastCastX = centerX;
     lastCastY = centerY;
@@ -141,8 +180,6 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
     const lowerRad = angleToRadians(lowerLimit);
     const upperRad = angleToRadians(upperLimit);
 
-    // Filter segments to those that are in or near the FOV to reduce ray-segment intersection checks.
-    // Ensures that we only consider segments that could possibly intersect with rays within the FOV: : +10 fps
     const filteredSegments = filterSegmentsByFOV(centerX, centerY, lowerRad, upperRad, 5000, environment.segments);
 
     const lowerDirX = Math.cos(lowerRad);
@@ -150,24 +187,22 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
     const upperDirX = Math.cos(upperRad);
     const upperDirY = Math.sin(upperRad);
 
-    // Shoot the two "base" rays to get the initial polygon points at the edges of the FOV
+    // Shoot the two boundary rays to anchor the polygon edges.
     castRay(centerX, centerY, lowerDirX, lowerDirY, filteredSegments, _lowerHit);
     castRay(centerX, centerY, upperDirX, upperDirY, filteredSegments, _upperHit);
 
     let rayCount = 0;
     if (config.type === 'CORNERS') {
-
-        // Process each corner to determine if it should cast additional rays
         const corners = environment.corners;
         for (let ci = 0, clen = corners.length; ci < clen; ci++) {
             const corner = corners[ci];
 
             const cdx = corner.x - centerX;
             const cdy = corner.y - centerY;
-            if (cdx * cdx + cdy * cdy > MAX_CORNER_DIST_SQ) continue; // Skip corners that are too far away to matter: +10 fps
+            if (cdx * cdx + cdy * cdy > MAX_CORNER_DIST_SQ) continue;
 
             const angleToCorner = getAngle(centerX, centerY, corner.x, corner.y);
-            if (!isAngleInFOV(angleToCorner, facingAngle, FOV)) continue; // Skip corners that are outside the FOV: +10 fps
+            if (!isAngleInFOV(angleToCorner, facingAngle, FOV)) continue;
 
             const angA = angleToCorner - CORNER_RAY_OFFSET_DEGREES;
             const angB = angleToCorner + CORNER_RAY_OFFSET_DEGREES;
@@ -190,11 +225,9 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
             rayPathBuffer[rayCount].d = normalizeAngle(angB - facingAngle);
             rayCount++;
         }
-    } 
-    
-    // A scuffed implementation of a "spray" raycast that just shoots rays at fixed angle intervals within the FOV, without sorting by angle or anything fancy. 
-    // It's less accurate than the corner-based approach but much cheaper to compute, and can still provide decent results if the interval is small enough.
-    // Intially pulled and adpated from this: https://www.youtube.com/watch?v=TOEi6T2mtHo
+    }
+
+    // Spray mode: fixed-interval rays, no sorting required.
     else if (config.type === RaycastTypes.SPRAY) {
         const SPRAY_STEP = 1;
         const stepRad = angleToRadians(SPRAY_STEP);
@@ -219,8 +252,7 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
         }
     }
 
-    // Sort rays by angle for correct polygon construction.
-    // There is probably a faster way to do this since the rays are already roughly in order, but this is simple and doesn't cost much: +5 fps
+    // Insertion sort corner rays by relative angle for correct polygon winding.
     if (config.type === RaycastTypes.CORNERS) {
         for (let i = 1; i < rayCount; i++) {
             const key = rayPathBuffer[i];
@@ -234,7 +266,7 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
         }
     }
 
-    // Fill the vertex buffer: center, lowerHit, sorted ray hits, upperHit, center
+    // Assemble vertex buffer: center, lowerHit, sorted interior hits, upperHit, center.
     const totalPoints = rayCount + 4;
     while (vertexBuffer.length < totalPoints) vertexBuffer.push({ x: 0, y: 0 });
     vertexBuffer[0].x = centerX;          vertexBuffer[0].y = centerY;
@@ -250,10 +282,13 @@ export function computeRaycastPolygon(playerInfo: player_info, config: raycast_c
 }
 
 /**
- * For poor people (joke) who don't have a GPU, this can at least compute the FOV cone for them so they have some indication of what they can see. 
- * It's not perfect but it's better than nothing, and keeps the concept of the game alive.
- * @param playerInfo 
- * @returns 
+ * Computes the two FOV boundary ray lengths by casting against all wall
+ * segments, returning the data needed to draw a simple cone when full raycast
+ * polygon rendering is unavailable.
+ *
+ * @param playerInfo - Current player state.
+ * @returns Center position, lower/upper FOV angles (degrees), and the
+ *          distance to the nearest wall hit along each boundary ray.
  */
 export function computeFOVCone(playerInfo: player_info): { cx: number; cy: number; lowerAngle: number; upperAngle: number; leftLen: number; rightLen: number } {
     const cx = playerInfo.current_position.x + HALF_HIT_BOX;

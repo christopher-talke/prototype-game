@@ -1,3 +1,11 @@
+/**
+ * Module-scope singleton holding the active map's world bounds and collision
+ * geometry.
+ *
+ * Layer: simulation - environment sub-domain.
+ * Consumed by: `detection/`, `player/visibility`, `rendering/` (read-only).
+ * Written by: `wallData.ts` and `setEnvironmentLimits` at map load time.
+ */
 export const environment = {
     limits: {
         left: 0,
@@ -10,12 +18,14 @@ export const environment = {
 } as Environment;
 
 /**
- * Creates a wall segment with the given coordinates.
- * @param x1 - The x-coordinate of the start point.
- * @param y1 - The y-coordinate of the start point.
- * @param x2 - The x-coordinate of the end point.
- * @param y2 - The y-coordinate of the end point.
- * @returns A WallSegment object representing the segment.
+ * Constructs a `WallSegment` with precomputed AABB fields for broad-phase
+ * culling.
+ *
+ * @param x1 - Segment start x.
+ * @param y1 - Segment start y.
+ * @param x2 - Segment end x.
+ * @param y2 - Segment end y.
+ * @returns A fully populated `WallSegment`.
  */
 export function makeSegment(x1: number, y1: number, x2: number, y2: number): WallSegment {
     return {
@@ -26,8 +36,10 @@ export function makeSegment(x1: number, y1: number, x2: number, y2: number): Wal
 }
 
 /**
- * Generates the environment segments and corners based on the defined limits. 
- * This is called once at the start of the game to set up the environment data structure, which is used for raycasting and visibility calculations.
+ * Rebuilds `environment.segments` and `environment.corners` from the current
+ * `environment.limits`, producing the four boundary walls of the play area.
+ *
+ * Called once on startup and again whenever the world dimensions change.
  */
 export function generateEnvironment() {
     const { left, right, top, bottom } = environment.limits;
@@ -47,12 +59,19 @@ export function generateEnvironment() {
     ];
 }
 
+/**
+ * Updates the world dimensions and regenerates environment geometry.
+ *
+ * @param width - New world width in pixels.
+ * @param height - New world height in pixels.
+ */
 export function setEnvironmentLimits(width: number, height: number) {
     environment.limits.right = width;
     environment.limits.bottom = height;
     generateEnvironment();
 }
 
+/** Resets wall geometry to the boundary-only state produced by `generateEnvironment`. */
 export function clearWallGeometry() {
     generateEnvironment();
 }

@@ -1,3 +1,11 @@
+/**
+ * Input controller - binds keyboard, mouse, and wheel events to game actions.
+ *
+ * Orchestration layer - translates raw browser input events into adapter
+ * inputs (MOVE, FIRE, ROTATE, RELOAD, SWITCH_WEAPON, THROW_GRENADE, etc.)
+ * and manages firing state, grenade selection/charging, and menu toggling.
+ */
+
 import { HALF_HIT_BOX, ROTATION_OFFSET } from '../constants';
 import { ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { getAngle } from '@utils/getAngle';
@@ -12,16 +20,20 @@ import { setMouseWorldPosition, getMouseWorldPosition } from '@utils/mouseWorldP
 import { getConfig } from '@config/activeConfig';
 import { screenToWorld } from '@rendering/coordConvert';
 
-// --- Firing state (extracted from simulation/combat/shooting.ts) ---
-
 let isFiring = false;
 
+/** Whether the primary fire button is currently held down. */
 export function getIsFiring(): boolean {
     return isFiring;
 }
 
 const UI_SELECTORS = '#settings-menu, #hud-buymenu, #main-menu, #lobby-screen, #hud-pause, #hud-match-end, #lighting-debug-panel';
 
+/**
+ * Registers mousedown/mouseup listeners that track the firing state and
+ * send STOP_FIRE when the button is released. Also suppresses the
+ * context menu on right-click.
+ */
 export function initShooting() {
     window.addEventListener('mousedown', (e) => {
         if (e.button === 0) {
@@ -41,27 +53,29 @@ export function initShooting() {
         }
     });
 
-    // Prevent context menu on right click
     window.addEventListener('contextmenu', (e) => e.preventDefault());
 }
-
-// --- Grenade selection ---
 
 const GRENADE_ORDER: GrenadeType[] = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
 let selectedGrenadeIndex = 0;
 let grenadeChargeStart = 0;
 let grenadeCharging = false;
 
+/** Returns the grenade type currently selected by the player. */
 export function getSelectedGrenadeType(): GrenadeType {
     return GRENADE_ORDER[selectedGrenadeIndex];
 }
 
+/**
+ * Cycles the grenade selection forward or backward, skipping types the
+ * player does not have in inventory. Wraps around the ordered list.
+ * @param delta - Direction to cycle: +1 forward, -1 backward.
+ */
 function cycleGrenade(delta: number) {
     const player = getActivePlayerInfo();
     if (!player) return;
 
     for (let i = 0; i < GRENADE_ORDER.length; i++) {
-
         // Cycle through grenade types in the order of GRENADE_ORDER, starting from the current selection, and find the next one that the player has.
         // Grenades that the player doesn't have are skipped. If the player has no grenades, this does nothing.
         const next = (((selectedGrenadeIndex + delta * (i + 1)) % GRENADE_ORDER.length) + GRENADE_ORDER.length) % GRENADE_ORDER.length;
@@ -75,20 +89,36 @@ function cycleGrenade(delta: number) {
     selectedGrenadeIndex = 0;
 }
 
+/**
+ * Returns the current grenade charge as a 0-1 fraction based on how long
+ * the grenade key has been held relative to the configured charge time.
+ */
 export function getGrenadeChargePercent(): number {
     if (!grenadeCharging) return 0;
     return Math.min(1, (performance.now() - grenadeChargeStart) / getConfig().grenades.chargeTime);
 }
 
+/**
+ * Returns the player_info for the locally controlled player, or null if
+ * no active player is set.
+ */
 function getActivePlayerInfo(): player_info | null {
     if (ACTIVE_PLAYER == null) return null;
     return (getPlayerInfo(ACTIVE_PLAYER) as player_info) ?? null;
 }
 
+/** Whether any game menu (settings, buy menu, or pause) is currently open. */
 export function isMenuOpen(): boolean {
     return isSettingsOpen() || isBuyMenuOpen() || isPauseOpen();
 }
 
+/**
+ * Registers all keyboard, mouse-move, and wheel event listeners for
+ * gameplay input. Handles movement key tracking, weapon switching, reload,
+ * grenade charging/throwing, mouse rotation, and menu shortcuts.
+ *
+ * Should be called once during game initialization.
+ */
 export function initInputController() {
     window.addEventListener('keydown', (e) => {
         if (isSettingsOpen() && e.key !== 'Escape') return;
@@ -199,7 +229,7 @@ export function initInputController() {
     });
 }
 
-
+/** Whether the primary fire button is currently pressed. Alias for {@link getIsFiring}. */
 export function isFiringInput(): boolean {
     return getIsFiring();
 }

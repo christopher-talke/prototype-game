@@ -1,32 +1,51 @@
 import { Sprite, Container, Ticker, RenderTexture, type Shader, type Mesh } from 'pixi.js';
+
 import { lightingLayer } from './sceneGraph';
 import { createLightingShader, createLightingMesh } from './shaders/lightingShader';
-import { gameEventBus, type GameEvent } from '@net/gameEvent';
-import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
-import { getVisibleEnemies, getVisibleTeammates } from './playerRenderer';
-import { getPixiApp } from './app';
-import { environment } from '@simulation/environment/environment';
-import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
-import { LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
 import { swapRemove } from './renderUtils';
 import { lightingConfig } from './config/lightingConfig';
+import { getVisibleEnemies, getVisibleTeammates } from './playerRenderer';
+import { getPixiApp } from './app';
+
+import { gameEventBus, type GameEvent } from '@net/gameEvent';
+import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
+import { environment } from '@simulation/environment/environment';
 import { getWeaponVfx, DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
 import { GRENADE_VFX } from '@simulation/combat/grenades';
 
-// --- Ambient state ---
+import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
+import { LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
+
 let ambientLevel = lightingConfig.ambientLevel;
 let ambientColor = lightingConfig.ambientColor;
 
-// --- Light data ---
+/**
+ * A static or dynamic point/spot light entry used by the GPU lightmap shader.
+ *
+ * Consumed by {@link uploadLightUniforms} when building the per-frame uniform
+ * arrays. Pre-cached `cr/cg/cb` fields avoid per-frame hex decomposition.
+ */
 export interface LightEntry {
     x: number;
     y: number;
     radius: number;
     color: number;
     intensity: number;
-    cr: number; cg: number; cb: number; // cached color components (0-1)
+    /** Cached red channel (0-1). */
+    cr: number;
+    /** Cached green channel (0-1). */
+    cg: number;
+    /** Cached blue channel (0-1). */
+    cb: number;
 }
 
+/**
+ * A temporary light that fades out over `decayMs` milliseconds.
+ *
+ * Used for muzzle flashes, explosions, and other event-driven lighting.
+ * Managed by {@link addTransientLight} / {@link removeTransientLight}.
+ * Extends the base light fields with optional spotlight cone parameters.
+ */
 export interface TransientLight {
     id: number;
     x: number;
@@ -34,9 +53,17 @@ export interface TransientLight {
     radius: number;
     color: number;
     intensity: number;
-    cr: number; cg: number; cb: number;
+    /** Cached red channel (0-1). */
+    cr: number;
+    /** Cached green channel (0-1). */
+    cg: number;
+    /** Cached blue channel (0-1). */
+    cb: number;
+    /** Duration of the fade in milliseconds. 0 means no decay. */
     decayMs: number;
+    /** Accumulated elapsed time since creation (ms). */
     elapsed: number;
+    /** Whether this light should cast shadows in the shader. */
     castShadow: boolean;
     spotDirX: number;
     spotDirY: number;
@@ -56,7 +83,6 @@ const transientLights: TransientLight[] = [];
 const transientLightById = new Map<number, TransientLight>();
 let transientIdCounter = 0;
 
-// --- GPU lightmap state ---
 let lightingShader: Shader | null = null;
 let lightingMesh: Mesh | null = null;
 let meshContainer: Container | null = null;
@@ -65,7 +91,6 @@ let lightmapSprite: Sprite | null = null;
 let initialized = false;
 let lightsDirty = true;
 
-// --- Color helpers ---
 function hexToRGB(hex: number): [number, number, number] {
     return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
 }
@@ -82,8 +107,6 @@ function computeAmbientRGB(level: number, color: number): [number, number, numbe
         lerpChannel(b / 255, 1.0, level),
     ];
 }
-
-// --- Uniform upload ---
 
 function uploadWallUniforms(walls: wall_info[]) {
     if (!lightingShader) return;
@@ -176,7 +199,6 @@ function writeLight(
     spotArr[po + 3] = cosOuter;
 }
 
-// --- Player lights ---
 const PLAYER_LIGHT_COLOR = 0xffffff;
 const _seenPlayers = new Set<number>();
 
@@ -221,8 +243,8 @@ function updatePlayerLights() {
             };
             playerLightMap.set(player.id, light);
             lightsDirty = true;
-        } 
-        
+        }
+
         else if (light.x !== px || light.y !== py || light.radius !== radius || light.intensity !== intensity) {
             light.x = px;
             light.y = py;
@@ -240,7 +262,6 @@ function updatePlayerLights() {
     }
 }
 
-// --- FOV spotlight ---
 const DEG_TO_RAD = Math.PI / 180;
 let fovSpotlight: { light: LightEntry; dirX: number; dirY: number; cosHalf: number; cosOuter: number } | null = null;
 let prevFovX = 0, prevFovY = 0, prevFovDirX = 0, prevFovDirY = 0;
@@ -288,12 +309,31 @@ function updateFOVSpotlight() {
     };
 }
 
-// --- Transient lights ---
-
+/** Optional spotlight cone parameters for {@link addTransientLight}. */
 interface TransientSpot {
-    dirX: number; dirY: number; cosHalf: number; cosOuter: number;
+    dirX: number;
+    dirY: number;
+    cosHalf: number;
+    cosOuter: number;
 }
 
+/**
+ * Adds a temporary light to the scene and returns its unique id.
+ *
+ * The light automatically fades over `decayMs` milliseconds and is removed
+ * when fully elapsed. Pass `decayMs = 0` for a persistent transient light that
+ * must be removed manually via {@link removeTransientLight}.
+ *
+ * @param x - World-space X position.
+ * @param y - World-space Y position.
+ * @param radius - Light influence radius in world units.
+ * @param color - Hex color value (e.g. `0xffaa00`).
+ * @param intensity - Brightness multiplier.
+ * @param decayMs - Fade duration in milliseconds. `0` means no auto-removal.
+ * @param castShadow - Whether the shader should cast shadows for this light.
+ * @param spot - Optional spotlight cone parameters.
+ * @returns The numeric id for the new transient light.
+ */
 export function addTransientLight(x: number, y: number, radius: number, color: number, intensity: number, decayMs: number = 0, castShadow: boolean = false, spot?: TransientSpot): number {
     const id = transientIdCounter++;
     const tl: TransientLight = {
@@ -332,7 +372,6 @@ function updateTransientDecay(dt: number) {
     }
 }
 
-// --- Bullet tracking ---
 interface BulletLightEntry { lightId: number; dx: number; dy: number; weaponType?: string }
 const bulletLights = new Map<number, BulletLightEntry>();
 
@@ -361,7 +400,7 @@ function handleEvent(event: GameEvent) {
             bulletLights.set(event.bulletId, { lightId, dx: event.dx, dy: event.dy, weaponType: event.weaponType });
             break;
         }
-        
+
         case 'BULLET_REMOVED': {
             const entry = bulletLights.get(event.bulletId);
             if (entry) {
@@ -426,6 +465,7 @@ function handleEvent(event: GameEvent) {
             }
             break;
         }
+
         case 'ROUND_START': {
             clearDynamicLights();
             break;
@@ -447,9 +487,18 @@ function syncBulletLightPositions(projectiles: readonly { id: number; x: number;
     }
 }
 
-// --- Last-known position lights ---
 const lastKnownLightIds = new Map<string, number>();
 
+/**
+ * Creates a last-known-position light at the given world coordinates.
+ *
+ * Replaces any existing light registered under `key`. Consumed by the
+ * player renderer to mark spotted enemy positions that left the FOV.
+ *
+ * @param key - Unique string key for this last-known entry (e.g. `"obs-tgt"`).
+ * @param x - World-space X position.
+ * @param y - World-space Y position.
+ */
 export function addLastKnownLight(key: string, x: number, y: number) {
     removeLastKnownLight(key);
     const id = addTransientLight(
@@ -463,6 +512,11 @@ export function addLastKnownLight(key: string, x: number, y: number) {
     lastKnownLightIds.set(key, id);
 }
 
+/**
+ * Removes the last-known-position light registered under `key`, if any.
+ *
+ * @param key - The key previously passed to {@link addLastKnownLight}.
+ */
 export function removeLastKnownLight(key: string) {
     const id = lastKnownLightIds.get(key);
     if (id !== undefined) {
@@ -471,26 +525,52 @@ export function removeLastKnownLight(key: string) {
     }
 }
 
-// --- Read-only accessors for external systems (smoke lighting, etc.) ---
-
+/**
+ * Returns the current static light array for external sampling (e.g. smoke
+ * particle lighting).
+ */
 export function getStaticLights(): readonly LightEntry[] {
     return staticLights;
 }
 
+/**
+ * Returns the current transient light array for external sampling (e.g. smoke
+ * particle lighting).
+ */
 export function getTransientLights(): readonly TransientLight[] {
     return transientLights;
 }
 
+/**
+ * Returns the per-player dynamic light map for external sampling (e.g. smoke
+ * particle lighting).
+ */
 export function getPlayerLights(): ReadonlyMap<number, LightEntry> {
     return playerLightMap;
 }
 
-// --- Public API ---
-
+/**
+ * Subscribes the lighting manager to the game event bus.
+ *
+ * Must be called once at application startup before any map is loaded.
+ */
 export function initLightingSystem() {
     gameEventBus.subscribe(handleEvent);
 }
 
+/**
+ * Initialises the GPU lightmap for a new map.
+ *
+ * Creates the PixiJS RenderTexture, lighting shader, and display sprite.
+ * Uploads static wall geometry and populates the static light list from
+ * `lights`. The lightmap sprite is added to `lightingLayer` with
+ * `blendMode = 'multiply'`. An initial render pass is performed so the
+ * lightmap is correct even when dynamic lighting is disabled.
+ *
+ * @param lights - Static light definitions from the map data.
+ * @param walls - Wall AABBs used for shadow-casting uniform upload.
+ * @param config - Optional per-map ambient light overrides.
+ */
 export function initLighting(lights: LightDef[], walls: wall_info[], config?: LightingConfig) {
     clearLighting();
 
@@ -498,8 +578,8 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
     ambientColor = config?.ambientColor ?? lightingConfig.ambientColor;
 
     /**
-     * Lightmap RenderTexture is created at half world resolution for perf. 
-     * - The shader scales up UVs accordingly, so lights are still positioned correctly in world space. 
+     * Lightmap RenderTexture is created at half world resolution for perf.
+     * The shader scales up UVs accordingly, so lights are still positioned correctly in world space.
      */
     const w = environment.limits.right;
     const h = environment.limits.bottom;
@@ -558,6 +638,17 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
     }
 }
 
+/**
+ * Updates all dynamic light state and re-renders the lightmap if dirty.
+ *
+ * Advances transient light decay, syncs player and FOV spotlight positions,
+ * and moves bullet trail lights to their current projectile positions. The
+ * render-to-texture pass is skipped entirely when `lightsDirty` is false
+ * (dirty-flag optimisation).
+ *
+ * @param projectiles - Current frame's projectile positions for bullet light
+ *   synchronisation.
+ */
 export function updateLighting(projectiles: readonly { id: number; x: number; y: number }[] = []) {
     if (!initialized) return;
 
@@ -593,6 +684,11 @@ function clearDynamicLights() {
     lightsDirty = true;
 }
 
+/**
+ * Tears down all lighting state and destroys GPU resources.
+ *
+ * Safe to call before a new map is loaded via {@link initLighting}.
+ */
 export function clearLighting() {
     clearDynamicLights();
     staticLights.length = 0;

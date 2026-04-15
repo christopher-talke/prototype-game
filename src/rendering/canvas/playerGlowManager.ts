@@ -1,5 +1,18 @@
+/**
+ * Player glow filter manager.
+ *
+ * Applies a pixi-filters GlowFilter to each player's container and drives
+ * reactive animations: damage spike, death drain, respawn fade-in, and
+ * low-health pulse. Includes viewport culling to remove the GlowFilter from
+ * off-screen player containers, avoiding unnecessary GPU filter passes.
+ *
+ * Part of the canvas rendering layer. Initialized by clientRenderer; receives
+ * game events via the shared event bus.
+ */
+
 import { GlowFilter } from 'pixi-filters';
 import { Ticker } from 'pixi.js';
+
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getPixiPlayerContainer } from './playerRenderer';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
@@ -23,6 +36,13 @@ interface GlowState {
 
 const glowStates = new Map<number, GlowState>();
 
+/**
+ * Linearly interpolate between two packed RGB hex colors.
+ * @param a - Start color (0xRRGGBB).
+ * @param b - End color (0xRRGGBB).
+ * @param t - Interpolation factor (0-1).
+ * @returns Interpolated packed RGB color.
+ */
 function lerpColor(a: number, b: number, t: number): number {
     const ar = (a >> 16) & 0xff,
         ag = (a >> 8) & 0xff,
@@ -37,6 +57,10 @@ function getTeamColor(team: number): number {
     return TEAM_COLORS[team] ?? 0xffffff;
 }
 
+/**
+ * Compute the base glow strength and color for a given health value.
+ * Returns elevated strength and red-shifted color when health is low or critical.
+ */
 function baseStrengthForHealth(hp: number, team: number): { strength: number; color: number } {
     if (hp < glowConfig.criticalHpThreshold) {
         return { strength: glowConfig.normalStrength + 0.5, color: CRITICAL_HEALTH_COLOR };
@@ -94,18 +118,24 @@ function handleEvent(event: GameEvent) {
     }
 }
 
+/**
+ * Per-frame tick: drive all glow animations and apply viewport culling.
+ * Off-screen players that are not mid-animation have their filter removed
+ * to save GPU work.
+ * @param dt - Delta time in milliseconds from the shared Ticker.
+ */
 function tick(dt: number) {
     const cam = getPixiCameraOffset();
     const vpW = window.visualViewport?.width ?? window.innerWidth;
     const vpH = window.visualViewport?.height ?? window.innerHeight;
-    const glowMargin = glowConfig.distance + 50; // glow extends beyond sprite
+    const glowMargin = glowConfig.distance + 50;
 
     for (const [playerId, state] of glowStates) {
         const container = getPixiPlayerContainer(playerId);
         if (container) {
             const isAnimating = (
-                state.deathDrainRemaining > 0 || 
-                state.respawnFadeRemaining > 0 || 
+                state.deathDrainRemaining > 0 ||
+                state.respawnFadeRemaining > 0 ||
                 state.damageSpikeRemaining > 0
             );
 
@@ -129,13 +159,12 @@ function tick(dt: number) {
         }
 
         if (state.deathDrainRemaining > 0) {
-
             state.deathDrainRemaining -= dt;
             if (state.deathDrainRemaining <= 0) {
                 state.filter.outerStrength = 0;
                 state.deathDrainRemaining = 0;
-            } 
-            
+            }
+
             else {
                 const t = 1 - state.deathDrainRemaining / glowConfig.deathDrainMs;
                 state.filter.outerStrength = state.deathDrainStart * (1 - t);
@@ -145,14 +174,13 @@ function tick(dt: number) {
         }
 
         if (state.respawnFadeRemaining > 0) {
-
             state.respawnFadeRemaining -= dt;
             if (state.respawnFadeRemaining <= 0) {
                 state.filter.outerStrength = glowConfig.normalStrength;
                 state.filter.color = getTeamColor(state.team);
                 state.respawnFadeRemaining = 0;
-            } 
-            
+            }
+
             else {
                 const t = 1 - state.respawnFadeRemaining / glowConfig.respawnFadeMs;
                 state.filter.outerStrength = glowConfig.normalStrength * t;
@@ -162,12 +190,11 @@ function tick(dt: number) {
         }
 
         if (state.damageSpikeRemaining > 0) {
-
             state.damageSpikeRemaining -= dt;
             if (state.damageSpikeRemaining <= 0) {
                 state.damageSpikeRemaining = 0;
-            } 
-            
+            }
+
             else {
                 const t = state.damageSpikeRemaining / glowConfig.spikeDecayMs;
                 const eased = t * t; // ease-out: fast decay then slow
@@ -187,15 +214,15 @@ function tick(dt: number) {
             const pulse = 0.5 + 0.5 * Math.sin(state.lowHealthPulsePhase);
             state.filter.outerStrength = 0.6 + 1.4 * pulse;
             state.filter.color = CRITICAL_HEALTH_COLOR;
-        } 
-        
+        }
+
         else if (hp < glowConfig.lowHpThreshold) {
             const redFactor = 1 - hp / glowConfig.lowHpThreshold;
             state.filter.outerStrength = glowConfig.normalStrength + 0.5 * redFactor;
             state.filter.color = lerpColor(getTeamColor(state.team), CRITICAL_HEALTH_COLOR, redFactor);
             state.lowHealthPulsePhase = 0;
-        } 
-        
+        }
+
         else {
             state.filter.outerStrength = glowConfig.normalStrength;
             state.filter.color = getTeamColor(state.team);
@@ -204,11 +231,18 @@ function tick(dt: number) {
     }
 }
 
+/** Subscribe to game events and start the per-frame tick. Call once during renderer init. */
 export function initPlayerGlowManager() {
     gameEventBus.subscribe(handleEvent);
     Ticker.shared.add((ticker) => tick(ticker.deltaMS));
 }
 
+/**
+ * Create a GlowFilter for a newly spawned player and begin the respawn fade-in animation.
+ * No-ops if the glowFilter graphics feature is disabled.
+ * @param playerId - The player's simulation ID.
+ * @param team - The player's team number (for color lookup).
+ */
 export function onPlayerGlowCreated(playerId: number, team: number) {
     if (!getGraphicsConfig().features.glowFilter) return;
     const container = getPixiPlayerContainer(playerId);
@@ -239,6 +273,7 @@ export function onPlayerGlowCreated(playerId: number, team: number) {
     });
 }
 
+/** Destroy all glow filters and clear internal state. */
 export function clearPlayerGlows() {
     for (const [, state] of glowStates) {
         state.filter.destroy();

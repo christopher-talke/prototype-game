@@ -1,4 +1,17 @@
+/**
+ * Player sprite lifecycle and visual state manager.
+ *
+ * Creates PixiJS display objects for each player (body circle, direction
+ * indicator, same-team square, weapon icon, health/armor bars, name tag).
+ * Drives per-frame position sync, LOS-based visibility toggling, hit flash,
+ * death shatter particles, last-known-position markers, and health bar
+ * show/hide timers.
+ *
+ * Part of the canvas rendering layer.
+ */
+
 import { Container, Graphics, Sprite, Text, Texture, Ticker } from 'pixi.js';
+
 import { HALF_HIT_BOX } from '../../constants';
 import { swapRemove } from './renderUtils';
 import { ACTIVE_PLAYER, addPlayer, getAllPlayers, getPlayerInfo } from '@simulation/player/playerRegistry';
@@ -16,13 +29,19 @@ const RADIUS = playerConfig.radius;
 const HIT_COLOR = playerConfig.hitFlashColor;
 
 const visibleEnemies = new Set<number>();
+
+/** The set of enemy player IDs currently visible to the local player. */
 export function getVisibleEnemies(): ReadonlySet<number> {
     return visibleEnemies;
 }
+
 const visibleTeammates = new Set<number>();
+
+/** The set of teammate player IDs currently within the local player's FOV. */
 export function getVisibleTeammates(): ReadonlySet<number> {
     return visibleTeammates;
 }
+
 const HEALTH_COLOR = playerConfig.healthColor;
 const ARMOR_COLOR = playerConfig.armorColor;
 const BAR_WIDTH = playerConfig.barWidth;
@@ -82,9 +101,16 @@ Ticker.shared.add((ticker) => {
     }
 });
 
+/**
+ * Spawn a death shatter effect at the given position: angular shards,
+ * bright sparks, and a brief center flash.
+ * @param x - World X center of the dead player.
+ * @param y - World Y center of the dead player.
+ * @param color - Team color for the shard tint.
+ */
 function spawnShatter(x: number, y: number, color: number) {
     const { shardCount, sparkCount } = getGraphicsConfig().deathEffect;
-    // Angular shards - the main body fragments
+
     for (let i = 0; i < shardCount; i++) {
         const angle = (Math.PI * 2 * i) / shardCount + (Math.random() - 0.5) * 0.5;
         const speed = 3 + Math.random() * 5;
@@ -108,7 +134,6 @@ function spawnShatter(x: number, y: number, color: number) {
         });
     }
 
-    // Bright sparks - small fast dots
     for (let i = 0; i < sparkCount; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 5 + Math.random() * 6;
@@ -129,7 +154,6 @@ function spawnShatter(x: number, y: number, color: number) {
         });
     }
 
-    // Brief bright flash at center
     const flash = new Graphics();
     flash.circle(0, 0, RADIUS * 1.2).fill({ color, alpha: 0.5 });
     flash.x = x;
@@ -209,6 +233,13 @@ Ticker.shared.add((ticker) => {
     }
 });
 
+/**
+ * Create all PixiJS display objects for a player and register them in the scene graph.
+ * Also triggers glow filter creation.
+ * @param playerInfo - The player's initial state from the simulation.
+ * @param isControllable - Whether this is the local (controllable) player.
+ * @param localTeam - The local player's team number, used for teammate indicators.
+ */
 export function createPixiPlayer(playerInfo: player_info, isControllable: boolean, localTeam?: number) {
     addPlayer(playerInfo);
 
@@ -302,6 +333,11 @@ export function createPixiPlayer(playerInfo: player_info, isControllable: boolea
     onPlayerGlowCreated(playerInfo.id, playerInfo.team);
 }
 
+/**
+ * Return the PixiJS Container for a player, used by the glow manager.
+ * @param playerId - Simulation player ID.
+ * @returns The player's container, or null if not tracked.
+ */
 export function getPixiPlayerContainer(playerId: number): Container | null {
     return pixiPlayers.get(playerId)?.container ?? null;
 }
@@ -327,6 +363,13 @@ function redrawBars(healthBar: Graphics, armorBar: Graphics, health: number, arm
     redrawArmorBar(armorBar, armour);
 }
 
+/**
+ * Apply LOS visibility state to a target player's display objects.
+ * Toggles container visibility, body/indicator visibility, and same-team square
+ * based on whether the local player can see the target.
+ * @param result - The LOS check result from the simulation.
+ * @param targetId - The target player's simulation ID.
+ */
 export function applyPixiVisibility(result: LOSResult, targetId: number) {
     const playerInfo = getPlayerInfo(targetId);
     if (playerInfo?.dead) return;
@@ -343,7 +386,9 @@ export function applyPixiVisibility(result: LOSResult, targetId: number) {
         if (entry.weaponIcon) entry.weaponIcon.visible = entry.lastWeaponType !== null;
         if (result.sameTeam) {
             visibleTeammates.add(targetId);
-        } else {
+        }
+
+        else {
             visibleEnemies.add(targetId);
         }
     } else if (result.sameTeam) {
@@ -363,6 +408,13 @@ export function applyPixiVisibility(result: LOSResult, targetId: number) {
     }
 }
 
+/**
+ * Create or remove a last-known-position marker based on LOS transitions.
+ * A marker appears when an enemy leaves the local player's FOV.
+ * @param result - The LOS check result from the simulation.
+ * @param targetPlayer - The target player's info.
+ * @param sourcePlayer - The local (observing) player's info.
+ */
 export function updatePixiLastKnown(result: LOSResult, targetPlayer: player_info, sourcePlayer: player_info) {
     const key = `${sourcePlayer.id}-${targetPlayer.id}`;
     if (result.canSee) {
@@ -407,12 +459,18 @@ function removeLastKnownByKey(key: string) {
     removeLastKnownLight(key);
 }
 
+/**
+ * Remove all last-known markers that reference a given target player.
+ * Called on player kill so stale markers are cleaned up.
+ * @param targetId - The target player's simulation ID.
+ */
 export function removePixiLastKnownForPlayer(targetId: number) {
     for (const key of [...lastKnownMarkers.keys()]) {
         if (key.endsWith(`-${targetId}`)) removeLastKnownByKey(key);
     }
 }
 
+/** Sync all tracked player display objects to their current simulation positions. */
 export function updatePixiPlayerVisuals() {
     for (const player of getAllPlayers()) {
         const entry = pixiPlayers.get(player.id);
@@ -453,6 +511,12 @@ export function updatePixiPlayerVisuals() {
     }
 }
 
+/**
+ * Handle a player-damaged event: redraw health/armor bars and flash them visible.
+ * @param targetId - The damaged player's simulation ID.
+ * @param health - New health value.
+ * @param armour - New armor value.
+ */
 export function onPixiPlayerDamaged(targetId: number, health: number, armour: number) {
     const entry = pixiPlayers.get(targetId);
     if (!entry) return;
@@ -484,6 +548,10 @@ function showHealthBarTemporarily(playerId: number) {
     );
 }
 
+/**
+ * Flash a player's body tint to indicate they were hit.
+ * @param targetId - The hit player's simulation ID.
+ */
 export function onPixiPlayerHitFlash(targetId: number) {
     const entry = pixiPlayers.get(targetId);
     if (!entry) return;
@@ -491,6 +559,11 @@ export function onPixiPlayerHitFlash(targetId: number) {
     entry.hitFlashMs = playerConfig.hitFlashDuration;
 }
 
+/**
+ * Handle a player-killed event: hide the player, clear health bar, clean up
+ * last-known markers, and spawn a shatter effect at the death position.
+ * @param targetId - The killed player's simulation ID.
+ */
 export function onPixiPlayerKilled(targetId: number) {
     const entry = pixiPlayers.get(targetId);
     if (!entry) return;
@@ -513,6 +586,13 @@ export function onPixiPlayerKilled(targetId: number) {
     spawnShatter(cx, cy, color);
 }
 
+/**
+ * Reset a player's display objects after respawn.
+ * @param playerId - The respawning player's simulation ID.
+ * @param x - Spawn X position.
+ * @param y - Spawn Y position.
+ * @param rotation - Spawn rotation in degrees.
+ */
 export function onPixiPlayerRespawn(playerId: number, x: number, y: number, rotation: number) {
     const entry = pixiPlayers.get(playerId);
     if (!entry) return;
@@ -538,6 +618,7 @@ export function onPixiPlayerRespawn(playerId: number, x: number, y: number, rota
     }
 }
 
+/** Clear corpse markers and shatter particles at round start. */
 export function onPixiRoundStart() {
     for (const { g, timer } of corpseList) {
         clearTimeout(timer);
@@ -548,6 +629,7 @@ export function onPixiRoundStart() {
     activeParticles.length = 0;
 }
 
+/** Destroy all player display objects and reset all internal tracking state. */
 export function clearPixiPlayers() {
     clearPlayerGlows();
     for (const [, entry] of pixiPlayers) {

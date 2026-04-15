@@ -1,22 +1,29 @@
-// ---------------------------------------------------------------------------
-// Graphics quality configuration
-// ---------------------------------------------------------------------------
-// GraphicsConfig is the single authoritative type for all rendering quality parameters.  
-// Per-domain config objects (effectsConfig, glowConfig, etc.)
-// remain the runtime access points; applyGraphicsConfig() pushes values into
-// them so that consuming modules need zero import changes.
-//
-// Maintainability contract:
-//   - Quality sub-interfaces are referenced by per-domain config types.
-//     Adding a field here without updating the per-domain config or the
-//     presets is a compiler error.
-//   - applyGraphicsConfig() uses per-section Object.assign, so new fields
-//     within an existing section are covered automatically.
-// ---------------------------------------------------------------------------
+/**
+ * Master graphics quality configuration.
+ *
+ * `GraphicsConfig` is the single authoritative type for all rendering quality
+ * parameters. Per-domain config objects (effectsConfig, glowConfig, etc.)
+ * remain the runtime access points; {@link applyGraphicsConfig} pushes values
+ * into them so consuming modules need zero import changes.
+ *
+ * Quality sub-interfaces are referenced by per-domain config types via
+ * compile-time `AssertExtends` checks. Adding a field to a sub-interface
+ * without updating the domain config or the presets is a compiler error.
+ * `applyGraphicsConfig` uses per-section `Object.assign`, so new fields
+ * within an existing section are covered automatically.
+ */
 
+import { effectsConfig } from './effectsConfig';
+import { glowConfig } from './glowConfig';
+import { gridConfig } from './gridConfig';
+import { particleConfig } from './particleConfig';
+import { setLightmapScale } from '../renderConstants';
+import { PRESET_LOW, PRESET_MEDIUM, PRESET_HIGH, PRESET_ULTRA } from './presets';
+
+/** Identifier for one of the four built-in quality levels. */
 export type QualityPreset = 'LOW' | 'MEDIUM' | 'HIGH' | 'ULTRA';
 
-// --- Quality sub-interfaces (exported for per-domain config typing) --------
+/** Quality-managed fields for frag grenade effects. Consumed by effectsConfig. */
 export interface FragQuality {
     emissiveCountMin: number;
     emissiveCountMax: number;
@@ -30,6 +37,7 @@ export interface FragQuality {
     scorchFadeDuration: number;
 }
 
+/** Quality-managed fields for C4 grenade effects. Consumed by effectsConfig. */
 export interface C4Quality {
     emissiveCountMin: number;
     emissiveCountMax: number;
@@ -49,10 +57,12 @@ export interface C4Quality {
     desatAlpha: number;
 }
 
+/** Quality-managed fields for flash grenade effects. Consumed by effectsConfig. */
 export interface FlashQuality {
     gradientTextureSize: number;
 }
 
+/** Quality-managed fields for smoke grenade effects. Consumed by effectsConfig. */
 export interface SmokeQuality {
     emitCountMin: number;
     emitCountMax: number;
@@ -61,12 +71,14 @@ export interface SmokeQuality {
     layerCount: 1 | 3;
 }
 
+/** Quality-managed fields for the player glow filter. Consumed by glowConfig. */
 export interface GlowQuality {
     distance: number;
     quality: number;
     filterResolution: number;
 }
 
+/** Quality-managed fields for the background displacement grid. Consumed by gridConfig. */
 export interface GridQuality {
     spacing: number;
     dotBaseAlpha: number;
@@ -77,6 +89,7 @@ export interface GridQuality {
     lineWidth: number;
 }
 
+/** Quality-managed fields for particle texture atlas generation. Consumed by particleConfig. */
 export interface ParticleQuality {
     textureSize: number;
     largeSoftCircleSize: number;
@@ -86,7 +99,10 @@ export interface ParticleQuality {
     streakHeight: number;
 }
 
-// --- Main config interface -------------------------------------------------
+/**
+ * Complete set of rendering quality parameters for one preset level.
+ * Feature toggles in `features` guard expensive rendering paths at call sites.
+ */
 export interface GraphicsConfig {
     resolution: number;
     antialias: boolean;
@@ -124,10 +140,9 @@ export interface GraphicsConfig {
     smoke: SmokeQuality;
 }
 
-// --- Presets (defined in config/presets/) -----------------------------------
-import { PRESET_LOW, PRESET_MEDIUM, PRESET_HIGH, PRESET_ULTRA } from './presets';
 export { PRESET_LOW, PRESET_MEDIUM, PRESET_HIGH, PRESET_ULTRA };
 
+/** Lookup from preset name to its full config object. */
 export const GRAPHICS_PRESETS: Record<QualityPreset, GraphicsConfig> = {
     LOW: PRESET_LOW,
     MEDIUM: PRESET_MEDIUM,
@@ -135,30 +150,30 @@ export const GRAPHICS_PRESETS: Record<QualityPreset, GraphicsConfig> = {
     ULTRA: PRESET_ULTRA,
 };
 
-// --- Runtime state ---------------------------------------------------------
 let activeConfig: GraphicsConfig = { ...PRESET_HIGH };
 let activePreset: QualityPreset = 'HIGH';
 
+/** Returns the currently active graphics config (read-only). */
 export function getGraphicsConfig(): Readonly<GraphicsConfig> {
     return activeConfig;
 }
 
+/** Returns the name of the currently active quality preset. */
 export function getGraphicsPreset(): QualityPreset {
     return activePreset;
 }
 
-// --- Apply -----------------------------------------------------------------
-import { effectsConfig } from './effectsConfig';
-import { glowConfig } from './glowConfig';
-import { gridConfig } from './gridConfig';
-import { particleConfig } from './particleConfig';
-import { setLightmapScale } from '../renderConstants';
-
+/**
+ * Applies a quality preset by copying its values into the per-domain config
+ * objects (effectsConfig, glowConfig, gridConfig, particleConfig) and updating
+ * the lightmap scale.
+ * @param preset - The quality level to apply.
+ * @param config - Optional full config override; defaults to the built-in preset.
+ */
 export function applyGraphicsConfig(preset: QualityPreset, config: GraphicsConfig = GRAPHICS_PRESETS[preset]): void {
     activePreset = preset;
     activeConfig = config;
 
-    // Push quality values into per-domain configs
     Object.assign(effectsConfig.frag, config.frag);
     Object.assign(effectsConfig.c4, config.c4);
     Object.assign(effectsConfig.flash, config.flash);
@@ -167,6 +182,5 @@ export function applyGraphicsConfig(preset: QualityPreset, config: GraphicsConfi
     Object.assign(gridConfig, config.grid);
     Object.assign(particleConfig, config.particles);
 
-    // Lightmap scale lives in renderConstants (used by lightingManager)
     setLightmapScale(config.lightmapScale);
 }

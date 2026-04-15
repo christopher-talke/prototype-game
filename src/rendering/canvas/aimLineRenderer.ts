@@ -1,4 +1,15 @@
+/**
+ * Aim line and grenade trajectory renderer.
+ *
+ * Draws the weapon aim line, spread cone edges, and grenade arc preview
+ * for the local player while ADS (right mouse button) is held. Lines are
+ * clipped against wall segments so they stop at the first obstacle.
+ *
+ * Part of the canvas rendering layer.
+ */
+
 import { Graphics } from 'pixi.js';
+
 import { aimLineLayer } from './sceneGraph';
 import { BULLET_COLOR } from './renderConstants';
 import { pixiScreenToWorld } from './camera';
@@ -25,6 +36,7 @@ const INDICATOR_TIP_OFFSET = aimLineConfig.indicatorTipOffset;
 const SPREAD_GROWTH_PER_SHOT = aimLineConfig.spreadGrowthPerShot;
 const MAX_SPREAD_MULTIPLIER = aimLineConfig.maxSpreadMultiplier;
 
+/** Initialize aim line graphics and register mouse listeners for ADS tracking. */
 export function initPixiAimLine() {
     window.addEventListener('mousedown', (e) => { if (e.button === 2) adsActive = true; });
     window.addEventListener('mouseup', (e) => { if (e.button === 2) adsActive = false; });
@@ -40,6 +52,17 @@ export function initPixiAimLine() {
     aimLineLayer.addChild(grenadeAimG);
 }
 
+/**
+ * Redraw the weapon aim line and spread cone for the current frame.
+ * Only visible while ADS is active and the player has an equipped weapon.
+ *
+ * Each of the three rays (center, left cone edge, right cone edge) is cast
+ * against every wall segment; the line stops at the nearest intersection or
+ * at the crosshair distance if no wall is hit.
+ *
+ * @param playerInfo - The local player's current state.
+ * @param shots - Number of shots fired in the current burst, used to widen spread.
+ */
 export function updatePixiAimLine(playerInfo: player_info, shots: number) {
     if (!aimLineG || !aimConeLeftG || !aimConeRightG) return;
 
@@ -105,6 +128,13 @@ export function updatePixiAimLine(playerInfo: player_info, shots: number) {
         .stroke({ color: 0xffffff, alpha: 0.35, width: 1 });
 }
 
+/**
+ * Simulate grenade travel distance by stepping physics until speed drops below threshold.
+ * Uses the configured grenade friction to decelerate each tick.
+ * @param throwSpeed - Base throw speed from the grenade definition.
+ * @param chargeFraction - Fraction of max throw power (0-1).
+ * @returns Estimated travel distance in world pixels.
+ */
 function computeGrenadeTravelDistance(throwSpeed: number, chargeFraction: number): number {
     const friction = getConfig().physics.grenadeFriction;
     let speed = throwSpeed * chargeFraction;
@@ -113,6 +143,14 @@ function computeGrenadeTravelDistance(throwSpeed: number, chargeFraction: number
     return dist;
 }
 
+/**
+ * Draw the grenade trajectory preview line while the player is charging a throw.
+ * The line is clipped against wall segments like the weapon aim line.
+ *
+ * @param playerInfo - The local player's current state.
+ * @param chargePercent - Current throw charge (0-1). Line is hidden when 0.
+ * @param selectedType - The grenade type currently selected for throwing.
+ */
 export function updatePixiGrenadeAimLine(playerInfo: player_info, chargePercent: number, selectedType: GrenadeType) {
     if (!grenadeAimG) return;
 

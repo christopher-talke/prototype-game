@@ -1,8 +1,12 @@
 import type { FragQuality, C4Quality, FlashQuality, SmokeQuality } from './graphicsConfig';
 
+/**
+ * Quality-managed particle counts, bank capacities, and effect parameters
+ * for grenade visual effects. Values are overwritten by {@link applyGraphicsConfig}
+ * when a preset is applied; defaults here match the HIGH preset.
+ */
 export const effectsConfig = {
     frag: {
-        // Quality-managed particle counts and capacities
         emissiveCountMin: 40,
         emissiveCountMax: 60,
         darkDebrisCountMin: 15,
@@ -15,7 +19,6 @@ export const effectsConfig = {
         scorchFadeDuration: 8000,
     },
     c4: {
-        // Quality-managed particle counts, capacities, and effect params
         emissiveCountMin: 80,
         emissiveCountMax: 120,
         darkDebrisCountMin: 40,
@@ -45,8 +48,6 @@ export const effectsConfig = {
     },
 };
 
-// Compile-time enforcement: each section must include all quality-managed fields.
-// If a field is added to a quality sub-interface but missing here, this errors.
 type AssertExtends<_T extends _Q, _Q> = true;
 export type _FragOk = AssertExtends<typeof effectsConfig.frag, FragQuality>;
 export type _C4Ok = AssertExtends<typeof effectsConfig.c4, C4Quality>;

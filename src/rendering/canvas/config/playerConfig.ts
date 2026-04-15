@@ -1,3 +1,7 @@
+/**
+ * Design constants for PixiJS player rendering: circle radius, hit-flash animation,
+ * health/armor bar dimensions, last-known fade timing, and death shatter duration.
+ */
 export const playerConfig = {
   radius: 21,
   hitFlashColor: 0xff943c,

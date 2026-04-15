@@ -1,7 +1,11 @@
+/**
+ * Shipment map data -- compact container yard (~1600x1600 interior).
+ * Tight lanes between shipping containers force constant close-quarters combat.
+ * Symmetric east-west spawns with mirrored cover placement.
+ */
 export const Shipment: MapData = {
     lighting: { ambientLight: 0.25, ambientColor: 0x121620 },
-    lights: [
-    ],
+    lights: [],
     patrolPoints: [
         // North lane (east-west)
         { x: 1000, y: 880 },
@@ -34,42 +38,36 @@ export const Shipment: MapData = {
         ],
     },
     walls: [
-        // === BOUNDARY (thick metal container walls, fully enclosed) ===
-        // North wall
+        // Boundary (thick metal container walls, fully enclosed)
         { x: 700, y: 700, width: 1600, height: 80, type: 'metal' },
-        // South wall
         { x: 700, y: 2220, width: 1600, height: 80, type: 'metal' },
-        // West wall (solid)
         { x: 700, y: 780, width: 80, height: 1440, type: 'metal' },
-        // East wall (solid)
         { x: 2220, y: 780, width: 80, height: 1440, type: 'metal' },
 
-        // === INTERIOR CONTAINERS ===
-        // Row 1 (upper third)
-        { x: 900, y: 960, width: 280, height: 120, type: 'crate' },   // upper-left
-        { x: 1820, y: 960, width: 280, height: 120, type: 'crate' },  // upper-right
+        // Interior containers - row 1 (upper third)
+        { x: 900, y: 960, width: 280, height: 120, type: 'crate' },
+        { x: 1820, y: 960, width: 280, height: 120, type: 'crate' },
 
-        // Row 2 (center band)
-        { x: 1100, y: 1280, width: 120, height: 280, type: 'crate' }, // vertical, left of center
-        { x: 1360, y: 1440, width: 280, height: 120, type: 'crate' }, // horizontal, dead center
-        { x: 1780, y: 1280, width: 120, height: 280, type: 'crate' }, // vertical, right of center
+        // Interior containers - row 2 (center band)
+        { x: 1100, y: 1280, width: 120, height: 280, type: 'crate' },
+        { x: 1360, y: 1440, width: 280, height: 120, type: 'crate' },
+        { x: 1780, y: 1280, width: 120, height: 280, type: 'crate' },
 
-        // Row 3 (lower third)
-        { x: 900, y: 1920, width: 280, height: 120, type: 'crate' },  // lower-left
-        { x: 1820, y: 1920, width: 280, height: 120, type: 'crate' }, // lower-right
-        { x: 1440, y: 1700, width: 120, height: 200, type: 'crate' }, // vertical, center-bottom
+        // Interior containers - row 3 (lower third)
+        { x: 900, y: 1920, width: 280, height: 120, type: 'crate' },
+        { x: 1820, y: 1920, width: 280, height: 120, type: 'crate' },
+        { x: 1440, y: 1700, width: 120, height: 200, type: 'crate' },
 
-        // === SMALL COVER ===
         // Sandbags in lane midpoints
-        { x: 1440, y: 900, width: 60, height: 60, type: 'sandbag' },  // top-center
-        { x: 1440, y: 2080, width: 60, height: 60, type: 'sandbag' }, // bottom-center
-        { x: 850, y: 1440, width: 60, height: 60, type: 'sandbag' },  // left-center
-        { x: 2100, y: 1440, width: 60, height: 60, type: 'sandbag' }, // right-center
+        { x: 1440, y: 900, width: 60, height: 60, type: 'sandbag' },
+        { x: 1440, y: 2080, width: 60, height: 60, type: 'sandbag' },
+        { x: 850, y: 1440, width: 60, height: 60, type: 'sandbag' },
+        { x: 2100, y: 1440, width: 60, height: 60, type: 'sandbag' },
 
         // Corner barriers
-        { x: 820, y: 820, width: 50, height: 50, type: 'barrier' },   // NW
-        { x: 2130, y: 820, width: 50, height: 50, type: 'barrier' },  // NE
-        { x: 820, y: 2130, width: 50, height: 50, type: 'barrier' },  // SW
-        { x: 2130, y: 2130, width: 50, height: 50, type: 'barrier' }, // SE
+        { x: 820, y: 820, width: 50, height: 50, type: 'barrier' },
+        { x: 2130, y: 820, width: 50, height: 50, type: 'barrier' },
+        { x: 820, y: 2130, width: 50, height: 50, type: 'barrier' },
+        { x: 2130, y: 2130, width: 50, height: 50, type: 'barrier' },
     ],
 };

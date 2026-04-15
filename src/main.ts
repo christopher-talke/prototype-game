@@ -24,6 +24,10 @@ import { initParticleTextures } from '@rendering/canvas/particlePool';
 import { applyGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 import '@ui/debug/lightingDebug';
 
+/**
+ * Yields to the browser for one animation frame so the loading screen can repaint
+ * between heavy synchronous init steps.
+ */
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
@@ -58,7 +62,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (SETTINGS.renderer === 'dom') {
         hidePixiCanvas();
-    } else {
+    }
+
+    else {
         document.body.classList.add('renderer-pixi');
     }
     await nextFrame();

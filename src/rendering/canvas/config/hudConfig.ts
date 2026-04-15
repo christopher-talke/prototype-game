@@ -1,3 +1,7 @@
+/**
+ * Design constants for the HUD overlay: kill feed, damage indicators, hit markers,
+ * damage numbers, status labels, and low-health screen effects.
+ */
 export const hudConfig = {
   killFeedTimeout: 4000,
   damageIndicatorTimeout: 600,

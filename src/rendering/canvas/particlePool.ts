@@ -1,8 +1,26 @@
+/**
+ * Structure-of-Arrays (SoA) particle pool with Canvas 2D texture atlas.
+ *
+ * Provides a fixed-capacity pool of PixiJS Sprites backed by typed arrays for
+ * position, velocity, scale, rotation, alpha, and lifetime. A free-stack tracks
+ * available slots; an aliveIndices array enables the update loop to skip dead slots.
+ *
+ * Texture generation functions produce soft circles, hard dots, shards, streaks,
+ * and soft blobs using Canvas 2D -- called once at init to build a reusable atlas.
+ *
+ * Part of the canvas rendering layer. Consumed by grenade effect modules
+ * (fragEffect, c4Effect, smokeEffect).
+ */
+
 import { Sprite, Texture, Container } from 'pixi.js';
+
 import { particleConfig } from './config/particleConfig';
 
-// --- Texture generation ---
-
+/**
+ * Generate a soft-circle texture with configurable radial falloff.
+ * @param size - Canvas dimensions in pixels (square).
+ * @param falloff - Exponent controlling gradient steepness (higher = sharper edge).
+ */
 function generateSoftCircle(size: number, falloff: number = 2.0): Texture {
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -81,8 +99,7 @@ function generateSoftBlob(size: number): Texture {
     return Texture.from(canvas);
 }
 
-// --- Texture atlas ---
-
+/** Shared particle textures. Initialized by {@link initParticleTextures}. */
 export let texSoftCircle: Texture;
 export let texHardDot: Texture;
 export let texShard: Texture;
@@ -90,6 +107,7 @@ export let texStreak: Texture;
 export let texSoftBlob: Texture;
 export let texSoftCircleLarge: Texture;
 
+/** Generate all particle textures using Canvas 2D. Call once during renderer init. */
 export function initParticleTextures() {
     texSoftCircle = generateSoftCircle(particleConfig.textureSize);
     texHardDot = generateHardDot(particleConfig.hardDotSize);
@@ -99,8 +117,10 @@ export function initParticleTextures() {
     texSoftCircleLarge = generateSoftCircle(particleConfig.largeSoftCircleSize, particleConfig.largeSoftCircleFalloff);
 }
 
-// --- SoA Particle Bank ---
-
+/**
+ * A fixed-capacity pool of particles stored as parallel typed arrays (SoA layout).
+ * Sprites are pre-created and hidden; acquiring a slot makes the sprite visible.
+ */
 export interface ParticleBank {
     x: Float32Array;
     y: Float32Array;
@@ -113,13 +133,23 @@ export interface ParticleBank {
     duration: Float32Array;
     alive: Uint8Array;
     sprites: Sprite[];
+    /** Stack of free slot indices. Pop to acquire, push to release. */
     freeStack: number[];
+    /** Indices of currently alive particles, enabling sparse iteration. */
     aliveIndices: number[];
     aliveCount: number;
     capacity: number;
     container: Container;
 }
 
+/**
+ * Allocate a new particle bank with pre-created hidden sprites.
+ * @param capacity - Maximum number of concurrent particles.
+ * @param texture - Shared texture for all sprites in this bank.
+ * @param container - PixiJS container to parent the sprites.
+ * @param blendMode - Optional blend mode string (e.g. 'add').
+ * @returns The initialized bank.
+ */
 export function createParticleBank(capacity: number, texture: Texture, container: Container, blendMode?: string): ParticleBank {
     const bank: ParticleBank = {
         x: new Float32Array(capacity),
@@ -154,6 +184,11 @@ export function createParticleBank(capacity: number, texture: Texture, container
     return bank;
 }
 
+/**
+ * Acquire a particle slot from the bank.
+ * @param bank - The particle bank.
+ * @returns The slot index, or -1 if the bank is full.
+ */
 export function acquireParticle(bank: ParticleBank): number {
     if (bank.freeStack.length === 0) return -1;
     const idx = bank.freeStack.pop()!;
@@ -165,15 +200,25 @@ export function acquireParticle(bank: ParticleBank): number {
     return idx;
 }
 
+/**
+ * Release a particle slot back to the bank's free stack.
+ * The aliveIndices entry is cleaned up during {@link updateBank} iteration.
+ * @param bank - The particle bank.
+ * @param idx - The slot index to release.
+ */
 export function releaseParticle(bank: ParticleBank, idx: number) {
     if (!bank.alive[idx]) return;
     bank.alive[idx] = 0;
     bank.sprites[idx].visible = false;
     bank.freeStack.push(idx);
     bank.aliveCount--;
-    // aliveIndices removal is handled in updateBank's iteration
 }
 
+/**
+ * Copy a particle slot's SoA fields onto its PixiJS Sprite for rendering.
+ * @param bank - The particle bank.
+ * @param idx - The slot index.
+ */
 export function syncSprite(bank: ParticleBank, idx: number) {
     const s = bank.sprites[idx];
     s.x = bank.x[idx];
@@ -183,10 +228,24 @@ export function syncSprite(bank: ParticleBank, idx: number) {
     s.alpha = bank.alpha[idx];
 }
 
-// --- Bank-level iteration helpers ---
+/**
+ * Per-frame updater callback for a particle bank.
+ * Called once per alive particle. Return false to kill the particle.
+ * @param bank - The particle bank.
+ * @param idx - The slot index of the particle being updated.
+ * @param dt - Delta time in milliseconds.
+ * @returns true to keep the particle alive, false to kill it.
+ */
+export type ParticleUpdater = (bank: ParticleBank, idx: number, dt: number) => boolean;
 
-export type ParticleUpdater = (bank: ParticleBank, idx: number, dt: number) => boolean; // return false to kill
-
+/**
+ * Iterate alive particles, advance elapsed time, call the updater, and release
+ * particles that expire or are killed by the updater. Iterates in reverse to
+ * allow safe swap-removal from the aliveIndices array.
+ * @param bank - The particle bank.
+ * @param dt - Delta time in milliseconds.
+ * @param updater - Per-particle update function.
+ */
 export function updateBank(bank: ParticleBank, dt: number, updater: ParticleUpdater) {
     const indices = bank.aliveIndices;
     for (let j = indices.length - 1; j >= 0; j--) {
@@ -198,13 +257,17 @@ export function updateBank(bank: ParticleBank, dt: number, updater: ParticleUpda
             const last = indices.length - 1;
             if (j !== last) indices[j] = indices[last];
             indices.length = last;
-            
+
             continue;
         }
         syncSprite(bank, i);
     }
 }
 
+/**
+ * Release all alive particles and clear the aliveIndices array.
+ * @param bank - The particle bank to clear.
+ */
 export function clearBank(bank: ParticleBank) {
     for (let i = 0; i < bank.capacity; i++) {
         if (bank.alive[i]) releaseParticle(bank, i);

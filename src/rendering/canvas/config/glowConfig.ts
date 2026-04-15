@@ -1,7 +1,10 @@
 import type { GlowQuality } from './graphicsConfig';
 
-// Quality-managed fields (distance, quality, filterResolution) are written by
-// applyGraphicsConfig().  Design fields below are preset-independent.
+/**
+ * Player glow filter configuration. Quality-managed fields (distance, quality,
+ * filterResolution) are overwritten by {@link applyGraphicsConfig}; remaining
+ * fields are preset-independent design constants controlling glow animation.
+ */
 export const glowConfig = {
     distance: 8,
     quality: 0.3,

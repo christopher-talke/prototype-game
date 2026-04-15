@@ -1,6 +1,9 @@
 /**
- * AuthoritativeSimulation: server-side simulation of game mechanics and match state, authoritative source of truth for player states and events. 
- * Does not handle latency compensation or client reconciliation (See WebSocketAdapter for that which uses AuthoritativeSimulation).
+ * Server-side authoritative simulation. Owns the tick loop, processes queued player inputs,
+ * manages match/round lifecycle, weapon reloads, respawns, and economy.
+ * Does not handle latency compensation or client reconciliation (see WebSocketAdapter).
+ *
+ * Simulation layer - innermost ring. Imports nothing from rendering, UI, net, or orchestration.
  */
 
 import { HALF_HIT_BOX, PLAYER_HIT_BOX, ROTATION_OFFSET } from '../constants';
@@ -16,6 +19,7 @@ import { getWeaponDef, createDefaultWeapon } from '@simulation/combat/weapons';
 import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
 import { addSmokeData } from '@simulation/combat/smokeData';
 
+/** Per-player weapon timing state for fire rate, recoil reset, and reload tracking. */
 type PlayerWeaponState = {
     lastFireTime: number;
     consecutiveShots: number;
@@ -24,10 +28,12 @@ type PlayerWeaponState = {
     nextShellTime: number;
 };
 
+/** Per-player respawn timing state. */
 type PlayerRespawnState = {
     deathTime: number;
 };
 
+/** Full match state including round tracking, economy, and per-player game stats. */
 type MatchState = {
     active: boolean;
     roundActive: boolean;
@@ -43,6 +49,16 @@ type MatchState = {
 type AABB = { x: number; y: number; w: number; h: number };
 type Limits = { left: number; right: number; top: number; bottom: number };
 
+/**
+ * Finds a spawn position that does not overlap with existing players or walls.
+ * Spirals outward from the desired position until a clear spot is found.
+ * @param x - Desired spawn x.
+ * @param y - Desired spawn y.
+ * @param excludeId - Player ID to exclude from overlap checks (the spawning player).
+ * @param players - All current players.
+ * @param walls - Wall AABBs for collision.
+ * @returns A non-overlapping spawn position, or the original if none found.
+ */
 function findNonOverlappingSpawn(x: number, y: number, excludeId: number, players: readonly player_info[], walls: readonly AABB[]): { x: number; y: number } {
     if (!collidesWithPlayers(x, y, excludeId, players) && !collidesWithWalls(x, y, walls)) return { x, y };
     for (let r = PLAYER_HIT_BOX; r <= PLAYER_HIT_BOX * 10; r += PLAYER_HIT_BOX) {
@@ -54,6 +70,13 @@ function findNonOverlappingSpawn(x: number, y: number, excludeId: number, player
     return { x, y };
 }
 
+/**
+ * Server-authoritative simulation wrapper. Manages the complete game state including
+ * player inputs, weapon mechanics, match lifecycle, economy, and respawns.
+ * Delegates projectile/grenade physics to the inner GameSimulation.
+ *
+ * Simulation layer - does not depend on rendering, net, or orchestration.
+ */
 export class AuthoritativeSimulation {
     readonly simulation: GameSimulation;
     private wallAABBs: AABB[] = [];
@@ -83,6 +106,15 @@ export class AuthoritativeSimulation {
         this.simulation = new GameSimulation();
     }
 
+    /**
+     * Configures the map geometry for collision, spawning, and projectile simulation.
+     * Caches a flattened spawn array for fallback spawn selection.
+     * @param wallAABBs - Axis-aligned bounding boxes for player-wall collision.
+     * @param limits - World boundary rectangle.
+     * @param segments - Wall segments for raycasting and projectile collision.
+     * @param teamSpawns - Per-team spawn point arrays.
+     * @param patrolPoints - AI patrol waypoints.
+     */
     setMap(wallAABBs: AABB[], limits: Limits, segments: WallSegment[], teamSpawns: Record<number, coordinates[]>, patrolPoints: coordinates[]) {
         this.wallAABBs = wallAABBs;
         this.limits = limits;
@@ -93,6 +125,10 @@ export class AuthoritativeSimulation {
         this.patrolPoints = patrolPoints;
     }
 
+    /**
+     * Replaces the full player list and initializes weapon/respawn state for new players.
+     * @param players - Complete player array.
+     */
     setPlayers(players: player_info[]) {
         this.players = players;
         this.playerMap.clear();
@@ -113,6 +149,11 @@ export class AuthoritativeSimulation {
         }
     }
 
+    /**
+     * Adds a single player to the simulation mid-game.
+     * Initializes weapon state, respawn state, and match economy if a match is active.
+     * @param player - The player to add.
+     */
     addPlayer(player: player_info) {
         this.players.push(player);
         this.playerMap.set(player.id, player);
@@ -166,12 +207,25 @@ export class AuthoritativeSimulation {
         return moveWithCollisionPure(currentX, currentY, dx, dy, this.wallAABBs, this.limits, playerId, this.players);
     }
 
+    /**
+     * Transitions a player's status and emits a PLAYER_STATUS_CHANGED event.
+     * @param player - The player whose status is changing.
+     * @param newStatus - The new status value.
+     * @returns The status change event.
+     */
     private emitStatusChange(player: player_info, newStatus: PlayerStatus): PlayerStatusChangedEvent {
         const prev = player.status;
         player.status = newStatus;
         return { type: 'PLAYER_STATUS_CHANGED', playerId: player.id, status: newStatus, previousStatus: prev };
     }
 
+    /**
+     * Dispatches a player input to the appropriate handler and post-processes
+     * the resulting events (kill recording, smoke data registration, etc.).
+     * @param input - The player input to process.
+     * @param timestamp - Current simulation time.
+     * @returns Array of all events produced by this input.
+     */
     processInput(input: PlayerInput, timestamp: number): GameEvent[] {
         const player = this.playerMap.get(input.playerId);
         if (!player) return [];
@@ -225,6 +279,7 @@ export class AuthoritativeSimulation {
                 events = [this.emitStatusChange(player, PlayerStatus.IDLE)];
                 break;
         }
+
         return this.postProcessEvents(events, timestamp);
     }
 
@@ -242,6 +297,11 @@ export class AuthoritativeSimulation {
         return [];
     }
 
+    /**
+     * Handles a FIRE input: checks weapon state, fire rate, ammo, applies recoil,
+     * and spawns bullets (one per pellet for shotguns).
+     * May interrupt a shell-by-shell reload if the weapon has ammo.
+     */
     private processFire(player: player_info, timestamp: number): GameEvent[] {
         if (player.dead) return [];
 
@@ -257,7 +317,9 @@ export class AuthoritativeSimulation {
                 weapon.reloading = false;
                 ws.nextShellTime = 0;
                 interruptEvents.push(this.emitStatusChange(player, PlayerStatus.IDLE));
-            } else {
+            }
+
+            else {
                 return [];
             }
         }
@@ -276,7 +338,6 @@ export class AuthoritativeSimulation {
         ws.consecutiveShots++;
         ws.recoilResetTime = 0;
 
-        // Calculate bullet direction
         const centerX = player.current_position.x + HALF_HIT_BOX;
         const centerY = player.current_position.y + HALF_HIT_BOX;
         const aimAngle = player.current_position.rotation - ROTATION_OFFSET;
@@ -312,7 +373,9 @@ export class AuthoritativeSimulation {
 
         if (weaponDef.shellReloadTime) {
             ws.nextShellTime = timestamp + weaponDef.shellReloadTime;
-        } else {
+        }
+
+        else {
             ws.reloadStartTime = timestamp;
         }
 
@@ -361,7 +424,9 @@ export class AuthoritativeSimulation {
 
         if (type === 'C4') {
             speed = 0;
-        } else {
+        }
+
+        else {
             dx = aimDx;
             dy = aimDy;
             speed = def.throwSpeed * chargeFraction;
@@ -409,6 +474,11 @@ export class AuthoritativeSimulation {
         return [];
     }
 
+    /**
+     * Attempts to purchase armor for a player using match economy funds.
+     * @param playerId - The player buying armor.
+     * @returns True if the purchase succeeded.
+     */
     buyArmor(playerId: number): boolean {
         const player = this.players.find((p) => p.id === playerId);
         if (!player) return false;
@@ -425,6 +495,11 @@ export class AuthoritativeSimulation {
         return true;
     }
 
+    /**
+     * Attempts to purchase a health kit for a player using match economy funds.
+     * @param playerId - The player buying health.
+     * @returns True if the purchase succeeded.
+     */
     buyHealth(playerId: number): boolean {
         const player = this.players.find((p) => p.id === playerId);
         if (!player) return false;
@@ -441,7 +516,10 @@ export class AuthoritativeSimulation {
         return true;
     }
 
-
+    /**
+     * Initializes match state for a new match. Resets all player stats and economy.
+     * @param playerIds - IDs of players participating in the match.
+     */
     initMatch(playerIds: number[]) {
         this.match.playerStates.clear();
         this.match.teamRoundWins = {};
@@ -468,6 +546,11 @@ export class AuthoritativeSimulation {
         }
     }
 
+    /**
+     * Starts a new round. Resets all players to spawn positions, restores
+     * health/armor/weapons, and emits ROUND_START + PLAYER_RESPAWN events.
+     * @returns Array of round start and respawn events.
+     */
     startRound(): GameEvent[] {
         this.match.currentRound++;
         this.match.roundStartTime = Date.now();
@@ -499,6 +582,12 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    /**
+     * Records a kill in match state, awards money and points, and emits a KILL_FEED event.
+     * @param killerId - ID of the killing player.
+     * @param victimId - ID of the killed player.
+     * @returns Array containing the KILL_FEED event if both players are found.
+     */
     recordKill(killerId: number, victimId: number): GameEvent[] {
         const killerState = this.match.playerStates.get(killerId);
         const victimState = this.match.playerStates.get(victimId);
@@ -535,6 +624,10 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    /**
+     * Post-processes events after input handling or tick: records kills,
+     * schedules respawns, registers smoke data, and emits status changes.
+     */
     private postProcessEvents(events: GameEvent[], timestamp: number): GameEvent[] {
         const extra: GameEvent[] = [];
         for (const event of events) {
@@ -545,7 +638,7 @@ export class AuthoritativeSimulation {
 
                 if (victim) extra.push(this.emitStatusChange(victim, PlayerStatus.DEAD));
             }
-            
+
             if (event.type === 'SMOKE_DEPLOY') {
                 addSmokeData(event.x, event.y, event.radius, event.duration, timestamp);
             }
@@ -586,6 +679,12 @@ export class AuthoritativeSimulation {
         return Math.max(0, getConfig().match.roundDuration - (Date.now() - this.match.roundStartTime));
     }
 
+    /**
+     * Deducts money from a player's match economy.
+     * @param playerId - The player to charge.
+     * @param amount - Amount to deduct.
+     * @returns True if the player had enough money and the deduction succeeded.
+     */
     spendMoney(playerId: number, amount: number): boolean {
         const state = this.match.playerStates.get(playerId);
         if (!state || state.money < amount) return false;
@@ -593,6 +692,12 @@ export class AuthoritativeSimulation {
         return true;
     }
 
+    /**
+     * Advances the simulation by one tick. Runs projectile physics, grenade physics,
+     * reload timers, recoil resets, respawns, out-of-bounds checks, and match timer.
+     * @param timestamp - Current simulation time.
+     * @returns All events produced this tick.
+     */
     tick(timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
 
@@ -611,6 +716,10 @@ export class AuthoritativeSimulation {
         return this.postProcessEvents(events, timestamp);
     }
 
+    /**
+     * Advances reload timers for all players. Handles both shell-by-shell reloads
+     * (shotgun) and full-magazine reloads.
+     */
     private tickReloads(timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
         for (const player of this.players) {
@@ -625,13 +734,12 @@ export class AuthoritativeSimulation {
 
             const weaponDef = getWeaponDef(weapon.type);
             if (weaponDef.shellReloadTime) {
-
                 if (ws.nextShellTime > 0 && timestamp >= ws.nextShellTime) {
                     weapon.ammo++;
                     if (weapon.ammo < weapon.maxAmmo) {
                         ws.nextShellTime = timestamp + weaponDef.shellReloadTime;
-                    } 
-                    
+                    }
+
                     else {
                         weapon.reloading = false;
                         ws.nextShellTime = 0;
@@ -640,8 +748,8 @@ export class AuthoritativeSimulation {
                         events.push(this.emitStatusChange(player, PlayerStatus.IDLE));
                     }
                 }
-            } 
-            
+            }
+
             else {
                 if (ws.reloadStartTime > 0 && timestamp >= ws.reloadStartTime + weaponDef.reloadTime) {
                     weapon.ammo = weapon.maxAmmo;
@@ -666,6 +774,11 @@ export class AuthoritativeSimulation {
         }
     }
 
+    /**
+     * Schedules a recoil reset after the player stops firing.
+     * @param playerId - The player who stopped firing.
+     * @param timestamp - Time the stop-fire input was received.
+     */
     notifyStopFiring(playerId: number, timestamp: number) {
         const ws = this.weaponStates.get(playerId);
         if (ws) {
@@ -690,6 +803,7 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    /** Teleports out-of-bounds players back to a team spawn point. */
     private tickOOBCheck(): GameEvent[] {
         const events: GameEvent[] = [];
         const { left, right, top, bottom } = this.limits;
@@ -707,6 +821,11 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    /**
+     * Records the time of death for respawn scheduling.
+     * @param playerId - The player who died.
+     * @param timestamp - Time of death.
+     */
     notifyPlayerDeath(playerId: number, timestamp: number) {
         const rs = this.respawnStates.get(playerId);
         if (rs) {
@@ -755,6 +874,10 @@ export class AuthoritativeSimulation {
         return [];
     }
 
+    /**
+     * Ends the current round. Determines the winning team by kill count,
+     * updates round wins, and checks for match completion.
+     */
     private endRound(): GameEvent[] {
         this.match.roundActive = false;
 
@@ -793,6 +916,7 @@ export class AuthoritativeSimulation {
         return events;
     }
 
+    /** Resets all players to spawn positions with full health, default loadout, and idle status. */
     private resetAllPlayers() {
         const teamCounters: Record<number, number> = {};
 

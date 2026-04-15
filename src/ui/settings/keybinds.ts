@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'game-keybinds';
 
+/** Identifier for a bindable game action. */
 export type ActionId = 'moveUp' | 'moveDown' | 'moveLeft' | 'moveRight' | 'reload' | 'weapon1' | 'weapon2' | 'weapon3' | 'grenade' | 'buyMenu' | 'leaderboard' | 'settings';
 
 type KeybindEntry = { action: ActionId; label: string; key: string };
@@ -19,9 +20,7 @@ const DEFAULT_BINDS: KeybindEntry[] = [
     { action: 'settings', label: 'Settings', key: 'l' },
 ];
 
-// Runtime bind map: key (lowercase) -> action
 const keyToAction = new Map<string, ActionId>();
-// action -> key for display / reverse lookup
 const actionToKey = new Map<ActionId, string>();
 
 function rebuildMaps(binds: KeybindEntry[]) {
@@ -34,24 +33,43 @@ function rebuildMaps(binds: KeybindEntry[]) {
 }
 
 function normalizeKey(key: string): string {
-    // Tab, Escape etc stay as-is; letters go lowercase
     return key.length === 1 ? key.toLowerCase() : key;
 }
 
+/**
+ * Looks up the game action bound to a keyboard key.
+ * @param key - The `KeyboardEvent.key` value
+ * @returns The action id, or undefined if no binding exists
+ */
 export function getActionForKey(key: string): ActionId | undefined {
     return keyToAction.get(normalizeKey(key));
 }
 
+/**
+ * Returns the key string currently bound to the given action.
+ * @param action - The action to look up
+ * @returns The bound key, or empty string if unbound
+ */
 export function getKeyForAction(action: ActionId): string {
     return actionToKey.get(action) ?? '';
 }
 
+/**
+ * Returns a human-readable label for a key (e.g. ' ' becomes 'Space').
+ * @param key - Raw key string
+ * @returns Display-friendly key name
+ */
 export function getKeyDisplayName(key: string): string {
     if (key === ' ') return 'Space';
     if (key.length === 1) return key.toUpperCase();
-    return key; // Tab, Escape, etc.
+    return key;
 }
 
+/**
+ * Returns all bindings with current key assignments, preserving the
+ * default ordering for display in the settings panel.
+ * @returns Array of action/label/key objects
+ */
 export function getAllBinds(): { action: ActionId; label: string; key: string }[] {
     return DEFAULT_BINDS.map((b) => ({
         action: b.action,
@@ -60,17 +78,22 @@ export function getAllBinds(): { action: ActionId; label: string; key: string }[
     }));
 }
 
+/**
+ * Assigns a new key to an action. If another action already uses that key,
+ * the two bindings are swapped so no key is left unbound. Persists to
+ * localStorage.
+ * @param action - The action to rebind
+ * @param newKey - The new `KeyboardEvent.key` value
+ */
 export function setKeybind(action: ActionId, newKey: string) {
-    // Remove any other action on this key
     const normalized = normalizeKey(newKey);
     const existing = keyToAction.get(normalized);
     if (existing && existing !== action) {
-        // Swap: give the displaced action the old key of the target
         const oldKey = actionToKey.get(action) ?? '';
         actionToKey.set(existing, oldKey);
         keyToAction.set(normalizeKey(oldKey), existing);
     }
-    // Remove old key for this action
+
     const prevKey = actionToKey.get(action);
     if (prevKey) keyToAction.delete(normalizeKey(prevKey));
 
@@ -105,5 +128,4 @@ function loadBinds() {
     rebuildMaps(DEFAULT_BINDS);
 }
 
-// Init on import
 loadBinds();

@@ -1,10 +1,13 @@
 import { PlayerStatus } from "./simulation/player/playerData";
 
 declare global {
+    /** Match type: free-for-all or team deathmatch. */
     type GameMode = 'ffa' | 'tdm';
 
+    /** Which rendering backend is active. */
     type RendererType = 'dom' | 'pixi';
 
+    /** Runtime configuration toggled via menus and debug tools. Consumed by all layers. */
     interface GameSettings {
         debug: boolean;
         gameMode: GameMode;
@@ -20,6 +23,7 @@ declare global {
         };
     }
 
+    /** Networked snapshot of a single player's state, sent from simulation to renderers and HUD. */
     interface player_info {
         id: number;
         name: string;
@@ -37,6 +41,7 @@ declare global {
         grenades: Record<GrenadeType, number>;
     }
 
+    /** A weapon instance carried by a player. */
     type PlayerWeapon = {
         id: number;
         active: boolean;
@@ -47,6 +52,7 @@ declare global {
         reloading: boolean;
     };
 
+    /** Static definition for a weapon type. Loaded from config, never mutated at runtime. */
     type WeaponDef = {
         id: string;
         name: string;
@@ -66,6 +72,7 @@ declare global {
         shellReloadTime?: number;
     };
 
+    /** Per-player scoreboard state tracked during a match. */
     type PlayerGameState = {
         playerId: number;
         kills: number;
@@ -74,6 +81,7 @@ declare global {
         points: number;
     };
 
+    /** Axis-aligned rectangle defining a wall's position and size in world space. */
     interface wall_info {
         x: number;
         y: number;
@@ -83,6 +91,7 @@ declare global {
         sprite?: string;
     }
 
+    /** Material type applied to a wall, used for rendering and impact sound selection. */
     type WallType =
         | 'concrete'
         | 'metal'
@@ -91,15 +100,16 @@ declare global {
         | 'barrier'
         | 'pillar';
 
+    /** Simple 2D point in world space. */
     type coordinates = {
         x: number;
         y: number;
     };
 
+    /** Union of all grenade type identifiers. */
     type GrenadeType = 'FRAG' | 'FLASH' | 'SMOKE' | 'C4';
 
-    // --- Grenade VFX types ---
-
+    /** Visual parameters for drawing a grenade's in-world sprite. */
     type GrenadeSpriteVfx = {
         color: number;
         radius: number;
@@ -109,11 +119,13 @@ declare global {
         strokeAlpha: number;
     };
 
+    /** Parameters controlling how a grenade detonation displaces the background grid. */
     type GrenadeGridDisplacementVfx = {
         strengthMultiplier: number;
         duration: number;
     };
 
+    /** Light emitted by a grenade effect (flash, generic detonation glow). */
     type GrenadeLightVfx = {
         radius: number;
         color: number;
@@ -121,6 +133,7 @@ declare global {
         decay: number;
     };
 
+    /** One phase within a multi-phase detonation lighting sequence (e.g. initial spike then decay). */
     type LightPhaseVfx = {
         radius: number;
         color: number;
@@ -129,6 +142,7 @@ declare global {
         delay?: number;
     };
 
+    /** One phase of a multi-phase grid displacement sequence (blast, vacuum, ripple). */
     type DisplacementPhaseVfx = {
         delay?: number;
         radiusMultiplier: number;
@@ -137,6 +151,7 @@ declare global {
         maxDisplacement?: number;
     };
 
+    /** Full VFX configuration for fragmentation grenades. Consumed by `fragEffect.ts`. */
     type FragVfx = {
         sprite: GrenadeSpriteVfx;
         explosion: {
@@ -204,6 +219,7 @@ declare global {
         };
     };
 
+    /** Full VFX configuration for C4 explosive charges. Consumed by `c4Effect.ts`. */
     type C4Vfx = {
         sprite: GrenadeSpriteVfx;
         explosion: {
@@ -279,6 +295,7 @@ declare global {
         };
     };
 
+    /** Full VFX configuration for flashbang grenades. Consumed by `flashEffect.ts`. */
     type FlashVfx = {
         sprite: GrenadeSpriteVfx;
         screenEffect: {
@@ -298,6 +315,7 @@ declare global {
         gridDisplacement: GrenadeGridDisplacementVfx;
     };
 
+    /** Visual parameters for a single volumetric layer within a smoke cloud. */
     type SmokeLayerVfx = {
         alphaMin: number;
         alphaMax: number;
@@ -307,6 +325,7 @@ declare global {
         radiusFrac: number;
     };
 
+    /** Full VFX configuration for smoke grenades. Consumed by `smokeEffect.ts`. */
     type SmokeVfx = {
         sprite: GrenadeSpriteVfx;
         cloud: {
@@ -341,6 +360,7 @@ declare global {
         gridDisplacement: GrenadeGridDisplacementVfx;
     };
 
+    /** Maps each grenade type to its concrete VFX configuration type. */
     type GrenadeVfxMap = {
         FRAG: FragVfx;
         C4: C4Vfx;
@@ -348,8 +368,7 @@ declare global {
         SMOKE: SmokeVfx;
     };
 
-    // --- Weapon VFX types ---
-
+    /** Visual parameters for drawing an in-flight projectile sprite. */
     type ProjectileVfx = {
         tint: number;
         scale: number;
@@ -357,6 +376,7 @@ declare global {
         blendMode: string;
     };
 
+    /** Dynamic light attached to a bullet in flight, rendered into the lightmap. */
     type BulletLightVfx = {
         radius: number;
         intensity: number;
@@ -364,6 +384,7 @@ declare global {
         trailAngle: number;
     };
 
+    /** Visual effect spawned where a bullet hits a wall surface. */
     type WallImpactVfx = {
         outerRadius: number;
         outerColor: number;
@@ -380,6 +401,7 @@ declare global {
         lightDecay: number;
     };
 
+    /** Light flash emitted when a player is killed. */
     type DeathBurstVfx = {
         lightRadius: number;
         lightColor: number;
@@ -387,6 +409,7 @@ declare global {
         lightDecay: number;
     };
 
+    /** Composite VFX bundle for a weapon, covering projectile, lighting, impacts, and grid effects. */
     type WeaponVfx = {
         projectile: ProjectileVfx;
         bulletLight: BulletLightVfx;
@@ -396,6 +419,7 @@ declare global {
         gridTravel: { radius: number; strength: number };
     };
 
+    /** Static definition for a grenade type. Loaded from config, never mutated at runtime. */
     type GrenadeDef = {
         id: GrenadeType;
         name: string;
@@ -410,6 +434,7 @@ declare global {
         shrapnelSpeed?: number;
     };
 
+    /** Static light placed in a map definition. Consumed by `lightingManager.ts`. */
     type LightDef = {
         x: number;
         y: number;
@@ -420,13 +445,16 @@ declare global {
         cone?: number;
     };
 
+    /** Per-map ambient lighting overrides. */
     type LightingConfig = {
         ambientLight?: number;
         ambientColor?: number;
     };
 
+    /** How a floor texture is mapped onto the grid: stretched once or tiled per cell block. */
     type TextureMode = 'cover' | 'tile';
 
+    /** Definition for one floor texture layer in a map. Multiple layers are composited in order. */
     type TextureLayerDef = {
         /** Filename in public/maps/<mapId>/ (e.g. "concrete_floor_worn.jpg") */
         src: string;
@@ -444,6 +472,7 @@ declare global {
         zPosition?: 'above' | 'below';
     };
 
+    /** Optional glossy floor highlight rendered as a radial gradient overlay. */
     type FloorGloss = {
         color?: number;
         alpha?: number;
@@ -451,6 +480,7 @@ declare global {
         blendMode?: string;
     };
 
+    /** Complete data payload for a map, loaded by the simulation and consumed by renderers. */
     type MapData = {
         bounds?: { width: number; height: number };
         teamSpawns: Record<number, coordinates[]>;
@@ -462,12 +492,14 @@ declare global {
         gloss?: FloorGloss;
     };
 
+    /** A point on a visibility ray: position plus distance from the ray origin. */
     type RayPoint = {
         x: number;
         y: number;
         d: number;
     };
 
+    /** Bounding-box coordinates of a DOM element in screen space. */
     type elementCoordinates = {
         x: number;
         y: number;
@@ -477,23 +509,25 @@ declare global {
         left: number;
     };
 
+    /** Line segment of a wall edge, with pre-computed AABB for broad-phase culling. */
     type WallSegment = {
         x1: number;
         y1: number;
         x2: number;
         y2: number;
-        // Pre-computed AABB for broad-phase culling
         minX: number;
         minY: number;
         maxX: number;
         maxY: number;
     };
 
+    /** A wall corner point used as a raycast target for FOV polygon construction. */
     type Corner = {
         x: number;
         y: number;
     };
 
+    /** Pre-processed map geometry: boundary limits, wall segments, and corner points. */
     type Environment = {
         limits: {
             left: number;
@@ -505,11 +539,13 @@ declare global {
         corners: Corner[];
     };
 
+    /** Configuration for the FOV raycast algorithm. */
     type raycast_config = {
         number_of_rays?: number;
         type: RaycastTypes;
     };
 
+    /** Raycast strategy used for FOV polygon construction. */
     enum RaycastTypes {
         SPRAY = 'SPRAY',
         CORNERS = 'CORNERS',

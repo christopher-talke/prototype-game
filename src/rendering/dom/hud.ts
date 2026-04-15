@@ -1,3 +1,13 @@
+/**
+ * HUD overlay for the DOM renderer. Creates and updates all heads-up display
+ * elements: health/armor bars, ammo count, money, timer, score, kill feed,
+ * crosshair, buy menu, grenade inventory, leaderboard, death overlay, round
+ * banners, and pause menu. All DOM writes are guarded by dirty-checks to
+ * skip redundant mutations.
+ *
+ * Part of the DOM rendering layer -- shared between both renderers for now.
+ */
+
 import './css/hud.css';
 
 import { app } from '../../app';
@@ -51,14 +61,21 @@ let _lastRoundScore = '';
 let _lastScore = '';
 let _lastDeathActive = false;
 
+/**
+ * Registers a callback invoked when the player clicks "Return to Menu"
+ * from the pause or match-end overlay.
+ * @param cb - Callback to invoke on menu return
+ */
 export function setOnReturnToMenuCallback(cb: () => void) {
     onReturnToMenuCallback = cb;
 }
 
+/** Returns whether the pause overlay is currently open. */
 export function isPauseOpen(): boolean {
     return paused;
 }
 
+/** Opens the pause overlay, hiding the crosshair and restoring the cursor. */
 export function openPause() {
     hideCrosshair();
 
@@ -68,6 +85,7 @@ export function openPause() {
     document.body.style.cursor = 'auto';
 }
 
+/** Closes the pause overlay, restoring the crosshair and hiding the cursor. */
 export function closePause() {
     showCrosshair();
 
@@ -76,11 +94,15 @@ export function closePause() {
     document.body.style.cursor = 'none';
 }
 
+/**
+ * Creates all HUD DOM elements and appends them to the document.
+ * Must be called once during game initialization. Caches element references
+ * for use by updateHUD and other HUD functions.
+ */
 export function initHUD() {
     const container = document.createElement('div');
     container.id = 'hud-container';
 
-    // Status bars
     const status = document.createElement('div');
     status.id = 'hud-status';
     status.innerHTML = `
@@ -91,7 +113,6 @@ export function initHUD() {
     `;
     container.appendChild(status);
 
-    // Ammo
     const ammo = document.createElement('div');
     ammo.id = 'hud-ammo';
     ammo.innerHTML = `
@@ -102,31 +123,26 @@ export function initHUD() {
     `;
     container.appendChild(ammo);
 
-    // Money
     const money = document.createElement('div');
     money.id = 'hud-money';
     money.textContent = '$800';
     container.appendChild(money);
 
-    // Timer
     const timer = document.createElement('div');
     timer.id = 'hud-timer';
     timer.textContent = '5:00';
     container.appendChild(timer);
 
-    // Round score (team round wins)
     const rs = document.createElement('div');
     rs.id = 'hud-round-score';
     rs.textContent = 'Round 1';
     container.appendChild(rs);
 
-    // Score
     const score = document.createElement('div');
     score.id = 'hud-score';
     score.textContent = 'K: 0 / D: 0';
     container.appendChild(score);
 
-    // Grenade inventory display
     const grenades = document.createElement('div');
     grenades.id = 'hud-grenades';
     const gKey = getKeyDisplayName(getKeyForAction('grenade'));
@@ -138,37 +154,31 @@ export function initHUD() {
     `;
     container.appendChild(grenades);
 
-    // Kill feed
     const kf = document.createElement('div');
     kf.id = 'hud-killfeed';
     container.appendChild(kf);
     document.body.appendChild(container);
 
-    // Crosshair
     const ch = document.createElement('div');
     ch.id = 'hud-crosshair';
     ch.innerHTML = `<div class="ch-h"></div><div class="ch-v"></div><div class="ch-dot"></div>`;
     document.body.appendChild(ch);
 
-    // Buy menu
     const bm = document.createElement('div');
     bm.id = 'hud-buymenu';
     bm.classList.add('menu-overlay', 'menu-overlay--translucent');
     bm.innerHTML = `<div class="buymenu-panel"><h3>BUY MENU [B to close]</h3><div class="buymenu-grid" id="buymenu-grid"></div></div>`;
     document.body.appendChild(bm);
 
-    // Death overlay
     const dOverlay = document.createElement('div');
     dOverlay.id = 'hud-death-overlay';
     dOverlay.innerHTML = `<div id="hud-death-text">YOU DIED</div>`;
     document.body.appendChild(dOverlay);
 
-    // Damage indicator (directional red flash)
     const dmgIndicator = document.createElement('div');
     dmgIndicator.id = 'hud-damage-indicator';
     document.body.appendChild(dmgIndicator);
 
-    // Leaderboard
     const lb = document.createElement('div');
     lb.id = 'hud-leaderboard';
     lb.innerHTML = `
@@ -187,21 +197,18 @@ export function initHUD() {
     `;
     document.body.appendChild(lb);
 
-    // Round end banner
     const rb = document.createElement('div');
     rb.id = 'hud-round-banner';
     rb.classList.add('menu-overlay', 'menu-overlay--translucent');
     rb.innerHTML = `<div id="round-banner-text">ROUND OVER</div><div id="round-banner-sub"></div>`;
     document.body.appendChild(rb);
 
-    // Match end overlay
     const meo = document.createElement('div');
     meo.id = 'hud-match-end';
     meo.classList.add('menu-overlay', 'menu-overlay--translucent');
     meo.innerHTML = `<div id="match-end-title">MATCH OVER</div><div id="match-end-winner"></div><div id="match-end-score"></div><button id="match-end-return">Return to Menu</button>`;
     document.body.appendChild(meo);
 
-    // Pause overlay
     const pause = document.createElement('div');
     pause.id = 'hud-pause';
     pause.classList.add('menu-overlay', 'menu-overlay--translucent');
@@ -212,7 +219,6 @@ export function initHUD() {
     `;
     document.body.appendChild(pause);
 
-    // Cache elements
     healthBar = document.getElementById('hud-health-bar')!;
     armorBar = document.getElementById('hud-armor-bar')!;
     ammoCount = document.getElementById('hud-ammo-count')!;
@@ -244,7 +250,6 @@ export function initHUD() {
         onReturnToMenuCallback?.();
     });
 
-    // Cache grenade slot elements
     grenadeHud.querySelectorAll('.grenade-slot').forEach((slot) => {
         const type = slot.getAttribute('data-type') as GrenadeType;
         const count = slot.querySelector('.grenade-count') as HTMLElement;
@@ -252,6 +257,14 @@ export function initHUD() {
     });
 }
 
+/**
+ * Updates all HUD elements to reflect the current game state. Dirty-checks
+ * each value against the last written value to skip redundant DOM writes.
+ * Called once per frame from the game loop.
+ * @param playerInfo - The local player's current state
+ * @param timeRemaining - Milliseconds remaining in the current round
+ * @param selectedGrenadeType - Currently selected grenade type, if any
+ */
 export function updateHUD(playerInfo: player_info, timeRemaining: number, selectedGrenadeType?: GrenadeType) {
     if (app === undefined) return;
 
@@ -259,7 +272,6 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number, select
     const state = adapter.getPlayerState(playerInfo.id);
     if (!state) return;
 
-    // Health bar - only update DOM when value changes
     const healthPct = Math.max(0, playerInfo.health);
     if (healthPct !== _lastHealthPct) {
         _lastHealthPct = healthPct;
@@ -283,13 +295,11 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number, select
         }
     }
 
-
     const armorPct = Math.max(0, playerInfo.armour);
     if (armorPct !== _lastArmorPct) {
         _lastArmorPct = armorPct;
         armorBar.style.width = `${armorPct}%`;
     }
-
 
     const weapon = getActiveWeapon(playerInfo);
     if (weapon) {
@@ -304,17 +314,14 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number, select
         crosshair.dataset.weapon = weapon.type;
     }
 
-
     const moneyStr = `$${state.money}`;
     if (moneyStr !== _lastMoney) { _lastMoney = moneyStr; moneyDisplay.textContent = moneyStr; }
-
 
     const totalSecs = Math.ceil(timeRemaining / 1000);
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
     const timerStr = `${mins}:${secs.toString().padStart(2, '0')}`;
     if (timerStr !== _lastTimer) { _lastTimer = timerStr; timerDisplay.textContent = timerStr; }
-
 
     const wins = adapter.getTeamRoundWins();
     const round = adapter.getCurrentRound();
@@ -323,10 +330,8 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number, select
     const roundScoreStr = `Round ${round}  |  ${winsText}  |  First to ${getConfig().match.roundsToWin}`;
     if (roundScoreStr !== _lastRoundScore) { _lastRoundScore = roundScoreStr; roundScoreDisplay.textContent = roundScoreStr; }
 
-
     const scoreStr = `K: ${state.kills} / D: ${state.deaths}`;
     if (scoreStr !== _lastScore) { _lastScore = scoreStr; scoreDisplay.textContent = scoreStr; }
-
 
     if (playerInfo.grenades && selectedGrenadeType) {
         const selected = selectedGrenadeType;
@@ -338,15 +343,20 @@ export function updateHUD(playerInfo: player_info, timeRemaining: number, select
         }
     }
 
-
     const dead = isPlayerDead(playerInfo);
     if (dead !== _lastDeathActive) {
         _lastDeathActive = dead;
         deathOverlay.classList.toggle('active', dead);
     }
-
 }
 
+/**
+ * Adds an entry to the kill feed display showing who killed whom and with what weapon.
+ * Entries auto-remove after the configured timeout.
+ * @param killerName - Name of the player who got the kill
+ * @param victimName - Name of the player who was killed
+ * @param weaponType - Weapon type identifier used for the kill
+ */
 export function addKillFeedEntry(killerName: string, victimName: string, weaponType: string) {
     const entry = document.createElement('div');
     entry.classList.add('killfeed-entry');
@@ -358,6 +368,11 @@ export function addKillFeedEntry(killerName: string, victimName: string, weaponT
 
 let buyMenuOpen = false;
 
+/**
+ * Toggles the buy menu open or closed and sends the corresponding input
+ * to the network adapter.
+ * @param playerInfo - The local player's state
+ */
 export function toggleBuyMenu(playerInfo: player_info) {
     buyMenuOpen = !buyMenuOpen;
 
@@ -365,16 +380,20 @@ export function toggleBuyMenu(playerInfo: player_info) {
         renderBuyMenu(playerInfo);
         buyMenu.classList.add('open');
         getAdapter().sendInput({ type: 'OPEN_BUY_MENU', playerId: playerInfo.id });
-    } else {
+    }
+
+    else {
         buyMenu.classList.remove('open');
         getAdapter().sendInput({ type: 'CLOSE_BUY_MENU', playerId: playerInfo.id });
     }
 }
 
+/** Returns whether the buy menu is currently open. */
 export function isBuyMenuOpen(): boolean {
     return buyMenuOpen;
 }
 
+/** Closes the buy menu if open, sending the close input to the adapter. */
 export function closeBuyMenu() {
     if (buyMenuOpen) {
         buyMenuOpen = false;
@@ -386,6 +405,11 @@ export function closeBuyMenu() {
     }
 }
 
+/**
+ * Populates the buy menu grid with purchasable items: health, armor, weapons,
+ * and grenades. Items the player cannot afford or has reached the limit for
+ * are grayed out.
+ */
 function renderBuyMenu(playerInfo: player_info) {
     const state = getAdapter().getPlayerState(playerInfo.id);
     const currentConfig = getConfig();
@@ -465,7 +489,6 @@ function renderBuyMenu(playerInfo: player_info) {
         buyMenuGrid.appendChild(item);
     });
 
-    // Grenade section
     const grenadeHeader = document.createElement('div');
     grenadeHeader.classList.add('buymenu-section-header');
     grenadeHeader.textContent = 'GRENADES';
@@ -502,6 +525,13 @@ function renderBuyMenu(playerInfo: player_info) {
 }
 
 let damageIndicatorTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Shows a directional damage indicator on the screen edge pointing toward
+ * the angle the damage came from, relative to the player's facing direction.
+ * @param angleDeg - World-space angle the damage came from, in degrees
+ * @param playerRotation - The local player's current rotation in degrees
+ */
 export function showDamageIndicator(angleDeg: number, playerRotation: number) {
     const el = document.getElementById('hud-damage-indicator');
     if (!el) return;
@@ -518,23 +548,36 @@ export function showDamageIndicator(angleDeg: number, playerRotation: number) {
     }, hudConfig.damageIndicatorTimeout);
 }
 
+/**
+ * Moves the crosshair element to the given screen coordinates.
+ * @param x - Screen X position in pixels
+ * @param y - Screen Y position in pixels
+ */
 export function updateCrosshairPosition(x: number, y: number) {
     crosshair.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%))`;
 }
 
+/** Hides the crosshair element. */
 export function hideCrosshair() {
     crosshair.style.display = 'none';
 }
 
+/** Shows the crosshair element. */
 export function showCrosshair() {
     crosshair.style.display = 'block';
 }
 
 let hitMarkerTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Flashes the crosshair with a hit or kill indicator and plays the kill
+ * sound + banner when applicable.
+ * @param isKill - Whether this hit was a killing blow
+ * @param victimName - Name of the victim, used for kill banner display
+ */
 export function showHitMarker(isKill: boolean, victimName?: string) {
     crosshair.classList.remove('hit', 'kill');
 
-    // Triggers reflow to restart animation
     void crosshair.offsetWidth;
     crosshair.classList.add(isKill ? 'kill' : 'hit');
 
@@ -556,6 +599,7 @@ function getKillBannerContainer(): HTMLElement {
         killBannerContainer.id = 'kill-banner-container';
         document.body.appendChild(killBannerContainer);
     }
+
     return killBannerContainer;
 }
 
@@ -567,7 +611,6 @@ function showKillBanner(victimName: string) {
     el.innerHTML = `<span class="kill-banner-icon">&#x2620;</span><span class="kill-banner-text">ELIMINATED</span><span class="kill-banner-name">${victimName}</span>`;
     container.appendChild(el);
 
-    // Triggers reflow to restart animation
     void el.offsetWidth;
     el.classList.add('active');
 
@@ -577,21 +620,23 @@ function showKillBanner(victimName: string) {
     }, hudConfig.killBannerDuration);
 }
 
+/** Opens the leaderboard overlay. */
 export function showLeaderboard() {
     renderLeaderboard();
     leaderboard.classList.add('open');
 }
 
+/** Closes the leaderboard overlay. */
 export function hideLeaderboard() {
     leaderboard.classList.remove('open');
 }
 
 /**
  * Shows the round end banner with the winning team and team scores.
- * @param winningTeam The team that won the round.
- * @param teamWins A map of team IDs to their respective win counts.
- * @param isFinal Whether this round is the final round of the match.
- * @returns void
+ * If this is the final round, delegates to showMatchEndOverlay instead.
+ * @param winningTeam - The team number that won the round
+ * @param teamWins - Map of team IDs to their respective win counts
+ * @param isFinal - Whether this round is the final round of the match
  */
 export function showRoundEndBanner(winningTeam: number, teamWins: Record<number, number>, isFinal: boolean) {
     if (isFinal) {
@@ -611,7 +656,9 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Record<number,
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         roundBanner.classList.add('won');
         playSound('round_win');
-    } else {
+    }
+
+    else {
         roundBanner.classList.add('lost');
         playSound('round_lose');
     }
@@ -619,18 +666,16 @@ export function showRoundEndBanner(winningTeam: number, teamWins: Record<number,
     setTimeout(() => roundBanner.classList.remove('active'), getConfig().match.roundIntermission - 500);
 }
 
-/**
- * Match end overlay is similar to round end banner but with more info and a return to menu button.
- * It stays until the player clicks the button, so no auto-hide timeout.
- */
+/** Hides the match end overlay. */
 export function hideMatchEndOverlay() {
     matchEndOverlay.classList.remove('active');
 }
 
 /**
- * Shows the match end overlay with the winning team and team scores.
- * @param winningTeam The team that won the match.
- * @param teamWins A map of team IDs to their respective win counts.
+ * Shows the match end overlay with the winning team and final scores.
+ * Stays visible until the player clicks "Return to Menu".
+ * @param winningTeam - The team number that won the match
+ * @param teamWins - Map of team IDs to their respective win counts
  */
 function showMatchEndOverlay(winningTeam: number, teamWins: Record<number, number>) {
     const winnerEl = document.getElementById('match-end-winner')!;
@@ -645,7 +690,9 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Record<number, numbe
     if (winningTeam === getPlayerInfo(ACTIVE_PLAYER as number)?.team) {
         matchEndOverlay.classList.add('won');
         playSound('match_win');
-    } else {
+    }
+
+    else {
         matchEndOverlay.classList.add('lost');
         playSound('match_lose');
     }
@@ -654,16 +701,13 @@ function showMatchEndOverlay(winningTeam: number, teamWins: Record<number, numbe
 }
 
 /**
- * Renders the leaderboard by fetching all player states and info.
- * Grouping them by team, sorting teams and players by points, and then creating table rows for each player with their rank, name, points, kills, and deaths.
- * The local player is highlighted in the leaderboard.
- * @returns void
+ * Renders the leaderboard table by fetching all player states, grouping by
+ * team, and sorting by points. The local player's row is highlighted.
  */
 function renderLeaderboard() {
     const states = getAdapter().getAllPlayerStates();
     const players = getAllPlayers();
 
-    // Group by team, sort teams by total points, players within each team by points
     const teamMap = new Map<number, { state: PlayerGameState; info: player_info | undefined }[]>();
     for (const state of states) {
         const info = players.find((p) => p.id === state.playerId);
@@ -713,10 +757,11 @@ function renderLeaderboard() {
 
 /**
  * Spawns a floating damage number at the specified world coordinates.
- * @param worldX The X coordinate in the game world.
- * @param worldY The Y coordinate in the game world.
- * @param damage The amount of damage dealt.
- * @param isKill Whether the damage resulted in a kill.
+ * The number floats upward and fades out via CSS animation.
+ * @param worldX - X coordinate in world space
+ * @param worldY - Y coordinate in world space
+ * @param damage - The amount of damage dealt
+ * @param isKill - Whether the damage resulted in a kill
  */
 export function spawnDamageNumber(worldX: number, worldY: number, damage: number, isKill: boolean) {
     const el = document.createElement('div');

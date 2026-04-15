@@ -4,6 +4,12 @@ let el: HTMLElement | null = null;
 let fill: HTMLElement | null = null;
 let status: HTMLElement | null = null;
 
+/**
+ * Creates and appends the full-screen loading overlay with a progress bar.
+ * Call `setLoadingProgress` to update it, then `hideLoadingScreen` to fade out.
+ *
+ * UI layer - shown once during initial asset load before the game loop starts.
+ */
 export function showLoadingScreen() {
     el = document.createElement('div');
     el.id = 'loading-screen';
@@ -18,11 +24,21 @@ export function showLoadingScreen() {
     status = document.getElementById('loading-status')!;
 }
 
+/**
+ * Updates the loading bar fill width and status text.
+ * @param percent - Progress percentage (0-100, clamped)
+ * @param text - Status message shown below the bar
+ */
 export function setLoadingProgress(percent: number, text: string) {
     if (fill) fill.style.width = `${Math.min(100, percent)}%`;
     if (status) status.textContent = text;
 }
 
+/**
+ * Fades out the loading screen and removes it from the DOM after the
+ * CSS transition completes (500ms).
+ * @returns Resolves when the element has been removed
+ */
 export function hideLoadingScreen(): Promise<void> {
     return new Promise((resolve) => {
         if (!el) {

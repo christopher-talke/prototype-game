@@ -7,17 +7,35 @@ const RATE_LIMIT_MAX_MESSAGES = 120;
 type RateState = { count: number; resetAt: number };
 type Connection = { id: string; send(msg: string): void; close(): void };
 
+/**
+ * Cloudflare Durable Object that hosts a single game room. Each WebSocket
+ * upgrade creates a `Connection` wrapper and delegates to the shared
+ * `GameRoom` instance for lobby/game logic.
+ *
+ * Server layer - CF Worker entry point. Mirrors `ws-server.ts` for the
+ * standalone WebSocket server.
+ */
 export class GameRoomDO {
     room: GameRoom;
     sessions: Map<CFWebSocket, Connection>;
     rateLimits: Map<CFWebSocket, RateState>;
 
+    /**
+     * @param _state - Durable Object state (unused, no persistent storage)
+     * @param _env - Worker environment bindings (unused in the DO itself)
+     */
     constructor(_state: unknown, _env: unknown) {
         this.room = new GameRoom();
         this.sessions = new Map();
         this.rateLimits = new Map();
     }
 
+    /**
+     * Checks whether a connection has exceeded the per-window message rate
+     * limit. Resets the counter after each window expires.
+     * @param server - The server-side CFWebSocket to check
+     * @returns True if the connection should be throttled
+     */
     _isRateLimited(server: CFWebSocket): boolean {
         const now = Date.now();
         let state = this.rateLimits.get(server);
@@ -30,6 +48,12 @@ export class GameRoomDO {
         return state.count > RATE_LIMIT_MAX_MESSAGES;
     }
 
+    /**
+     * Handles an incoming HTTP request by upgrading it to a WebSocket.
+     * Wires message and close handlers through to the `GameRoom`.
+     * @param _request - The incoming HTTP upgrade request
+     * @returns A 101 Switching Protocols response with the client socket
+     */
     async fetch(_request: Request): Promise<Response> {
         const pair = new WebSocketPair();
         const client = pair[0];
@@ -78,6 +102,13 @@ export class GameRoomDO {
 }
 
 export default {
+    /**
+     * Worker fetch handler. Routes `/room/<roomId>` requests to the
+     * corresponding Durable Object instance.
+     * @param request - Incoming HTTP request
+     * @param env - CF environment bindings with GAME_ROOMS namespace
+     * @returns Proxied response from the Durable Object
+     */
     async fetch(request: Request, env: CFEnv): Promise<Response> {
         const url = new URL(request.url);
         const parts = url.pathname.split('/').filter(Boolean);

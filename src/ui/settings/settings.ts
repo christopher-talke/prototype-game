@@ -1,4 +1,5 @@
 import './settings.css';
+
 import { SETTINGS } from '../../app';
 import { switchRenderer } from '@rendering/rendererSwitch';
 import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '@audio/index';
@@ -10,10 +11,18 @@ let isOpen = false;
 let listeningRow: HTMLElement | null = null;
 let listeningAction: ActionId | null = null;
 
+/** @returns Whether the settings panel is currently visible */
 export function isSettingsOpen(): boolean {
     return isOpen;
 }
 
+/**
+ * Opens the settings panel if closed, or closes it if open. Lazily
+ * builds the DOM on first toggle. Dispatches a 'settings-closed'
+ * CustomEvent when closing so the main menu can un-dim.
+ *
+ * UI layer - top-level settings overlay with Controls, Audio, and Game tabs.
+ */
 export function toggleSettings() {
     if (!settingsEl) buildSettingsUI();
     isOpen = !isOpen;
@@ -21,6 +30,10 @@ export function toggleSettings() {
     if (isOpen) refreshKeybindsTab();
 }
 
+/**
+ * Programmatically closes the settings panel and dispatches the
+ * 'settings-closed' event. No-op if already closed.
+ */
 export function closeSettings() {
     if (!isOpen) return;
     isOpen = false;
@@ -53,10 +66,8 @@ function buildSettingsUI() {
     `;
     document.body.appendChild(settingsEl);
 
-    // Close button
     settingsEl.querySelector('#settings-close')!.addEventListener('click', closeSettings);
 
-    // Tab switching
     settingsEl.querySelectorAll('.settings-tab').forEach((tab) => {
         tab.addEventListener('click', () => {
             settingsEl!.querySelectorAll('.settings-tab').forEach((t) => t.classList.remove('active'));
@@ -71,7 +82,6 @@ function buildSettingsUI() {
     buildGameTab();
     refreshKeybindsTab();
 
-    // Capture key for rebinding
     window.addEventListener('keydown', onRebindKey);
 }
 
@@ -209,7 +219,9 @@ function buildGameTab() {
         const val = (e.target as HTMLSelectElement).value;
         if (val === 'true') {
             SETTINGS.debug = true;
-        } else {
+        }
+
+        else {
             removeElements(document.querySelectorAll('.ray'));
             removeElements(document.querySelectorAll('.los'));
             SETTINGS.debug = false;
@@ -222,7 +234,9 @@ function buildGameTab() {
         if (val === 'DISABLED') {
             removeElements(document.querySelectorAll('.ray'));
             document.getElementById('fog-of-war')?.classList.add('d-none');
-        } else {
+        }
+
+        else {
             document.getElementById('fog-of-war')?.classList.remove('d-none');
         }
     });

@@ -1,5 +1,15 @@
+/**
+ * Grenade definitions (simulation data) and VFX configuration blocks.
+ * Simulation data (GRENADE_DEFS) is consumed by GameSimulation and AuthoritativeSimulation.
+ * VFX data (GRENADE_VFX) is consumed by the rendering layer's effect modules
+ * (fragEffect, c4Effect, flashEffect, smokeEffect).
+ *
+ * Simulation layer - does not depend on rendering, net, or orchestration.
+ */
+
 import { getConfig } from '@config/activeConfig';
 
+/** Base simulation parameters for each grenade type. */
 export const GRENADE_DEFS: Record<GrenadeType, GrenadeDef> = {
     FRAG: {
         id: 'FRAG',
@@ -49,12 +59,25 @@ export const GRENADE_DEFS: Record<GrenadeType, GrenadeDef> = {
     },
 };
 
+/**
+ * Returns the simulation definition for a grenade type.
+ * @param type - The grenade type to look up.
+ * @returns The GrenadeDef for that type.
+ */
 export function getGrenadeDef(type: GrenadeType): GrenadeDef {
     return GRENADE_DEFS[type];
 }
 
-// --- VFX definitions (read only by the rendering layer) ---
-
+/**
+ * Visual effect parameters for each grenade type.
+ * Consumed exclusively by the rendering layer's effect modules:
+ * - FRAG: rendering/effects/fragEffect.ts
+ * - C4: rendering/effects/c4Effect.ts
+ * - FLASH: rendering/effects/flashEffect.ts
+ * - SMOKE: rendering/effects/smokeEffect.ts
+ *
+ * Typed per grenade as FragVfx, C4Vfx, FlashVfx, SmokeVfx (declared in global.d.ts).
+ */
 export const GRENADE_VFX: GrenadeVfxMap = {
     FRAG: {
         sprite: { color: 0x2ed573, radius: 6, fillAlpha: 0.9, strokeColor: 0xffffff, strokeWidth: 1, strokeAlpha: 0.4 },
@@ -260,15 +283,29 @@ export const GRENADE_VFX: GrenadeVfxMap = {
     },
 };
 
+/**
+ * Returns the VFX configuration for a grenade type, preserving the per-type generic.
+ * @param type - The grenade type.
+ * @returns The typed VFX block for that grenade.
+ */
 export function getGrenadeVfx<T extends GrenadeType>(type: T): GrenadeVfxMap[T] {
     return GRENADE_VFX[type];
 }
 
+/**
+ * Checks whether a grenade type is enabled in the current game config.
+ * @param type - The grenade type to check.
+ * @returns True if the grenade type is allowed.
+ */
 export function isGrenadeAllowed(type: GrenadeType): boolean {
     const allowed = getConfig().grenades.allowedGrenades;
     return allowed === 'ALL' || allowed.includes(type);
 }
 
+/**
+ * Creates the default grenade inventory from config starting counts.
+ * @returns A record of grenade type to count.
+ */
 export function createDefaultGrenades(): Record<GrenadeType, number> {
     const starting = getConfig().grenades.startingGrenades;
     return {

@@ -7,7 +7,6 @@ import { getPlayerElement } from '@rendering/playerElements';
 import { applyVisibility, updateLastKnown, debugLineOfSight } from '@rendering/dom/visibilityRenderer';
 import { generateRayCast, generateFOVCone, hideFOVCone, tickAdaptiveQuality, RaycastTypes } from '@rendering/dom/raycastRenderer';
 import { updateSmokeClouds } from '@rendering/dom/smokeRenderer';
-
 import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { updateAimLine, updateGrenadeAimLine } from '@rendering/dom/aimLineRenderer';
 import { setCameraTarget, setCameraWeaponOffset, updateCamera } from '@rendering/dom/camera';
@@ -27,6 +26,19 @@ import { getGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 
 let _cachedFogEl: HTMLElement | null = null;
 
+/**
+ * Per-frame render orchestrator called by the game loop.
+ * Delegates to either the PixiJS or DOM renderer based on the active setting,
+ * updating visuals, camera, detection overlays, fog of war, lighting, and HUD.
+ *
+ * @param player - The local player's current state.
+ * @param adapter - Network adapter providing projectiles, grenades, and match time.
+ * @param timestamp - Current frame timestamp in milliseconds.
+ * @param detections - Pre-computed detection results for all visible players.
+ * @param cameraOffset - Forward offset applied to the camera for weapon recoil.
+ * @param grenadeChargePercent - Current grenade throw charge in [0, 1].
+ * @param selectedGrenadeType - The grenade type currently selected by the player.
+ */
 export function updateRenderPipeline(
     player: player_info,
     adapter: NetAdapter,
@@ -45,9 +57,12 @@ export function updateRenderPipeline(
         updateGridTextures();
         updateGloss(player.current_position.x, player.current_position.y);
         updateSmokeParticles(timestamp, projectiles);
-    } else {
+    }
+
+    else {
         clientRenderer.updateVisuals(projectiles, grenades);
     }
+
     if (SETTINGS.renderer !== 'pixi') updateSmokeClouds(timestamp);
 
     const facingRad = angleToRadians(player.current_position.rotation - ROTATION_OFFSET);
@@ -58,7 +73,9 @@ export function updateRenderPipeline(
         setPixiCameraTarget(player.current_position.x, player.current_position.y);
         setPixiCameraWeaponOffset(cameraOffset, facingRad);
         updatePixiCamera(vpWidth, vpHeight);
-    } else {
+    }
+
+    else {
         setCameraTarget(player.current_position.x, player.current_position.y);
         setCameraWeaponOffset(cameraOffset, facingRad);
         updateCamera(vpWidth, vpHeight);
@@ -69,11 +86,15 @@ export function updateRenderPipeline(
         if (SETTINGS.renderer === 'pixi') {
             applyPixiVisibility(entry.result, entry.targetId);
             updatePixiLastKnown(entry.result, entry.targetPlayer, entry.sourcePlayer);
-        } else {
+        }
+
+        else {
             const targetEl = getPlayerElement(entry.targetId);
             if (SETTINGS.debug) {
                 debugLineOfSight(entry.blocked, entry.targetPlayer, entry.sourcePlayer, targetEl);
-            } else {
+            }
+
+            else {
                 if (targetEl) applyVisibility(entry.result, targetEl);
                 updateLastKnown(entry.result, entry.targetPlayer, entry.sourcePlayer);
             }
@@ -85,11 +106,15 @@ export function updateRenderPipeline(
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
         tickAdaptiveQuality(timestamp);
-    } else if (SETTINGS.raycast.type === 'SPRAY') {
+    }
+
+    else if (SETTINGS.raycast.type === 'SPRAY') {
         const rayResult = generateRayCast(player, { type: RaycastTypes.SPRAY });
         if (SETTINGS.renderer === 'pixi' && rayResult) updatePixiFogOfWar(rayResult.vertices, rayResult.count);
         hideFOVCone();
-    } else {
+    }
+
+    else {
         generateFOVCone(player);
         if (!_cachedFogEl) _cachedFogEl = document.getElementById('fog-of-war');
         _cachedFogEl?.classList.add('d-none');
@@ -104,7 +129,9 @@ export function updateRenderPipeline(
     if (SETTINGS.renderer === 'pixi') {
         updatePixiAimLine(player, shots);
         updatePixiGrenadeAimLine(player, grenadeChargePercent, selectedGrenadeType);
-    } else {
+    }
+
+    else {
         updateAimLine(player, shots);
         updateGrenadeAimLine(player, grenadeChargePercent, selectedGrenadeType);
     }

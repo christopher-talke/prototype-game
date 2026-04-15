@@ -17,6 +17,16 @@ const VALID_INPUT_TYPES = [
     'OPEN_BUY_MENU', 'CLOSE_BUY_MENU',
 ];
 
+/**
+ * Sanitizes a player-supplied name from untrusted input.
+ *
+ * Strips control characters and zero-width Unicode codepoints, trims whitespace,
+ * and truncates to {@link MAX_NAME_LENGTH}. Falls back to `'Player'` when the
+ * result would be empty.
+ *
+ * @param raw - The raw value received from the client (may be any type).
+ * @returns A printable, length-capped display name.
+ */
 export function sanitizeName(raw: unknown): string {
     if (typeof raw !== 'string' || raw.trim().length === 0) return 'Player';
     // Strip control characters and zero-width chars, keep printable content
@@ -29,6 +39,17 @@ function clamp(v: number, min: number, max: number): number {
     return v < min ? min : v > max ? max : v;
 }
 
+/**
+ * Validates and normalises a raw client message into a typed {@link PlayerInput}.
+ *
+ * Type-checks every field required by the input variant, clamps numeric ranges,
+ * and whitelists enum strings. Returns `null` for any malformed or unrecognised
+ * message so callers can safely discard it.
+ *
+ * @param msg - The parsed JSON object from the client.
+ * @param playerId - The server-assigned numeric id to stamp onto the result.
+ * @returns A validated {@link PlayerInput}, or `null` if the message is invalid.
+ */
 function validatePlayerInput(msg: Record<string, unknown>, playerId: number): PlayerInput | null {
     if (typeof msg !== 'object' || msg === null) return null;
     const type = msg.type;
@@ -69,12 +90,14 @@ function validatePlayerInput(msg: Record<string, unknown>, playerId: number): Pl
     }
 }
 
+/** Minimal interface the room requires from a transport connection. */
 type Connection = {
     id: string;
     send(message: string): void;
     close(): void;
 };
 
+/** Room-level player record combining lobby state with the active connection. */
 type RoomPlayer = {
     id: number;
     name: string;
@@ -83,8 +106,19 @@ type RoomPlayer = {
     conn: Connection;
 };
 
+/** Lifecycle phase of a room. */
 type Phase = 'lobby' | 'starting' | 'playing';
 
+/**
+ * Manages one multiplayer room from lobby formation through active gameplay.
+ *
+ * Owns the {@link AuthoritativeSimulation} instance, drives the tick loop,
+ * validates player inputs, and broadcasts FOW-filtered snapshots. Lifecycle is
+ * controlled by the WebSocket server: create the room, call {@link tick} from a
+ * shared interval, and call {@link destroy} when the room becomes empty.
+ *
+ * Layer: server orchestration.
+ */
 export class GameRoom {
     private sim: AuthoritativeSimulation;
     private players = new Map<string, RoomPlayer>();
@@ -99,10 +133,24 @@ export class GameRoom {
     private pendingEvents: GameEvent[] = [];
     private lastKnownPositions = new Map<string, { x: number; y: number; rotation: number }>();
 
+    /**
+     * @param sim - Optional pre-constructed simulation instance. Defaults to a
+     *   new {@link AuthoritativeSimulation}.
+     */
     constructor(sim?: AuthoritativeSimulation) {
         this.sim = sim ?? new AuthoritativeSimulation();
     }
 
+    /**
+     * Registers a new connection in the room.
+     *
+     * If the room is already in the `playing` phase the player is spawned
+     * immediately into the running simulation; otherwise they enter the lobby.
+     * The first connection becomes host.
+     *
+     * @param conn - The transport connection for this player.
+     * @param name - Pre-sanitized display name.
+     */
     onPlayerJoin(conn: Connection, name: string): void {
         const id = this.nextPlayerId++;
         const team = id % 2 === 0 ? 2 : 1;
@@ -207,6 +255,17 @@ export class GameRoom {
         this.broadcastLobbyState();
     }
 
+    /**
+     * Dispatches a lobby or in-game message from a connected player.
+     *
+     * Lobby messages (`ready`, `move_player`, `set_config`, `set_map`,
+     * `start_game`) are host-gated where appropriate. The `input` type is only
+     * processed during the `playing` phase and passes through
+     * {@link validatePlayerInput} before being forwarded to the simulation.
+     *
+     * @param conn - The sender's connection.
+     * @param msg - The parsed JSON message object.
+     */
     onPlayerInput(conn: Connection, msg: Record<string, unknown>): void {
         const player = this.players.get(conn.id);
         if (!player) return;
@@ -275,6 +334,15 @@ export class GameRoom {
         }
     }
 
+    /**
+     * Removes a player from the room, cleaning up simulation state, last-known
+     * positions, and host assignment.
+     *
+     * Broadcasts a `player_left` event and, if the room is still in lobby or
+     * starting phase, re-broadcasts the updated lobby state.
+     *
+     * @param conn - The connection that disconnected.
+     */
     onPlayerLeave(conn: Connection): void {
         const p = this.players.get(conn.id);
         this.players.delete(conn.id);
@@ -300,10 +368,12 @@ export class GameRoom {
         }
     }
 
+    /** Returns `true` when no connections remain in the room. */
     isEmpty(): boolean {
         return this.players.size === 0;
     }
 
+    /** Cancels the countdown timer. Call before discarding the room. */
     destroy(): void {
         if (this.countdownTimer) {
             clearInterval(this.countdownTimer);
@@ -311,6 +381,15 @@ export class GameRoom {
         }
     }
 
+    /**
+     * Advances the simulation by one server tick.
+     *
+     * Collects events from the simulation, flushes them in a single broadcast,
+     * and sends per-player FOW-filtered snapshots every 3 ticks (~48 ms at
+     * 60 Hz). No-ops when the phase is not `playing`.
+     *
+     * @param now - Current epoch time in milliseconds. Defaults to `Date.now()`.
+     */
     tick(now = Date.now()): void {
         if (this.phase !== 'playing') return;
 
@@ -355,6 +434,14 @@ export class GameRoom {
         return this.mapName === 'shipment' ? Shipment : Arena;
     }
 
+    /**
+     * Transitions the room to the `playing` phase.
+     *
+     * Builds sim player records from lobby state, calls
+     * {@link AuthoritativeSimulation.setMap} with wall geometry derived from
+     * the selected map, initialises the match, and broadcasts the opening
+     * round events to all connections.
+     */
     private beginGame(): void {
         console.log('[SERVER] beginGame called, players:', this.players.size);
         this.phase = 'playing';
@@ -406,6 +493,17 @@ export class GameRoom {
         }
     }
 
+    /**
+     * Validates and applies a single in-game input message.
+     *
+     * Passes the raw input field through {@link validatePlayerInput}; discards
+     * invalid messages silently. Acknowledges `MOVE` inputs to the sender with
+     * an authoritative position correction.
+     *
+     * @param conn - The sender's connection (used for ACK).
+     * @param player - The room player record for the sender.
+     * @param msg - The full wrapper message containing the `input` field.
+     */
     private processGameInput(conn: Connection, player: RoomPlayer, msg: Record<string, unknown>): void {
         const input = msg.input;
         if (typeof input !== 'object' || input === null) return;
@@ -454,6 +552,16 @@ export class GameRoom {
         return undefined;
     }
 
+    /**
+     * Builds and sends a per-receiver FOW-filtered snapshot to every connected
+     * player.
+     *
+     * For each receiver, enemy players that are not in line-of-sight have their
+     * health, weapons, and money stripped and their last-known position
+     * substituted. Projectiles and grenades owned by the enemy team are
+     * similarly culled unless they are within LOS. Dead players and observers
+     * always receive full data (spectating rules).
+     */
     private sendFilteredSnapshots(): void {
         const allPlayers = this.sim.getPlayers();
         const segments = this.sim.getSegments();
@@ -563,6 +671,16 @@ export class GameRoom {
         }
     }
 
+    /**
+     * Returns `true` when `observer` has an unobstructed line of sight to
+     * `target`.
+     *
+     * Dead observers always return `false` (they cannot spot enemies).
+     * Uses center-of-hitbox positions for both parties.
+     *
+     * @param observer - The player performing the visibility check.
+     * @param target - The player being checked.
+     */
     private canPlayerSee(observer: player_info, target: player_info): boolean {
         if (observer.dead) return false;
         const segments = this.sim.getSegments();
@@ -573,6 +691,11 @@ export class GameRoom {
         return !isLineBlocked(ox, oy, tx, ty, segments);
     }
 
+    /**
+     * Serialises `payload` to JSON and sends it to every connected player.
+     *
+     * @param payload - Any JSON-serialisable value.
+     */
     private broadcast(payload: unknown): void {
         const json = JSON.stringify(payload);
         for (const p of this.players.values()) {

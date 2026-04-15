@@ -1,5 +1,11 @@
-// ClientRenderer: subscribes to GameEvent stream and handles all DOM/audio side effects.
-// No state mutation happens here -- only visual/audio reactions to events.
+/**
+ * DOM ClientRenderer -- subscribes to the GameEvent stream and handles all
+ * DOM/audio side effects. No simulation state mutation happens here; this is
+ * purely visual/audio reactions to events.
+ *
+ * Part of the DOM rendering layer. The PixiJS renderer has a parallel
+ * implementation; both are swappable at runtime via rendererSwitch.
+ */
 
 import '@rendering/dom/css/combat.css';
 import '@rendering/dom/css/grenade.css';
@@ -24,24 +30,143 @@ import { spawnSmokeCloud } from '@rendering/dom/smokeRenderer';
 import { getConfig } from '@config/activeConfig';
 import { cssTransform } from '@rendering/dom/cssTransform';
 
+/**
+ * Singleton DOM renderer that subscribes to gameEventBus and translates
+ * simulation events into DOM mutations, CSS animations, and audio playback.
+ * Manages bullet, grenade, corpse, and status-label DOM elements.
+ */
 class ClientRendererImpl {
     private bulletElements = new Map<number, { element: HTMLElement; poolIndex: number }>();
     private grenadeElements = new Map<number, HTMLElement>();
     private healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
     private corpseMarkers: { el: HTMLElement; timer: ReturnType<typeof setTimeout> }[] = [];
-    private lastFireSoundTime = new Map<number, number>(); // ownerId -> timestamp (dedup for shotgun)
-    private detonatedGrenades = new Set<number>(); // prevent duplicate detonation effects
-
-    // Last written transform per remote player to skip redundant DOM writes
+    private lastFireSoundTime = new Map<number, number>();
+    private detonatedGrenades = new Set<number>();
     private lastPlayerTransform = new Map<number, string>();
     private statusLabels = new Map<number, { el: HTMLElement; timer: ReturnType<typeof setTimeout> | null }>();
     private lastWeaponType = new Map<number, string>();
     private initialized = false;
 
+    private static readonly STATUS_DISPLAY: Partial<Record<PlayerStatus, string>> = {
+        [PlayerStatus.RELOADING]: 'RELOADING',
+        [PlayerStatus.BUYING]: 'BUYING',
+        [PlayerStatus.THROWING_FRAG]: 'FRAG OUT',
+        [PlayerStatus.THROWING_FLASH]: 'FLASH OUT',
+        [PlayerStatus.THROWING_SMOKE]: 'SMOKE OUT',
+        [PlayerStatus.PLACING_C4]: 'PLANTING C4',
+        [PlayerStatus.DEAD]: 'DEAD',
+    };
+
+    /**
+     * Subscribes to the gameEventBus. Safe to call multiple times; only the
+     * first call registers the subscription.
+     */
     init() {
         if (this.initialized) return;
         this.initialized = true;
         gameEventBus.subscribe((event) => this.handleEvent(event));
+    }
+
+    /**
+     * Syncs DOM element positions for projectiles, grenades, and players
+     * to their current simulation coordinates. Called once per frame after
+     * the simulation tick.
+     * @param projectiles - Current projectile positions from simulation
+     * @param grenades - Current grenade positions from simulation
+     */
+    updateVisuals(
+        projectiles: readonly { id: number; x: number; y: number }[],
+        grenades: readonly { id: number; x: number; y: number; detonated: boolean }[],
+    ) {
+        for (const p of projectiles) {
+            const entry = this.bulletElements.get(p.id);
+            if (entry) {
+                entry.element.style.transform = cssTransform(Math.round(p.x), Math.round(p.y));
+            }
+        }
+        for (const g of grenades) {
+            const el = this.grenadeElements.get(g.id);
+            if (el && !g.detonated) {
+                el.style.transform = cssTransform(Math.round(g.x), Math.round(g.y));
+            }
+        }
+
+        for (const player of getAllPlayers()) {
+            const el = getPlayerElement(player.id);
+            if (el) {
+                const pos = player.current_position;
+                const transform = cssTransform(pos.x, pos.y, pos.rotation);
+                if (this.lastPlayerTransform.get(player.id) !== transform) {
+                    this.lastPlayerTransform.set(player.id, transform);
+                    el.style.transform = transform;
+                    const hbEl = getHealthBarElement(player.id);
+                    if (hbEl) positionHealthBar(hbEl, player);
+                    const ntEl = getNametagElement(player.id);
+                    if (ntEl) positionNametag(ntEl, player);
+                    const labelEntry = this.statusLabels.get(player.id);
+                    if (labelEntry) {
+                        labelEntry.el.style.transform = cssTransform(pos.x + HALF_HIT_BOX, pos.y - 52);
+                    }
+                }
+
+                const activeWeapon = player.weapons.find(w => w.active);
+                const weaponType = activeWeapon ? activeWeapon.type : '';
+                if (this.lastWeaponType.get(player.id) !== weaponType) {
+                    this.lastWeaponType.set(player.id, weaponType);
+                    el.dataset.weapon = weaponType;
+                }
+
+                // Flip gun icon when facing left half (90-270) to avoid upside-down grip
+                const rot = ((pos.rotation % 360) + 360) % 360;
+                el.classList.toggle('weapon-flip', rot > 180 && rot < 360);
+            }
+        }
+    }
+
+    /**
+     * Removes all DOM elements managed by this renderer and resets internal
+     * state. Used when switching renderers or leaving a game session.
+     */
+    teardownVisuals() {
+        for (const [, entry] of this.bulletElements) releaseProjectile(entry.poolIndex);
+        this.bulletElements.clear();
+        if (app) {
+            // .projectile intentionally excluded -- pool elements must survive renderer switches
+            app.querySelectorAll('.wall, .player, .player-health-wrap, .player-nametag, .grenade, .corpse-marker, .aim-line, .last-known-position, .player-status-label, .damage-number, .explosion-ring, .smoke-cloud').forEach(el => el.remove());
+        }
+        for (const [, el] of this.grenadeElements) el.remove();
+        this.grenadeElements.clear();
+        for (const { el, timer } of this.corpseMarkers) {
+            clearTimeout(timer);
+            el.remove();
+        }
+        this.corpseMarkers.length = 0;
+        for (const [, timer] of this.healthBarTimers) clearTimeout(timer);
+        this.healthBarTimers.clear();
+        for (const [id] of this.statusLabels) this.removeStatusLabel(id);
+        this.lastPlayerTransform.clear();
+        this.lastWeaponType.clear();
+        this.detonatedGrenades.clear();
+        clearPlayerElements();
+    }
+
+    /**
+     * Removes all player, health bar, and nametag DOM elements, then clears
+     * cached player data. Used on round transitions or full player list resets.
+     */
+    clearPlayers() {
+        for (const playerId of getAllPlayers().map(p => p.id)) {
+            const el = getPlayerElement(playerId);
+            if (el) el.remove();
+            const hb = getHealthBarElement(playerId);
+            if (hb) hb.remove();
+            const nt = getNametagElement(playerId);
+            if (nt) nt.remove();
+            this.removeStatusLabel(playerId);
+        }
+        clearPlayerElements();
+        this.lastPlayerTransform.clear();
+        this.lastWeaponType.clear();
     }
 
     private handleEvent(event: GameEvent) {
@@ -109,57 +234,6 @@ class ClientRendererImpl {
         }
     }
 
-    // Called each frame after simulation tick to sync DOM positions
-    updateVisuals(
-        projectiles: readonly { id: number; x: number; y: number }[],
-        grenades: readonly { id: number; x: number; y: number; detonated: boolean }[],
-    ) {
-        for (const p of projectiles) {
-            const entry = this.bulletElements.get(p.id);
-            if (entry) {
-                entry.element.style.transform = cssTransform(Math.round(p.x), Math.round(p.y));
-            }
-        }
-        for (const g of grenades) {
-            const el = this.grenadeElements.get(g.id);
-            if (el && !g.detonated) {
-                el.style.transform = cssTransform(Math.round(g.x), Math.round(g.y));
-            }
-        }
-        // Update all player DOM elements -- only write transform when it changed
-        for (const player of getAllPlayers()) {
-            const el = getPlayerElement(player.id);
-            if (el) {
-                const pos = player.current_position;
-                const transform = cssTransform(pos.x, pos.y, pos.rotation);
-                if (this.lastPlayerTransform.get(player.id) !== transform) {
-                    this.lastPlayerTransform.set(player.id, transform);
-                    el.style.transform = transform;
-                    const hbEl = getHealthBarElement(player.id);
-                    if (hbEl) positionHealthBar(hbEl, player);
-                    const ntEl = getNametagElement(player.id);
-                    if (ntEl) positionNametag(ntEl, player);
-                    const labelEntry = this.statusLabels.get(player.id);
-                    if (labelEntry) {
-                        labelEntry.el.style.transform = cssTransform(pos.x + HALF_HIT_BOX, pos.y - 52);
-                    }
-                }
-                // Update weapon icon data attribute
-                const activeWeapon = player.weapons.find(w => w.active);
-                const weaponType = activeWeapon ? activeWeapon.type : '';
-                if (this.lastWeaponType.get(player.id) !== weaponType) {
-                    this.lastWeaponType.set(player.id, weaponType);
-                    el.dataset.weapon = weaponType;
-                }
-                // Flip gun icon when facing left half (90-270) to avoid upside-down grip
-                const rot = ((pos.rotation % 360) + 360) % 360;
-                el.classList.toggle('weapon-flip', rot > 180 && rot < 360);
-            }
-        }
-    }
-
-    // -- Bullet rendering --
-
     private onBulletSpawn(event: BulletSpawnEvent) {
         // Skip rendering shrapnel bullets (no weaponType) - they're server-side damage mechanics
         if (!event.weaponType) return;
@@ -179,7 +253,6 @@ class ClientRendererImpl {
             if (owner && event.weaponType) {
                 playSoundAtPlayer(getWeaponSoundId(event.weaponType), owner);
 
-                // Mechanical sound (shotgun pump, sniper bolt)
                 const weaponDef = getWeaponDef(event.weaponType);
                 const weapon = getActiveWeapon(owner);
                 if (weaponDef.mechanicalSound && weaponDef.mechanicalDelay && weapon && weapon.ammo > 0) {
@@ -217,8 +290,6 @@ class ClientRendererImpl {
         }
     }
 
-    // -- Player damage rendering --
-
     private onPlayerDamaged(event: PlayerDamagedEvent) {
         const target = getPlayerInfo(event.targetId);
         if (!target) return;
@@ -238,7 +309,6 @@ class ClientRendererImpl {
         const el = getPlayerElement(event.targetId);
         if (el) el.classList.add('dead');
 
-        // Spawn a corpse marker at the death position
         const corpse = document.createElement('div');
         corpse.classList.add('corpse-marker', `team-${target.team}`);
         corpse.style.transform = cssTransform(target.current_position.x, target.current_position.y, target.current_position.rotation);
@@ -267,8 +337,6 @@ class ClientRendererImpl {
         if (wrap) positionHealthBar(wrap, target);
         updateHealthBar(target);
     }
-
-    // -- Grenade rendering --
 
     private onGrenadeSpawn(event: GrenadeSpawnEvent) {
         if (app === undefined) return;
@@ -313,8 +381,6 @@ class ClientRendererImpl {
         }
     }
 
-    // -- Explosion / flash / smoke rendering --
-
     private onExplosionHit(event: ExplosionHitEvent) {
         if (event.attackerId === ACTIVE_PLAYER) {
             showHitMarker(event.isKill, getPlayerInfo(event.targetId)?.name);
@@ -335,8 +401,6 @@ class ClientRendererImpl {
         }
     }
 
-    // -- Reload --
-
     private onReloadStart(event: ReloadStartEvent) {
         const player = getPlayerInfo(event.playerId);
         if (!player) return;
@@ -345,8 +409,6 @@ class ClientRendererImpl {
             playSoundAtPlayer(getWeaponReloadSoundId(weapon.type), player);
         }
     }
-
-    // -- Match events --
 
     private onKillFeed(event: KillFeedEvent) {
         addKillFeedEntry(event.killerName, event.victimName, event.weaponType);
@@ -367,18 +429,6 @@ class ClientRendererImpl {
             this.removeStatusLabel(id);
         }
     }
-
-    // -- Player status labels --
-
-    private static readonly STATUS_DISPLAY: Partial<Record<PlayerStatus, string>> = {
-        [PlayerStatus.RELOADING]: 'RELOADING',
-        [PlayerStatus.BUYING]: 'BUYING',
-        [PlayerStatus.THROWING_FRAG]: 'FRAG OUT',
-        [PlayerStatus.THROWING_FLASH]: 'FLASH OUT',
-        [PlayerStatus.THROWING_SMOKE]: 'SMOKE OUT',
-        [PlayerStatus.PLACING_C4]: 'PLANTING C4',
-        [PlayerStatus.DEAD]: 'DEAD',
-    };
 
     private removeStatusLabel(playerId: number) {
         const existing = this.statusLabels.get(playerId);
@@ -420,8 +470,6 @@ class ClientRendererImpl {
         this.statusLabels.set(event.playerId, { el: label, timer });
     }
 
-    // -- Footstep --
-
     private onFootstep(event: FootstepEvent) {
         const player = getPlayerInfo(event.playerId);
         if (player) playFootstep(player, event.timestamp);
@@ -435,8 +483,6 @@ class ClientRendererImpl {
             el.setAttribute('data-player-team', `${event.newTeam}`);
         }
     }
-
-    // -- Helpers --
 
     private showHealthBarTemporarily(playerId: number) {
         const wrap = getHealthBarElement(playerId);
@@ -453,6 +499,12 @@ class ClientRendererImpl {
         );
     }
 
+    /**
+     * Creates a full-screen white overlay that fades out over the given duration,
+     * simulating a flashbang effect on the local player.
+     * @param intensity - Flash intensity (0-1), controls initial opacity
+     * @param duration - Total flash duration in milliseconds
+     */
     private showFlashOverlay(intensity: number, duration: number) {
         const existing = document.querySelector('.flash-overlay');
         if (existing) existing.remove();
@@ -469,6 +521,13 @@ class ClientRendererImpl {
         setTimeout(() => overlay.remove(), duration + 100);
     }
 
+    /**
+     * Creates an expanding ring animation at the explosion center.
+     * @param x - World X coordinate
+     * @param y - World Y coordinate
+     * @param radius - Explosion radius in pixels
+     * @param isC4 - Whether to apply C4-specific styling
+     */
     private spawnExplosionRing(x: number, y: number, radius: number, isC4: boolean) {
         if (app === undefined) return;
 
@@ -482,46 +541,6 @@ class ClientRendererImpl {
         app.appendChild(ring);
 
         setTimeout(() => ring.remove(), 600);
-    }
-
-    teardownVisuals() {
-        // Release active bullets back to pool (hides them) before DOM sweep
-        for (const [, entry] of this.bulletElements) releaseProjectile(entry.poolIndex);
-        this.bulletElements.clear();
-        if (app) {
-            // Note: .projectile is intentionally excluded -- pool elements must survive renderer switches
-            app.querySelectorAll('.wall, .player, .player-health-wrap, .player-nametag, .grenade, .corpse-marker, .aim-line, .last-known-position, .player-status-label, .damage-number, .explosion-ring, .smoke-cloud').forEach(el => el.remove());
-        }
-        for (const [, el] of this.grenadeElements) el.remove();
-        this.grenadeElements.clear();
-        for (const { el, timer } of this.corpseMarkers) {
-            clearTimeout(timer);
-            el.remove();
-        }
-        this.corpseMarkers.length = 0;
-        for (const [, timer] of this.healthBarTimers) clearTimeout(timer);
-        this.healthBarTimers.clear();
-        for (const [id] of this.statusLabels) this.removeStatusLabel(id);
-        this.lastPlayerTransform.clear();
-        this.lastWeaponType.clear();
-        this.detonatedGrenades.clear();
-        clearPlayerElements();
-    }
-
-    // Remove all player and health bar DOM elements, then clear player data.
-    clearPlayers() {
-        for (const playerId of getAllPlayers().map(p => p.id)) {
-            const el = getPlayerElement(playerId);
-            if (el) el.remove();
-            const hb = getHealthBarElement(playerId);
-            if (hb) hb.remove();
-            const nt = getNametagElement(playerId);
-            if (nt) nt.remove();
-            this.removeStatusLabel(playerId);
-        }
-        clearPlayerElements();
-        this.lastPlayerTransform.clear();
-        this.lastWeaponType.clear();
     }
 }
 

@@ -2,6 +2,7 @@ import { lightingConfig } from '@rendering/canvas/config/lightingConfig';
 
 let panel: HTMLDivElement | null = null;
 
+/** Defines a slider control for a single lighting config property. */
 interface SliderDef {
     key: keyof typeof lightingConfig;
     label: string;
@@ -23,6 +24,12 @@ const sliders: SliderDef[] = [
     { key: 'lastKnownIntensity',   label: 'LastKnown Intensity',min: 0.1,max: 2,    step: 0.05 },
 ];
 
+/**
+ * Creates a single slider row for the debug panel. Mutates `lightingConfig`
+ * on input change so values take effect immediately in the renderer.
+ * @param def - Slider definition (config key, label, range, step)
+ * @returns The constructed row element
+ */
 function createRow(def: SliderDef): HTMLDivElement {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:6px;margin:2px 0';
@@ -53,6 +60,13 @@ function createRow(def: SliderDef): HTMLDivElement {
     return row;
 }
 
+/**
+ * Toggles the lighting debug overlay panel. When open, provides sliders
+ * for every property in `lightingConfig` and a button to copy the current
+ * values to the clipboard. Triggered by the F7 key.
+ *
+ * UI layer - debug tooling, not shipped to players.
+ */
 export function toggleLightingDebug() {
     if (panel) {
         panel.remove();
@@ -93,7 +107,6 @@ export function toggleLightingDebug() {
     document.body.appendChild(panel);
 }
 
-// Toggle with F7
 window.addEventListener('keydown', (e) => {
     if (e.key === 'F7') {
         e.preventDefault();

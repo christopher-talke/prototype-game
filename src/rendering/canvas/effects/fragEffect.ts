@@ -1,4 +1,5 @@
 import { Graphics, Ticker } from 'pixi.js';
+
 import { explosionFxLayer, sparkLayer, debrisLayer, scorchLayer } from '../sceneGraph';
 import { swapRemove } from '../renderUtils';
 import { type ParticleBank, createParticleBank, acquireParticle, updateBank, clearBank, texHardDot, texShard, texStreak } from '../particlePool';
@@ -11,10 +12,28 @@ import { effectsConfig } from '../config/effectsConfig';
 import { getGraphicsConfig } from '../config/graphicsConfig';
 import { GRENADE_VFX } from '@simulation/combat/grenades';
 
+/**
+ * Frag grenade explosion visual effect module.
+ *
+ * Renders the complete visual lifecycle of a fragmentation grenade
+ * detonation in the PixiJS canvas renderer. Produces 3-5 staggered
+ * shockwave rings (each driving its own grid displacement source),
+ * 40-60 emissive sparks with optional secondary spark emission from
+ * debris, 15-25 dark debris chunks with gravity, scorch decals,
+ * two-phase transient lighting, two-phase grid displacement (outward
+ * blast + inward vacuum), and distance-attenuated camera shake.
+ *
+ * Rendering layer, part of the effects sub-system under canvas rendering.
+ * Consumes FragVfx config from simulation/combat/grenades.ts.
+ */
+
 const vfx = GRENADE_VFX.FRAG.explosion;
 
-// --- Shockwave ring state ---
-
+/**
+ * Active expanding shockwave ring with its own grid displacement source.
+ * Each ring tracks its world position so displacement can be centered
+ * correctly.
+ */
 interface RingEntry {
     g: Graphics;
     elapsed: number;
@@ -27,8 +46,7 @@ interface RingEntry {
 
 const activeRings: RingEntry[] = [];
 
-// --- Scorch decal state ---
-
+/** Persistent ground scorch mark left by a frag detonation. */
 interface ScorchEntry {
     g: Graphics;
     elapsed: number;
@@ -36,14 +54,17 @@ interface ScorchEntry {
 
 const activeScorches: ScorchEntry[] = [];
 
-// --- Particle banks (lazy init) ---
-
 let emissiveBank: ParticleBank | null = null;
 let darkDebrisBank: ParticleBank | null = null;
 let secondarySparkBank: ParticleBank | null = null;
 
 let frameCounter = 0;
 
+/**
+ * Lazily initializes the three SoA particle banks (emissive sparks, dark
+ * debris shards, secondary streak sparks) on first frag detonation.
+ * Capacities are read from effectsConfig.frag.
+ */
 function ensureBanks() {
     if (emissiveBank) return;
     emissiveBank = createParticleBank(effectsConfig.frag.emissiveBankCapacity, texHardDot, sparkLayer, 'add');
@@ -51,8 +72,19 @@ function ensureBanks() {
     secondarySparkBank = createParticleBank(effectsConfig.frag.secondarySparkBankCapacity, texStreak, sparkLayer, 'add');
 }
 
-// --- Public API ---
-
+/**
+ * Spawns the full frag explosion visual at the given world position.
+ *
+ * Orchestrates all sub-effects: staggered shockwave rings (each with its
+ * own displacement source), emissive sparks, dark debris, scorch decal,
+ * two-phase transient lighting, two-phase grid displacement (blast +
+ * vacuum), and camera shake. The scorchDecals feature toggle gates the
+ * decal path.
+ *
+ * @param x - World X of the detonation center
+ * @param y - World Y of the detonation center
+ * @param radius - Blast radius from grenade definition
+ */
 export function spawnFragExplosion(x: number, y: number, radius: number) {
     const features = getGraphicsConfig().features;
     ensureBanks();
@@ -65,6 +97,10 @@ export function spawnFragExplosion(x: number, y: number, radius: number) {
     spawnFragShake(x, y, radius);
 }
 
+/**
+ * Destroys all active frag visual state: rings, scorches, and all three
+ * particle banks. Called on round reset or renderer teardown.
+ */
 export function clearFragEffects() {
     for (const ring of activeRings) ring.g.destroy();
     activeRings.length = 0;
@@ -75,8 +111,10 @@ export function clearFragEffects() {
     if (secondarySparkBank) clearBank(secondarySparkBank);
 }
 
-// --- Shockwave rings ---
-
+/**
+ * Queues 3-5 staggered ring spawns. Ring count is randomized within
+ * [ringCountMin, ringCountMax], with each ring delayed by ringStaggerMs.
+ */
 function spawnRings(x: number, y: number, radius: number) {
     const count = vfx.ringCountMin + Math.floor(Math.random() * (vfx.ringCountMax - vfx.ringCountMin + 1));
     for (let i = 0; i < count; i++) {
@@ -85,6 +123,17 @@ function spawnRings(x: number, y: number, radius: number) {
     }
 }
 
+/**
+ * Creates a single expanding shockwave ring graphic and registers a
+ * co-located grid displacement source that lives for the ring's duration.
+ * Color is cycled from the VFX palette by ring index. Ring starts at
+ * ringInitialScale and expands via ease-out cubic.
+ *
+ * @param x - World X center
+ * @param y - World Y center
+ * @param radius - Final ring radius
+ * @param index - Ring sequence index, used to cycle color
+ */
 function createRing(x: number, y: number, radius: number, index: number) {
     const duration = vfx.ringDurationMin + Math.random() * (vfx.ringDurationMax - vfx.ringDurationMin);
     const strokeWidth = vfx.ringStrokeWidthMin + Math.random() * vfx.ringStrokeWidthRange;
@@ -111,8 +160,12 @@ function createRing(x: number, y: number, radius: number, index: number) {
     activeRings.push({ g, elapsed: 0, duration, radius, x, y, displacementId });
 }
 
-// --- Emissive debris (sparks) ---
-
+/**
+ * Spawns 40-60 additive-blended emissive spark particles radiating outward
+ * from the detonation center. During per-frame update, each spark may
+ * probabilistically emit a secondary streak spark (gated by the
+ * secondarySparks feature toggle).
+ */
 function spawnEmissiveDebris(x: number, y: number, _radius: number) {
     if (!emissiveBank) return;
     const count = effectsConfig.frag.emissiveCountMin + Math.floor(Math.random() * (effectsConfig.frag.emissiveCountMax - effectsConfig.frag.emissiveCountMin + 1));
@@ -135,8 +188,11 @@ function spawnEmissiveDebris(x: number, y: number, _radius: number) {
     }
 }
 
-// --- Dark debris (non-emissive chunks) ---
-
+/**
+ * Spawns 15-25 non-emissive dark debris shard particles that simulate
+ * heavy chunks flung outward. Subject to gravity via darkDebrisGravity
+ * during per-frame update.
+ */
 function spawnDarkDebris(x: number, y: number, _radius: number) {
     if (!darkDebrisBank) return;
     const count = effectsConfig.frag.darkDebrisCountMin + Math.floor(Math.random() * (effectsConfig.frag.darkDebrisCountMax - effectsConfig.frag.darkDebrisCountMin + 1));
@@ -159,8 +215,11 @@ function spawnDarkDebris(x: number, y: number, _radius: number) {
     }
 }
 
-// --- Scorch decal ---
-
+/**
+ * Draws a three-ring scorch decal on the ground at the blast center.
+ * Inner and middle rings share scorchColor; outer ring covers the full
+ * blast radius. Fades over scorchFadeDuration.
+ */
 function spawnScorch(x: number, y: number, radius: number) {
     const g = new Graphics();
     g.circle(0, 0, radius * vfx.scorchInnerRadiusFrac).fill({ color: vfx.scorchColor, alpha: vfx.scorchInnerAlpha });
@@ -172,8 +231,10 @@ function spawnScorch(x: number, y: number, radius: number) {
     activeScorches.push({ g, elapsed: 0 });
 }
 
-// --- Lighting ---
-
+/**
+ * Adds two-phase transient lighting: an initial bright spike with shadow
+ * casting, followed by a delayed secondary glow also with shadows.
+ */
 function spawnFragLights(x: number, y: number) {
     const l1 = vfx.lightPhase1;
     addTransientLight(x, y, l1.radius, l1.color, l1.intensity, l1.decay, true);
@@ -183,8 +244,10 @@ function spawnFragLights(x: number, y: number) {
     }, l2.delay ?? 0);
 }
 
-// --- Grid displacement ---
-
+/**
+ * Registers two sequential grid displacement sources: an outward blast
+ * wave followed by an inward vacuum pull after a configurable delay.
+ */
 function spawnFragDisplacement(x: number, y: number, radius: number) {
     addDisplacementSource({
         x,
@@ -204,8 +267,11 @@ function spawnFragDisplacement(x: number, y: number, radius: number) {
     }, vfx.vacuum.delay ?? 0);
 }
 
-// --- Camera shake ---
-
+/**
+ * Applies distance-attenuated camera shake to the active player. Shake
+ * amplitude falls off linearly from vfx.shakeAmplitude at the blast
+ * center to zero at radius * vfx.shakeRangeFactor.
+ */
 function spawnFragShake(x: number, y: number, radius: number) {
     if (ACTIVE_PLAYER == null) return;
     const p = getPlayerInfo(ACTIVE_PLAYER);
@@ -219,13 +285,20 @@ function spawnFragShake(x: number, y: number, radius: number) {
     addCameraShake(vfx.shakeAmplitude * falloff, vfx.shakeDuration);
 }
 
-// --- Ticker update ---
-
+/**
+ * Per-frame ticker callback. Updates all active frag sub-effects:
+ * - Rings: ease-out cubic scale expansion + linear alpha fade
+ * - Scorches: linear alpha fade over scorchFadeDuration
+ * - Emissive sparks: drag-decayed velocity + linear alpha fade + rotation,
+ *   with probabilistic secondary spark emission (gated by feature toggle
+ *   and frame interval)
+ * - Dark debris: drag + gravity + linear alpha fade + rotation
+ * - Secondary sparks: linear motion + alpha fade + scale decay
+ */
 Ticker.shared.add((ticker) => {
     const dt = ticker.deltaMS;
     frameCounter++;
 
-    // Update shockwave rings
     for (let i = activeRings.length - 1; i >= 0; i--) {
         const ring = activeRings[i];
         ring.elapsed += dt;
@@ -240,7 +313,6 @@ Ticker.shared.add((ticker) => {
         }
     }
 
-    // Update scorch decals
     for (let i = activeScorches.length - 1; i >= 0; i--) {
         const scorch = activeScorches[i];
         scorch.elapsed += dt;
@@ -252,7 +324,6 @@ Ticker.shared.add((ticker) => {
         }
     }
 
-    // Update emissive debris
     if (emissiveBank) {
         updateBank(emissiveBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
@@ -281,7 +352,6 @@ Ticker.shared.add((ticker) => {
         });
     }
 
-    // Update dark debris
     if (darkDebrisBank) {
         updateBank(darkDebrisBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
@@ -295,7 +365,6 @@ Ticker.shared.add((ticker) => {
         });
     }
 
-    // Update secondary sparks
     if (secondarySparkBank) {
         updateBank(secondarySparkBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];

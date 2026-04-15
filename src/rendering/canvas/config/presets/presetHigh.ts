@@ -1,5 +1,6 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
+/** HIGH quality preset -- all features enabled, standard particle counts. Default preset. */
 export const PRESET_HIGH: GraphicsConfig = {
     resolution: window.devicePixelRatio * 2,
     antialias: true,

@@ -15,7 +15,10 @@ let sfxGain: GainNode | null = null;
 let musicGain: GainNode | null = null;
 let musicSource: AudioBufferSourceNode | null = null;
 
-
+/**
+ * Lazily initializes and returns the shared AudioContext. On first call,
+ * creates the gain node chain: source -> sfx/music -> master -> destination.
+ */
 function getContext(): AudioContext {
     if (!ctx) {
         ctx = new AudioContext();
@@ -32,34 +35,58 @@ function getContext(): AudioContext {
         musicGain.gain.value = SETTINGS.audio.musicVolume;
         musicGain.connect(masterGain);
     }
+
     return ctx;
 }
 
+/** Resumes the AudioContext if suspended (required after user interaction). */
 export function resumeAudioContext() {
     const c = getContext();
     if (c.state === 'suspended') c.resume();
 }
 
+/**
+ * Sets the master volume and persists it to `SETTINGS`.
+ * @param v - Volume level (0-1)
+ */
 export function setMasterVolume(v: number) {
     SETTINGS.audio.masterVolume = v;
     if (masterGain && !SETTINGS.audio.muted) masterGain.gain.value = v;
 }
 
+/**
+ * Sets the SFX sub-mix volume and persists it to `SETTINGS`.
+ * @param v - Volume level (0-1)
+ */
 export function setSfxVolume(v: number) {
     SETTINGS.audio.sfxVolume = v;
     if (sfxGain) sfxGain.gain.value = v;
 }
 
+/**
+ * Sets the music sub-mix volume and persists it to `SETTINGS`.
+ * @param v - Volume level (0-1)
+ */
 export function setMusicVolume(v: number) {
     SETTINGS.audio.musicVolume = v;
     if (musicGain) musicGain.gain.value = v;
 }
 
+/**
+ * Mutes or unmutes all audio by zeroing the master gain node.
+ * @param muted - Whether audio should be muted
+ */
 export function setMuted(muted: boolean) {
     SETTINGS.audio.muted = muted;
     if (masterGain) masterGain.gain.value = muted ? 0 : SETTINGS.audio.masterVolume;
 }
 
+/**
+ * Fetches and decodes a sound file, caching the resulting AudioBuffer
+ * by `id`. Subsequent calls with the same id are no-ops.
+ * @param id - Unique sound identifier used for playback lookups
+ * @param url - URL of the audio file to fetch
+ */
 export async function loadSound(id: string, url: string): Promise<void> {
     if (bufferCache.has(id)) return;
     try {
@@ -76,6 +103,14 @@ export async function loadSound(id: string, url: string): Promise<void> {
     }
 }
 
+/**
+ * Plays a cached sound effect. When a world position is provided,
+ * applies distance-based attenuation relative to the local player
+ * using inverse-distance rolloff. Sounds beyond `MAX_HEARING_DISTANCE`
+ * are culled entirely.
+ * @param id - Sound identifier matching a previously loaded buffer
+ * @param position - Optional world-space position for spatial falloff
+ */
 export function playSound(id: string, position?: { x: number; y: number }) {
     const buffer = bufferCache.get(id);
     if (!buffer) return;
@@ -108,6 +143,7 @@ export function playSound(id: string, position?: { x: number; y: number }) {
     source.start();
 }
 
+/** Starts looping the menu background music track. Stops any existing playback first. */
 export function playMenuMusic() {
     const buffer = bufferCache.get('menu-music');
     if (!buffer) return;
@@ -122,6 +158,7 @@ export function playMenuMusic() {
     musicSource.start();
 }
 
+/** Stops the menu music if currently playing. */
 export function stopMenuMusic() {
     if (musicSource) {
         try {
@@ -134,6 +171,11 @@ export function stopMenuMusic() {
     }
 }
 
+/**
+ * Convenience wrapper that plays a sound at a player's center position.
+ * @param id - Sound identifier
+ * @param player - Player whose position is used for spatial attenuation
+ */
 export function playSoundAtPlayer(id: string, player: player_info) {
     playSound(id, {
         x: player.current_position.x + HALF_HIT_BOX,
@@ -141,6 +183,12 @@ export function playSoundAtPlayer(id: string, player: player_info) {
     });
 }
 
+/**
+ * Plays a footstep sound for a player, throttled to one per
+ * `FOOTSTEP_INTERVAL` ms to avoid overlapping samples.
+ * @param player - The moving player
+ * @param timestamp - Current frame timestamp (ms)
+ */
 export function playFootstep(player: player_info, timestamp: number) {
     const last = footstepTimers.get(player.id) ?? 0;
     if (timestamp - last < FOOTSTEP_INTERVAL) return;

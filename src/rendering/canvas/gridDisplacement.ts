@@ -1,4 +1,21 @@
+/**
+ * Spring-damped grid displacement system.
+ *
+ * Maintains a grid of points covering the world. Each point has a displacement
+ * vector and velocity driven by spring-damper physics. External forces (player
+ * movement wake, bullet travel ripple, explosions) push nearby points outward
+ * or along a direction. Points spring back to rest when forces subside.
+ *
+ * An early-out optimization skips the physics loop and Graphics redraw entirely
+ * when no active sources exist and all points have settled to rest.
+ *
+ * Part of the canvas rendering layer. The public {@link addDisplacementSource} /
+ * {@link removeDisplacementSource} API is consumed by grenade effect modules
+ * and the render pipeline.
+ */
+
 import { type Graphics } from 'pixi.js';
+
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
 import { getPixiCameraOffset } from './camera';
 import { swapRemove } from './renderUtils';
@@ -6,16 +23,25 @@ import { gridConfig } from './config/gridConfig';
 import { GRENADE_VFX } from '@simulation/combat/grenades';
 import { DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
 
-// --- Types ---
-
+/**
+ * Configuration for a displacement force source.
+ * Consumed by {@link addDisplacementSource}.
+ */
 export type DisplacementSourceConfig = {
+    /** World X of the source center. */
     x: number;
+    /** World Y of the source center. */
     y: number;
+    /** Radius of influence in world pixels. */
     radius: number;
+    /** Force strength applied to grid points within radius. */
     strength: number;
-    duration: number;       // ms, 0 = single-frame impulse
+    /** Lifetime in ms. 0 means a single-frame impulse. */
+    duration: number;
+    /** If set, force is applied along this direction instead of radially outward. */
     direction?: { dx: number; dy: number };
-    maxDisplacement?: number; // override gridConfig.maxDisplacement for this source
+    /** Per-source clamp override for grid point displacement magnitude. */
+    maxDisplacement?: number;
 };
 
 interface ActiveSource {
@@ -31,8 +57,6 @@ interface ActiveSource {
     radial: boolean;
     maxDisplacement: number;
 }
-
-// --- Module state ---
 
 let cols = 0;
 let rows = 0;
@@ -55,8 +79,11 @@ let gridGfx: Graphics | null = null;
 let lastTimestamp = 0;
 let gridSettled = true;
 
-// --- Public API ---
-
+/**
+ * Register a new displacement force source.
+ * @param config - Position, radius, strength, duration, and optional direction.
+ * @returns A unique source ID that can be passed to {@link removeDisplacementSource}.
+ */
 export function addDisplacementSource(config: DisplacementSourceConfig): number {
     const id = nextSourceId++;
     const hasDir = config.direction != null;
@@ -76,15 +103,27 @@ export function addDisplacementSource(config: DisplacementSourceConfig): number 
     return id;
 }
 
+/**
+ * Remove a displacement source before its duration expires.
+ * @param id - Source ID returned by {@link addDisplacementSource}.
+ */
 export function removeDisplacementSource(id: number): void {
     const idx = activeSources.findIndex(s => s.id === id);
     if (idx >= 0) swapRemove(activeSources, idx);
 }
 
+/** Subscribe to the game event bus for grenade/bullet grid displacement events. */
 export function initGridDisplacement(): void {
     gameEventBus.subscribe(handleEvent);
 }
 
+/**
+ * Allocate SoA displacement/velocity arrays for the grid and bind the Graphics object.
+ * Called by {@link setWorldBounds} in sceneGraph.ts whenever the world size changes.
+ * @param width - World width in pixels.
+ * @param height - World height in pixels.
+ * @param gfx - The PixiJS Graphics used to draw the grid dots and lines.
+ */
 export function initGridPoints(width: number, height: number, gfx: Graphics): void {
     gridGfx = gfx;
 
@@ -102,6 +141,12 @@ export function initGridPoints(width: number, height: number, gfx: Graphics): vo
     lastTimestamp = 0;
 }
 
+/**
+ * Run one frame of the grid displacement system: apply forces, step physics, redraw.
+ * Skips physics and rendering when the grid is settled (early-out optimization).
+ * @param player - The local player, used for movement wake.
+ * @param projectiles - Active bullet positions, used for travel ripple.
+ */
 export function updateGridDisplacement(
     player: player_info,
     projectiles: readonly { id: number; x: number; y: number }[] = [],
@@ -123,14 +168,20 @@ export function updateGridDisplacement(
     renderGrid();
 }
 
+/**
+ * Return the current grid geometry for external consumers (e.g. grid texture mesh sync).
+ * @returns Grid dimensions, spacing, and displacement arrays.
+ */
 export function getGridGeometry() {
     return { cols, rows, spacing: gridConfig.spacing, displaceX, displaceY };
 }
 
+/** Whether all grid points are at rest and no active sources exist. */
 export function isGridSettled(): boolean {
     return gridSettled;
 }
 
+/** Zero all displacement/velocity data and remove all active sources. Forces one render pass. */
 export function clearGridDisplacement(): void {
     displaceX?.fill(0);
     displaceY?.fill(0);
@@ -142,10 +193,7 @@ export function clearGridDisplacement(): void {
     gridSettled = false; // force one render pass to show cleared state
 }
 
-// --- Event handling ---
-
 function handleEvent(event: GameEvent): void {
-
     if (event.type === 'GRENADE_DETONATE') {
         const gvfx = GRENADE_VFX[event.grenadeType];
         if ('gridDisplacement' in gvfx) {
@@ -157,8 +205,8 @@ function handleEvent(event: GameEvent): void {
                 duration: gd.duration,
             });
         }
-    } 
-    
+    }
+
     else if (event.type === 'BULLET_HIT') {
         addDisplacementSource({
             x: event.x,
@@ -168,15 +216,17 @@ function handleEvent(event: GameEvent): void {
             duration: 0,
             direction: { dx: event.bulletDx, dy: event.bulletDy },
         });
-    } 
-    
+    }
+
     else if (event.type === 'ROUND_START') {
         clearGridDisplacement();
     }
 }
 
-// --- Player wake ---
-
+/**
+ * Apply a directional wake force around the local player based on movement velocity.
+ * Only active when the player exceeds a speed threshold.
+ */
 function applyPlayerWake(player: player_info, dt: number): void {
     const px = player.current_position.x;
     const py = player.current_position.y;
@@ -199,16 +249,14 @@ function applyPlayerWake(player: player_info, dt: number): void {
     prevPlayerValid = true;
 }
 
-// --- Bullet travel ripple ---
-
+/** Apply a small radial displacement around each active bullet. */
 function applyBulletTravel(dt: number, projectiles: readonly { id: number; x: number; y: number }[]): void {
     for (const p of projectiles) {
         applyRadialForce(p.x, p.y, DEFAULT_WEAPON_VFX.gridTravel.radius, DEFAULT_WEAPON_VFX.gridTravel.strength, dt);
     }
 }
 
-// --- Source ticking ---
-
+/** Advance all active sources by dt, apply their forces, and remove expired ones. */
 function tickSources(dt: number): void {
     const dtMs = dt * 1000;
 
@@ -225,7 +273,9 @@ function tickSources(dt: number): void {
 
         if (s.radial) {
             applyRadialForce(s.x, s.y, s.radius, s.strength * timeFactor, dt);
-        } else {
+        }
+
+        else {
             applyDirectionalForce(s.x, s.y, s.radius, s.strength * timeFactor, s.dirX, s.dirY, dt);
         }
 
@@ -235,8 +285,10 @@ function tickSources(dt: number): void {
     }
 }
 
-// --- Force application ---
-
+/**
+ * Push grid points radially outward from (sx, sy) with linear distance falloff.
+ * Only points within the AABB of (sx +/- radius, sy +/- radius) are visited.
+ */
 function applyRadialForce(sx: number, sy: number, radius: number, strength: number, dt: number): void {
     if (!displaceX || !velocityX || !displaceY || !velocityY) return;
 
@@ -267,6 +319,10 @@ function applyRadialForce(sx: number, sy: number, radius: number, strength: numb
     }
 }
 
+/**
+ * Push grid points along a fixed direction (dirX, dirY) with linear distance falloff.
+ * Used for bullet wake and directional explosion forces.
+ */
 function applyDirectionalForce(sx: number, sy: number, radius: number, strength: number, dirX: number, dirY: number, dt: number): void {
     if (!displaceX || !velocityX || !displaceY || !velocityY) return;
 
@@ -295,12 +351,17 @@ function applyDirectionalForce(sx: number, sy: number, radius: number, strength:
     }
 }
 
-// --- Physics ---
-
+/**
+ * Step spring-damper physics for every grid point.
+ *
+ * Each point is modeled as: `a = -springK * displacement - damping * velocity`.
+ * Points are clamped to `effectiveMax` (the highest maxDisplacement among active
+ * sources, or the default). Points within epsilon of rest are snapped to zero.
+ * Sets `gridSettled = true` if no point has non-zero displacement or velocity.
+ */
 function stepPhysics(dt: number): void {
     if (!displaceX || !displaceY || !velocityX || !velocityY) return;
 
-    // Effective max is the highest among active sources (or default)
     let effectiveMax = gridConfig.maxDisplacement;
     for (const s of activeSources) {
         if (s.maxDisplacement > effectiveMax) effectiveMax = s.maxDisplacement;
@@ -316,13 +377,11 @@ function stepPhysics(dt: number): void {
         displaceX[i] += velocityX[i] * dt;
         displaceY[i] += velocityY[i] * dt;
 
-        // Clamp displacement
         if (displaceX[i] > effectiveMax) displaceX[i] = effectiveMax;
         else if (displaceX[i] < -effectiveMax) displaceX[i] = -effectiveMax;
         if (displaceY[i] > effectiveMax) displaceY[i] = effectiveMax;
         else if (displaceY[i] < -effectiveMax) displaceY[i] = -effectiveMax;
 
-        // Snap to rest
         if (Math.abs(displaceX[i]) < gridConfig.displacementEpsilon && Math.abs(velocityX[i]) < gridConfig.velocityEpsilon) {
             displaceX[i] = 0;
             velocityX[i] = 0;
@@ -339,8 +398,11 @@ function stepPhysics(dt: number): void {
     gridSettled = !anyActive;
 }
 
-// --- Rendering ---
-
+/**
+ * Redraw the grid dots and connecting lines into the shared Graphics object.
+ * Only points within the current viewport (plus a margin) are drawn.
+ * Dot brightness and radius scale with displacement magnitude.
+ */
 function renderGrid(): void {
     if (!gridGfx || !displaceX || !displaceY) return;
 
@@ -356,7 +418,6 @@ function renderGrid(): void {
     const rowMin = Math.max(0, Math.floor((cam.y - margin) / gridConfig.spacing) - 1);
     const rowMax = Math.min(rows - 1, Math.floor((cam.y + vpH + margin) / gridConfig.spacing));
 
-    // Draw dots -- brighter and larger when displaced
     for (let r = rowMin; r <= rowMax; r++) {
         for (let c = colMin; c <= colMax; c++) {
             const i = r * cols + c;
@@ -371,7 +432,6 @@ function renderGrid(): void {
         }
     }
 
-    // Build all line segments as a single batched path
     // Horizontal lines
     for (let r = rowMin; r <= rowMax; r++) {
         for (let c = colMin; c < Math.min(colMax, cols - 1); c++) {
@@ -381,6 +441,7 @@ function renderGrid(): void {
             gridGfx.lineTo((c + 2) * gridConfig.spacing + displaceX[i2], (r + 1) * gridConfig.spacing + displaceY[i2]);
         }
     }
+
     // Vertical lines
     for (let r = rowMin; r < Math.min(rowMax, rows - 1); r++) {
         for (let c = colMin; c <= colMax; c++) {
@@ -390,6 +451,6 @@ function renderGrid(): void {
             gridGfx.lineTo((c + 1) * gridConfig.spacing + displaceX[i2], (r + 2) * gridConfig.spacing + displaceY[i2]);
         }
     }
-    // Single stroke for all lines
+
     gridGfx.stroke({ color: 0xffffff, alpha: gridConfig.lineAlpha, width: gridConfig.lineWidth });
 }

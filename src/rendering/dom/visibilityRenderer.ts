@@ -1,3 +1,9 @@
+/**
+ * DOM visibility renderer. Manages player visibility toggling (CSS classes),
+ * last-known-position ghost markers, and debug line-of-sight overlays.
+ * Part of the DOM rendering layer -- consumed by the render pipeline each frame.
+ */
+
 import { app } from '../../app';
 import { HALF_HIT_BOX } from '../../constants';
 import { getAngle } from '@utils/getAngle';
@@ -9,12 +15,21 @@ const lastKnownElements = new Map<string, HTMLElement>();
 const lastKnownTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const LAST_KNOWN_FADE_DURATION = 3000;
 
+/**
+ * Applies or removes the 'visible' CSS class on a target player element
+ * based on the LOS result. Same-team players that are not visible get a
+ * dimmed 'same-team-not-visible' treatment instead of being hidden.
+ * @param result - Line-of-sight computation result
+ * @param targetPlayerEl - The target player's DOM element
+ */
 export function applyVisibility(result: LOSResult, targetPlayerEl: HTMLElement) {
     if (!result.stateChanged) return;
     if (result.canSee) {
         targetPlayerEl.classList.add('visible');
         targetPlayerEl.classList.remove('same-team-not-visible');
-    } else {
+    }
+
+    else {
         targetPlayerEl.classList.remove('visible');
         if (result.sameTeam) {
             targetPlayerEl.classList.add('visible');
@@ -23,11 +38,20 @@ export function applyVisibility(result: LOSResult, targetPlayerEl: HTMLElement) 
     }
 }
 
+/**
+ * Manages last-known-position ghost markers. When a previously visible enemy
+ * drops out of sight, a fading marker is placed at their last known position.
+ * @param result - Line-of-sight computation result
+ * @param targetPlayerInfo - The target player's state
+ * @param sourcePlayerInfo - The observing (local) player's state
+ */
 export function updateLastKnown(result: LOSResult, targetPlayerInfo: player_info, sourcePlayerInfo: player_info) {
     const key = `${sourcePlayerInfo.id}-${targetPlayerInfo.id}`;
     if (result.canSee) {
         if (result.isLocalView) removeLastKnown(key);
-    } else if (result.isLocalView && result.prevVisible && !targetPlayerInfo.dead && !result.sameTeam) {
+    }
+
+    else if (result.isLocalView && result.prevVisible && !targetPlayerInfo.dead && !result.sameTeam) {
         showLastKnown(key, targetPlayerInfo);
     }
 }
@@ -74,6 +98,11 @@ function removeLastKnown(key: string) {
     }
 }
 
+/**
+ * Removes all last-known-position markers for a given target player.
+ * Called when the target dies or is otherwise removed from the game.
+ * @param targetId - The player ID whose markers should be removed
+ */
 export function removeLastKnownForPlayer(targetId: number) {
     for (const key of lastKnownElements.keys()) {
         if (key.endsWith(`-${targetId}`)) {
@@ -82,6 +111,15 @@ export function removeLastKnownForPlayer(targetId: number) {
     }
 }
 
+/**
+ * Renders a colored debug line between source and target players showing
+ * line-of-sight status. Green when visible, red when blocked. Used in
+ * debug/development mode only.
+ * @param blocked - Whether LOS is blocked by walls
+ * @param targetPlayerInfo - The target player's state
+ * @param sourcePlayerInfo - The observing player's state
+ * @param targetPlayerEl - Optional target player DOM element for visibility toggling
+ */
 export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info, sourcePlayerInfo: player_info, targetPlayerEl?: HTMLElement) {
     if (app === undefined) return;
 
@@ -106,7 +144,9 @@ export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info
         if (canSee) {
             targetPlayerEl?.classList.add('visible');
             newLosEntity.style.backgroundColor = 'green';
-        } else {
+        }
+
+        else {
             targetPlayerEl?.classList.remove('visible');
             newLosEntity.style.backgroundColor = 'red';
         }
@@ -123,10 +163,14 @@ export function debugLineOfSight(blocked: boolean, targetPlayerInfo: player_info
         if (canSee) {
             targetPlayerEl?.classList.add('visible');
             existingLosEl.style.backgroundColor = 'green';
-        } else {
+        }
+
+        else {
             if (sourcePlayerInfo.team === targetPlayerInfo.team) {
                 targetPlayerEl?.classList.add('visible');
-            } else {
+            }
+
+            else {
                 targetPlayerEl?.classList.remove('visible');
                 existingLosEl.style.backgroundColor = 'red';
             }

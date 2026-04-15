@@ -1,5 +1,6 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
+/** MEDIUM quality preset -- core features enabled, glow/shimmer disabled, moderate particle counts. */
 export const PRESET_MEDIUM: GraphicsConfig = {
     resolution: window.Math.min(window.devicePixelRatio, 1.5),
     antialias: false,

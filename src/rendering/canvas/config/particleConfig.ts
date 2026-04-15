@@ -1,7 +1,9 @@
 import type { ParticleQuality } from './graphicsConfig';
 
-// Quality-managed fields are written by applyGraphicsConfig().
-// largeSoftCircleFalloff is a design constant, not quality-managed.
+/**
+ * Particle texture atlas sizes. Quality-managed fields are overwritten by
+ * {@link applyGraphicsConfig}; `largeSoftCircleFalloff` is a design constant.
+ */
 export const particleConfig = {
     textureSize: 64,
     largeSoftCircleSize: 128,

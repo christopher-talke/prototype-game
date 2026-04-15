@@ -1,9 +1,23 @@
+/**
+ * DOM raycast renderer. Computes the visibility polygon for the local player
+ * and applies it as a CSS clip-path on the fog-of-war overlay. Also renders
+ * FOV cone debug lines and includes an adaptive quality FPS monitor that
+ * prompts the user to reduce settings when frame rate drops.
+ * Part of the DOM rendering layer.
+ */
+
 import { app, SETTINGS } from '../../app';
 import { computeRaycastPolygon, computeFOVCone } from '@simulation/detection/raycast';
 
 let _fogOfWarEl: HTMLElement | null = null;
 let polyStringParts: string[] = [];
 
+/**
+ * Applies the computed visibility polygon as a CSS clip-path on the fog-of-war
+ * element. Reuses a pre-allocated string array to minimize allocations.
+ * @param vertices - Polygon vertices in world coordinates
+ * @param count - Number of valid vertices in the array
+ */
 function applyFogOfWarClipPath(vertices: coordinates[], count: number) {
     if (!_fogOfWarEl) _fogOfWarEl = document.getElementById('fog-of-war');
     if (!_fogOfWarEl) return;
@@ -14,13 +28,20 @@ function applyFogOfWarClipPath(vertices: coordinates[], count: number) {
     _fogOfWarEl.style.clipPath = 'polygon(' + polyStringParts.slice(0, count).join(',') + ')';
 }
 
+/**
+ * Computes the raycast visibility polygon for a player and applies it to the
+ * fog-of-war overlay.
+ * @param playerInfo - The local player's state (position + rotation)
+ * @param config - Raycast configuration (type, ray count, range)
+ * @returns The visibility polygon vertices and count, or null if raycast failed
+ */
 export function generateRayCast(playerInfo: player_info, config: raycast_config): { vertices: coordinates[]; count: number } | null {
     const result = computeRaycastPolygon(playerInfo, config);
     if (result) applyFogOfWarClipPath(result.vertices, result.count);
+
     return result;
 }
 
-// FOV cone lines
 let fovLineLeft: HTMLElement | null = null;
 let fovLineRight: HTMLElement | null = null;
 
@@ -37,6 +58,11 @@ function ensureFOVLineElements() {
     app.appendChild(fovLineRight);
 }
 
+/**
+ * Renders two lines marking the edges of the player's field-of-view cone.
+ * Used as a debug visualization.
+ * @param playerInfo - The local player's state
+ */
 export function generateFOVCone(playerInfo: player_info) {
     ensureFOVLineElements();
     const cone = computeFOVCone(playerInfo);
@@ -54,18 +80,24 @@ export function generateFOVCone(playerInfo: player_info) {
     fovLineRight!.style.transform = `rotate(${cone.upperAngle}deg)`;
 }
 
+/** Hides the FOV cone debug lines. */
 export function hideFOVCone() {
     if (fovLineLeft) fovLineLeft.style.display = 'none';
     if (fovLineRight) fovLineRight.style.display = 'none';
 }
 
-// Adaptive quality FPS monitor
 const FPS_SAMPLE_WINDOW = 3000;
 const FPS_THRESHOLD = 30;
 let fpsFrameTimes: number[] = [];
 let adaptivePromptDismissed = false;
 let adaptiveModalEl: HTMLElement | null = null;
 
+/**
+ * Tracks frame timestamps and shows a quality reduction prompt if average FPS
+ * drops below the threshold over the sample window. Only fires once per session
+ * and only when using the CORNERS raycast type.
+ * @param timestamp - Current frame timestamp from requestAnimationFrame
+ */
 export function tickAdaptiveQuality(timestamp: number) {
     if (adaptivePromptDismissed) return;
     if (SETTINGS.raycast.type !== 'CORNERS') return;

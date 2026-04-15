@@ -1,4 +1,5 @@
 import { Graphics, Ticker, ColorMatrixFilter, DisplacementFilter, Sprite, Texture } from 'pixi.js';
+
 import { explosionFxLayer, sparkLayer, debrisLayer, scorchLayer, postFxLayer, worldContainer } from '../sceneGraph';
 import { swapRemove } from '../renderUtils';
 import { type ParticleBank, createParticleBank, acquireParticle, updateBank, clearBank, texHardDot, texShard, texSoftCircle } from '../particlePool';
@@ -11,10 +12,21 @@ import { effectsConfig } from '../config/effectsConfig';
 import { getGraphicsConfig } from '../config/graphicsConfig';
 import { GRENADE_VFX } from '@simulation/combat/grenades';
 
+/**
+ * C4 explosion visual effect module.
+ *
+ * Renders the complete visual lifecycle of a C4 grenade detonation in the
+ * PixiJS canvas renderer. Heavier than frag: 1.5x blast radius, three-phase
+ * grid displacement (blast, vacuum, ripple), heat shimmer via
+ * DisplacementFilter, and proximity-based screen desaturation.
+ *
+ * Rendering layer, part of the effects sub-system under canvas rendering.
+ * Consumes C4Vfx config from simulation/combat/grenades.ts.
+ */
+
 const vfx = GRENADE_VFX.C4.explosion;
 
-// --- Shockwave ring state ---
-
+/** Active expanding shockwave ring for a C4 detonation. */
 interface C4Ring {
     g: Graphics;
     elapsed: number;
@@ -23,8 +35,7 @@ interface C4Ring {
 
 const activeRings: C4Ring[] = [];
 
-// --- Scorch state ---
-
+/** Persistent ground scorch mark left by a C4 detonation. */
 interface ScorchEntry {
     g: Graphics;
     elapsed: number;
@@ -32,8 +43,7 @@ interface ScorchEntry {
 
 const activeScorches: ScorchEntry[] = [];
 
-// --- Heat shimmer state ---
-
+/** Screen-space heat shimmer driven by a DisplacementFilter. */
 interface ShimmerEntry {
     container: Sprite;
     filter: DisplacementFilter;
@@ -43,19 +53,20 @@ interface ShimmerEntry {
 
 const activeShimmers: ShimmerEntry[] = [];
 
-// --- Screen effect state ---
-
 let desatFilter: ColorMatrixFilter | null = null;
 let desatElapsed = 0;
 let desatDuration = 0;
 let desatActive = false;
 
-// --- Particle banks (lazy init) ---
-
 let emissiveBank: ParticleBank | null = null;
 let darkDebrisBank: ParticleBank | null = null;
 let dustBank: ParticleBank | null = null;
 
+/**
+ * Lazily initializes the three SoA particle banks (emissive sparks, dark
+ * debris, fine dust) on first C4 detonation. Capacities are read from
+ * effectsConfig.c4.
+ */
 function ensureBanks() {
     if (emissiveBank) return;
     emissiveBank = createParticleBank(effectsConfig.c4.emissiveBankCapacity, texHardDot, sparkLayer, 'add');
@@ -63,8 +74,18 @@ function ensureBanks() {
     dustBank = createParticleBank(effectsConfig.c4.dustBankCapacity, texSoftCircle, debrisLayer);
 }
 
-// --- Public API ---
-
+/**
+ * Spawns the full C4 explosion visual at the given world position.
+ *
+ * Orchestrates all sub-effects: shockwave rings, three particle types
+ * (emissive, dark debris, dust), scorch decal, heat shimmer, transient
+ * lighting, three-phase grid displacement, camera shake, and screen
+ * desaturation. Feature toggles in graphicsConfig gate the expensive paths.
+ *
+ * @param x - World X of the detonation center
+ * @param y - World Y of the detonation center
+ * @param radius - Blast radius from grenade definition
+ */
 export function spawnC4Explosion(x: number, y: number, radius: number) {
     const features = getGraphicsConfig().features;
     ensureBanks();
@@ -80,6 +101,11 @@ export function spawnC4Explosion(x: number, y: number, radius: number) {
     spawnC4Shake(x, y, radius);
 }
 
+/**
+ * Destroys all active C4 visual state: rings, scorches, shimmers,
+ * particle banks, and desaturation filter. Called on round reset or
+ * renderer teardown.
+ */
 export function clearC4Effects() {
     for (const ring of activeRings) ring.g.destroy();
     activeRings.length = 0;
@@ -95,8 +121,10 @@ export function clearC4Effects() {
     clearDesaturation();
 }
 
-// --- Shockwave rings ---
-
+/**
+ * Queues staggered ring spawns. Each ring is delayed by ringStaggerMs to
+ * create a cascading shockwave.
+ */
 function spawnRings(x: number, y: number, radius: number) {
     for (let i = 0; i < vfx.ringCount; i++) {
         const delay = i * vfx.ringStaggerMs;
@@ -104,6 +132,16 @@ function spawnRings(x: number, y: number, radius: number) {
     }
 }
 
+/**
+ * Creates a single expanding shockwave ring graphic at the detonation site.
+ * Color is selected by ring index from the VFX palette. Ring starts at
+ * ringInitialScale and expands to full size via ease-out quadratic.
+ *
+ * @param x - World X center
+ * @param y - World Y center
+ * @param radius - Final ring radius (already scaled by ringRadiusMultiplier)
+ * @param index - Ring sequence index, used to select color
+ */
 function createRing(x: number, y: number, radius: number, index: number) {
     const strokeWidth = vfx.ringStrokeWidthMin + Math.random() * vfx.ringStrokeWidthRange;
     const color = vfx.ringColors[Math.min(index, vfx.ringColors.length - 1)];
@@ -120,8 +158,10 @@ function createRing(x: number, y: number, radius: number, index: number) {
     activeRings.push({ g, elapsed: 0, duration: vfx.ringDuration + Math.random() * vfx.ringDurationRange });
 }
 
-// --- Emissive debris ---
-
+/**
+ * Spawns 80-120 additive-blended emissive spark particles radiating outward
+ * from the detonation center with randomized angle, speed, and tint.
+ */
 function spawnEmissiveDebris(x: number, y: number, _radius: number) {
     if (!emissiveBank) return;
     const count = effectsConfig.c4.emissiveCountMin + Math.floor(Math.random() * (effectsConfig.c4.emissiveCountMax - effectsConfig.c4.emissiveCountMin + 1));
@@ -144,8 +184,11 @@ function spawnEmissiveDebris(x: number, y: number, _radius: number) {
     }
 }
 
-// --- Dark debris ---
-
+/**
+ * Spawns 40-60 non-emissive dark debris shard particles that simulate
+ * heavy chunks flung outward. Subject to gravity via darkDebrisGravity
+ * during per-frame update.
+ */
 function spawnDarkDebris(x: number, y: number, _radius: number) {
     if (!darkDebrisBank) return;
     const count = effectsConfig.c4.darkDebrisCountMin + Math.floor(Math.random() * (effectsConfig.c4.darkDebrisCountMax - effectsConfig.c4.darkDebrisCountMin + 1));
@@ -168,8 +211,11 @@ function spawnDarkDebris(x: number, y: number, _radius: number) {
     }
 }
 
-// --- Fine dust ---
-
+/**
+ * Spawns 30-40 soft-circle fine dust particles scattered within the blast
+ * radius. Dust drifts slowly with Brownian motion and fades after a
+ * configurable threshold fraction of lifetime.
+ */
 function spawnDust(x: number, y: number, radius: number) {
     if (!dustBank) return;
     const count = effectsConfig.c4.dustCountMin + Math.floor(Math.random() * (effectsConfig.c4.dustCountMax - effectsConfig.c4.dustCountMin + 1));
@@ -192,8 +238,11 @@ function spawnDust(x: number, y: number, radius: number) {
     }
 }
 
-// --- Scorch decal ---
-
+/**
+ * Draws a three-ring scorch decal on the ground at the blast center.
+ * Inner, middle, and outer rings use different radii and alpha from VFX
+ * config. Fades over scorchFadeDuration.
+ */
 function spawnScorch(x: number, y: number, radius: number) {
     const g = new Graphics();
     g.circle(0, 0, radius * vfx.scorchInnerRadiusFrac).fill({ color: vfx.scorchInnerColor, alpha: vfx.scorchInnerAlpha });
@@ -205,10 +254,16 @@ function spawnScorch(x: number, y: number, radius: number) {
     activeScorches.push({ g, elapsed: 0 });
 }
 
-// --- Heat shimmer ---
-
+/**
+ * Creates a heat shimmer distortion at the blast site using a Pixi
+ * DisplacementFilter driven by a procedurally generated noise texture.
+ * The filter scale decays linearly to zero over shimmerDuration.
+ *
+ * @param x - World X center
+ * @param y - World Y center
+ * @param radius - Blast radius; shimmer covers 3x this area
+ */
 function spawnHeatShimmer(x: number, y: number, radius: number) {
-    // Create noise displacement map via Canvas 2D
     const size = effectsConfig.c4.shimmerTextureSize;
     const canvas = document.createElement('canvas');
     canvas.width = size;
@@ -230,14 +285,14 @@ function spawnHeatShimmer(x: number, y: number, radius: number) {
 
     const filter = new DisplacementFilter({ sprite: dispSprite, scale: effectsConfig.c4.shimmerFilterScale });
 
-    // Apply the filter to the postFxLayer area
+    // Nearly invisible sprite acts as the filter target in postFxLayer
     const shimmerSprite = new Sprite(Texture.WHITE);
     shimmerSprite.width = radius * 3;
     shimmerSprite.height = radius * 3;
     shimmerSprite.anchor.set(0.5);
     shimmerSprite.x = x;
     shimmerSprite.y = y;
-    shimmerSprite.alpha = 0.01; // nearly invisible but filter target
+    shimmerSprite.alpha = 0.01;
     shimmerSprite.filters = [filter];
     postFxLayer.addChild(shimmerSprite);
     postFxLayer.addChild(dispSprite);
@@ -250,8 +305,10 @@ function spawnHeatShimmer(x: number, y: number, radius: number) {
     });
 }
 
-// --- Lighting ---
-
+/**
+ * Adds two-phase transient lighting: an initial bright spike followed by a
+ * delayed sustained glow. Phase timings and colors come from C4 VFX config.
+ */
 function spawnC4Lights(x: number, y: number) {
     const l1 = vfx.lightPhase1;
     addTransientLight(x, y, l1.radius, l1.color, l1.intensity, l1.decay, true);
@@ -261,8 +318,12 @@ function spawnC4Lights(x: number, y: number) {
     }, l2.delay ?? 0);
 }
 
-// --- Grid displacement ---
-
+/**
+ * Registers three sequential grid displacement sources to create the
+ * characteristic C4 shockwave pattern: outward blast, inward vacuum pull,
+ * then a final outward ripple. The blast phase uses maxDisplacement:42
+ * to cap per-point travel.
+ */
 function spawnC4Displacement(x: number, y: number, radius: number) {
     addDisplacementSource({
         x,
@@ -292,8 +353,11 @@ function spawnC4Displacement(x: number, y: number, radius: number) {
     }, vfx.ripple.delay ?? 0);
 }
 
-// --- Camera shake ---
-
+/**
+ * Applies distance-attenuated camera shake to the active player. Shake
+ * amplitude falls off linearly from vfx.shakeAmplitude at the blast
+ * center to zero at radius * vfx.shakeRangeFactor.
+ */
 function spawnC4Shake(x: number, y: number, radius: number) {
     if (ACTIVE_PLAYER == null) return;
     const p = getPlayerInfo(ACTIVE_PLAYER);
@@ -307,8 +371,11 @@ function spawnC4Shake(x: number, y: number, radius: number) {
     addCameraShake(vfx.shakeAmplitude * falloff, vfx.shakeDuration);
 }
 
-// --- Screen effects ---
-
+/**
+ * Checks whether the active player is within desatRange of the blast and,
+ * if so, applies a distance-attenuated desaturation filter to the world
+ * container. Gated by the screenDesaturation feature toggle.
+ */
 function tryScreenEffects(x: number, y: number) {
     if (ACTIVE_PLAYER == null) return;
     const p = getPlayerInfo(ACTIVE_PLAYER);
@@ -323,6 +390,13 @@ function tryScreenEffects(x: number, y: number) {
     applyDesaturation(intensity);
 }
 
+/**
+ * Attaches or updates a ColorMatrixFilter on worldContainer to desaturate
+ * the scene. The filter alpha decays to zero over desatDuration in the
+ * ticker loop.
+ *
+ * @param intensity - Initial desaturation strength (0-1)
+ */
 function applyDesaturation(intensity: number) {
     if (!desatFilter) {
         desatFilter = new ColorMatrixFilter();
@@ -335,6 +409,7 @@ function applyDesaturation(intensity: number) {
     desatDuration = effectsConfig.c4.desatDuration;
 }
 
+/** Removes the desaturation filter from worldContainer and resets state. */
 function clearDesaturation() {
     if (desatFilter && worldContainer.filters) {
         const idx = worldContainer.filters.indexOf(desatFilter);
@@ -348,12 +423,19 @@ function clearDesaturation() {
     desatActive = false;
 }
 
-// --- Ticker update ---
-
+/**
+ * Per-frame ticker callback. Updates all active C4 sub-effects:
+ * - Rings: ease-out quadratic scale expansion + linear alpha fade
+ * - Scorches: linear alpha fade over scorchFadeDuration
+ * - Heat shimmers: linear filter scale decay
+ * - Desaturation: multiplicative alpha decay
+ * - Emissive sparks: drag-decayed velocity + linear alpha fade + rotation
+ * - Dark debris: drag + gravity + linear alpha fade + rotation
+ * - Dust: drag + Brownian motion + late-life alpha fade
+ */
 Ticker.shared.add((ticker) => {
     const dt = ticker.deltaMS;
 
-    // Update rings
     for (let i = activeRings.length - 1; i >= 0; i--) {
         const ring = activeRings[i];
         ring.elapsed += dt;
@@ -367,7 +449,6 @@ Ticker.shared.add((ticker) => {
         }
     }
 
-    // Update scorches
     for (let i = activeScorches.length - 1; i >= 0; i--) {
         const scorch = activeScorches[i];
         scorch.elapsed += dt;
@@ -379,7 +460,6 @@ Ticker.shared.add((ticker) => {
         }
     }
 
-    // Update heat shimmers
     for (let i = activeShimmers.length - 1; i >= 0; i--) {
         const shimmer = activeShimmers[i];
         shimmer.elapsed += dt;
@@ -392,7 +472,6 @@ Ticker.shared.add((ticker) => {
         }
     }
 
-    // Update desaturation
     if (desatActive && desatFilter) {
         desatElapsed += dt;
         const t = Math.min(1, desatElapsed / desatDuration);
@@ -400,7 +479,6 @@ Ticker.shared.add((ticker) => {
         if (t >= 1) clearDesaturation();
     }
 
-    // Update emissive debris
     if (emissiveBank) {
         updateBank(emissiveBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
@@ -414,7 +492,6 @@ Ticker.shared.add((ticker) => {
         });
     }
 
-    // Update dark debris
     if (darkDebrisBank) {
         updateBank(darkDebrisBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];
@@ -428,7 +505,6 @@ Ticker.shared.add((ticker) => {
         });
     }
 
-    // Update dust
     if (dustBank) {
         updateBank(dustBank, dt, (bank, idx) => {
             const t = bank.elapsed[idx] / bank.duration[idx];

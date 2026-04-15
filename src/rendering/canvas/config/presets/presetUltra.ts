@@ -1,5 +1,6 @@
 import type { GraphicsConfig } from '../graphicsConfig';
 
+/** ULTRA quality preset -- all features enabled, maximum particle counts and texture sizes. */
 export const PRESET_ULTRA: GraphicsConfig = {
     resolution: window.devicePixelRatio,
     antialias: true,

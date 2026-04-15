@@ -1,7 +1,10 @@
 import type { GridQuality } from './graphicsConfig';
 
-// Quality-managed fields (spacing, dot/line rendering) are written by
-// applyGraphicsConfig().  Physics fields below are preset-independent.
+/**
+ * Background displacement grid configuration. Quality-managed rendering fields
+ * (spacing, dot/line alpha and radius) are overwritten by {@link applyGraphicsConfig};
+ * physics fields (spring, damping, player wake) are preset-independent.
+ */
 export const gridConfig = {
     spacing: 42,
     springK: 18,
@@ -15,7 +18,6 @@ export const gridConfig = {
     playerSpeedThreshold: 0.5,
     playerSpeedDivisor: 200,
 
-    // Grid rendering (quality-managed by GraphicsConfig)
     dotBaseAlpha: 0.1,
     dotDisplaceAlpha: 0.6,
     dotBaseRadius: 1.0,
