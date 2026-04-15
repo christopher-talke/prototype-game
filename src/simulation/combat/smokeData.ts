@@ -24,6 +24,10 @@ export function removeExpiredSmoke(timestamp: number) {
     }
 }
 
+export function clearAllSmokeData() {
+    smokeDatas.length = 0;
+}
+
 export function isSmoked(x1: number, y1: number, x2: number, y2: number): boolean {
     for (const data of smokeDatas) {
         if (lineIntersectsCircle(x1, y1, x2, y2, data.x, data.y, data.radius)) {

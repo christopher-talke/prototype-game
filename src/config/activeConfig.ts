@@ -21,6 +21,10 @@ export function setGameMode(partial: DeepPartial<GameModeConfig>): void {
     activeConfig = deepMerge(BASE_DEFAULTS, activeConfig, partial);
 }
 
+export function resetConfig(): void {
+    activeConfig = JSON.parse(JSON.stringify(BASE_DEFAULTS));
+}
+
 export function getConfig(): GameModeConfig {
     return activeConfig;
 }

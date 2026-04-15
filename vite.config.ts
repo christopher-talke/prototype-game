@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import path from 'path';
 
@@ -15,5 +16,10 @@ export default defineConfig({
             '@maps': path.resolve(__dirname, 'src/maps'),
             '@utils': path.resolve(__dirname, 'src/utils'),
         },
+    },
+    test: {
+        globals: true,
+        environment: 'node',
+        include: ['src/**/__tests__/**/*.test.ts'],
     },
 });
