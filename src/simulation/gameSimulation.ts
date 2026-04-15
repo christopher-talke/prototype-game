@@ -4,7 +4,7 @@
  * It operates on simple data structures and pure functions to ensure consistency across different environments.
  */
 
-import type { GameEvent } from '@net/gameEvent';
+import type { GameEvent } from '@simulation/events';
 import { raySegmentIntersect, isLineBlocked } from './detection/rayGeometry';
 import { HALF_HIT_BOX } from '../constants';
 import { getGrenadeDef } from '@simulation/combat/grenades';

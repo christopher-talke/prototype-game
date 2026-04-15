@@ -7,7 +7,7 @@ import { HALF_HIT_BOX, PLAYER_HIT_BOX, ROTATION_OFFSET } from '../constants';
 
 import { getConfig } from '@config/activeConfig';
 
-import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@net/gameEvent';
+import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@simulation/events';
 
 import { GameSimulation } from '@simulation/gameSimulation';
 import { PlayerStatus } from '@simulation/player/playerData';
