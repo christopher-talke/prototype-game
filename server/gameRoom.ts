@@ -5,6 +5,67 @@ import { Shipment } from '@maps/shipment.ts';
 import { BASE_DEFAULTS } from '@config/defaults.ts';
 import { createDefaultWeapon } from '@simulation/combat/weapons.ts';
 
+const MAX_NAME_LENGTH = 24;
+const VALID_GRENADE_TYPES = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
+const VALID_INPUT_TYPES = [
+    'MOVE', 'ROTATE', 'FIRE', 'STOP_FIRE', 'RELOAD',
+    'SWITCH_WEAPON', 'THROW_GRENADE', 'DETONATE_C4',
+    'BUY_WEAPON', 'BUY_GRENADE', 'BUY_HEALTH', 'BUY_ARMOR',
+    'OPEN_BUY_MENU', 'CLOSE_BUY_MENU',
+];
+
+export function sanitizeName(raw: unknown): string {
+    if (typeof raw !== 'string' || raw.trim().length === 0) return 'Player';
+    // Strip control characters and zero-width chars, keep printable content
+    const cleaned = raw.replace(/[\x00-\x1f\x7f\u200b-\u200f\u2028-\u202f\ufeff]/g, '').trim();
+    if (cleaned.length === 0) return 'Player';
+    return cleaned.slice(0, MAX_NAME_LENGTH);
+}
+
+function clamp(v: number, min: number, max: number): number {
+    return v < min ? min : v > max ? max : v;
+}
+
+function validatePlayerInput(msg: any, playerId: number): any | null {
+    if (typeof msg !== 'object' || msg === null) return null;
+    const type = msg.type;
+    if (typeof type !== 'string' || !VALID_INPUT_TYPES.includes(type)) return null;
+
+    switch (type) {
+        case 'MOVE':
+            if (typeof msg.dx !== 'number' || typeof msg.dy !== 'number') return null;
+            return { type, playerId, dx: clamp(msg.dx, -1, 1), dy: clamp(msg.dy, -1, 1) };
+        case 'ROTATE':
+            if (typeof msg.rotation !== 'number') return null;
+            return { type, playerId, rotation: msg.rotation % 360 };
+        case 'FIRE':
+        case 'STOP_FIRE':
+            return { type, playerId, timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : Date.now() };
+        case 'RELOAD':
+        case 'DETONATE_C4':
+        case 'BUY_HEALTH':
+        case 'BUY_ARMOR':
+        case 'OPEN_BUY_MENU':
+        case 'CLOSE_BUY_MENU':
+            return { type, playerId };
+        case 'SWITCH_WEAPON':
+            if (typeof msg.slotIndex !== 'number' || !Number.isInteger(msg.slotIndex)) return null;
+            return { type, playerId, slotIndex: clamp(msg.slotIndex, 0, 9) };
+        case 'THROW_GRENADE':
+            if (typeof msg.grenadeType !== 'string' || !VALID_GRENADE_TYPES.includes(msg.grenadeType)) return null;
+            if (typeof msg.chargePercent !== 'number' || typeof msg.aimDx !== 'number' || typeof msg.aimDy !== 'number') return null;
+            return { type, playerId, grenadeType: msg.grenadeType, chargePercent: clamp(msg.chargePercent, 0, 1), aimDx: clamp(msg.aimDx, -1, 1), aimDy: clamp(msg.aimDy, -1, 1) };
+        case 'BUY_WEAPON':
+            if (typeof msg.weaponType !== 'string' || msg.weaponType.length > 32) return null;
+            return { type, playerId, weaponType: msg.weaponType };
+        case 'BUY_GRENADE':
+            if (typeof msg.grenadeType !== 'string' || !VALID_GRENADE_TYPES.includes(msg.grenadeType)) return null;
+            return { type, playerId, grenadeType: msg.grenadeType };
+        default:
+            return null;
+    }
+}
+
 type Connection = {
     id: string;
     send(message: string): void;
@@ -211,8 +272,8 @@ export class GameRoom {
 
         // Reassign host if host left
         if (conn.id === this.hostConnId) {
-            const first = this.players.values().next();
-            this.hostConnId = first.done ? null : first.value.conn.id ? [...this.players.keys()][0] : null;
+            const first = this.players.keys().next();
+            this.hostConnId = first.done ? null : first.value;
         }
 
         if (this.phase === 'lobby' || this.phase === 'starting') {
@@ -351,7 +412,8 @@ export class GameRoom {
     }
 
     private processGameInput(conn: Connection, player: RoomPlayer, msg: any): void {
-        const authoritativeInput = { ...msg.input, playerId: player.id };
+        const authoritativeInput = validatePlayerInput(msg.input, player.id);
+        if (!authoritativeInput) return;
 
         const events = this.sim.processInput(authoritativeInput, Date.now());
         if (events.length > 0) {

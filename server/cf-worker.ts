@@ -1,14 +1,32 @@
 // @ts-nocheck
-import { GameRoom } from './gameRoom.ts';
+import { GameRoom, sanitizeName } from './gameRoom.ts';
+
+const MAX_MESSAGE_BYTES = 2048;
+const RATE_LIMIT_WINDOW_MS = 1000;
+const RATE_LIMIT_MAX_MESSAGES = 120;
 
 export class GameRoomDO {
     constructor(_state: unknown, _env: unknown) {
         this.room = new GameRoom();
         this.sessions = new Map();
+        this.rateLimits = new Map();
     }
 
     room;
     sessions;
+    rateLimits;
+
+    _isRateLimited(server) {
+        const now = Date.now();
+        let state = this.rateLimits.get(server);
+        if (!state || now >= state.resetAt) {
+            state = { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+            this.rateLimits.set(server, state);
+            return false;
+        }
+        state.count++;
+        return state.count > RATE_LIMIT_MAX_MESSAGES;
+    }
 
     async fetch(request) {
         const pair = new WebSocketPair();
@@ -25,10 +43,20 @@ export class GameRoomDO {
         this.sessions.set(server, conn);
 
         server.addEventListener('message', (evt) => {
+            if (this._isRateLimited(server)) {
+                server.close(4008, 'Rate limit exceeded');
+                return;
+            }
+
             try {
-                const msg = JSON.parse(evt.data);
-                if (msg?.t === 'join') {
-                    this.room.onPlayerJoin(conn, msg.name || 'Player');
+                const raw = typeof evt.data === 'string' ? evt.data : String(evt.data);
+                if (raw.length > MAX_MESSAGE_BYTES) return;
+
+                const msg = JSON.parse(raw);
+                if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return;
+
+                if (msg.t === 'join') {
+                    this.room.onPlayerJoin(conn, sanitizeName(msg.name));
                     return;
                 }
                 this.room.onPlayerInput(conn, msg);
@@ -40,6 +68,7 @@ export class GameRoomDO {
         server.addEventListener('close', () => {
             this.room.onPlayerLeave(conn);
             this.sessions.delete(server);
+            this.rateLimits.delete(server);
         });
 
         return new Response(null, { status: 101, webSocket: client });
