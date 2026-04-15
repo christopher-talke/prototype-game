@@ -9,6 +9,7 @@ import { getGrenadeDef } from '@simulation/combat/grenades';
 import { raySegmentIntersect } from '@simulation/detection/rayGeometry';
 import { environment } from '@simulation/environment/environment';
 import { getConfig } from '@config/activeConfig';
+import { aimLineConfig } from '../canvas/config/aimLineConfig';
 
 let adsActive = false;
 
@@ -20,9 +21,9 @@ let grenadeAimEl: HTMLElement | null = null;
 let mouseClientX = 0;
 let mouseClientY = 0;
 
-const INDICATOR_TIP_OFFSET = 27;
-const SPREAD_GROWTH_PER_SHOT = 0.4;
-const MAX_SPREAD_MULTIPLIER = 3;
+const INDICATOR_TIP_OFFSET = aimLineConfig.indicatorTipOffset;
+const SPREAD_GROWTH_PER_SHOT = aimLineConfig.spreadGrowthPerShot;
+const MAX_SPREAD_MULTIPLIER = aimLineConfig.maxSpreadMultiplier;
 
 export function initADS() {
     window.addEventListener('mousedown', (e) => { if (e.button === 2) adsActive = true; });

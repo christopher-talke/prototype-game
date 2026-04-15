@@ -10,6 +10,7 @@ import { getWeaponVfx, DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
 import { swapRemove } from './renderUtils';
 import { Graphics as PixiGraphics, Text, Ticker } from 'pixi.js';
 import { damageNumberLayer, statusLabelLayer, explosionFxLayer } from './sceneGraph';
+import { hudConfig } from './config/hudConfig';
 import {
     updatePixiPlayerVisuals,
     onPixiPlayerDamaged,
@@ -92,7 +93,7 @@ class PixiClientRendererImpl {
             const player = getPlayerInfo(playerId);
             if (player) {
                 entry.text.x = player.current_position.x + HALF_HIT_BOX;
-                entry.text.y = player.current_position.y - 52;
+                entry.text.y = player.current_position.y + hudConfig.statusLabelYOffset;
             }
         }
     }
@@ -164,8 +165,8 @@ class PixiClientRendererImpl {
             text: isKill ? `${damage} X` : `${damage}`,
             style: {
                 fontFamily: 'Courier New',
-                fontSize: isKill ? 18 : 14,
-                fill: isKill ? 0xff4444 : 0xffffff,
+                fontSize: isKill ? hudConfig.damageNumberKillFontSize : hudConfig.damageNumberNormalFontSize,
+                fill: isKill ? hudConfig.damageNumberKillColor : hudConfig.damageNumberNormalColor,
                 fontWeight: isKill ? 'bold' : 'normal',
             },
         });
@@ -180,8 +181,8 @@ class PixiClientRendererImpl {
         for (let i = this.activeDamageNumbers.length - 1; i >= 0; i--) {
             const entry = this.activeDamageNumbers[i];
             entry.elapsed += deltaMS;
-            const t = Math.min(1, entry.elapsed / 800);
-            entry.text.y -= deltaMS * 0.04;
+            const t = Math.min(1, entry.elapsed / hudConfig.damageNumberDuration);
+            entry.text.y -= deltaMS * hudConfig.damageNumberFloatSpeed;
             entry.text.alpha = 1 - t;
             if (t >= 1) {
                 entry.text.destroy();
@@ -218,16 +219,16 @@ class PixiClientRendererImpl {
 
         const t = new Text({
             text: displayText,
-            style: { fontFamily: 'Courier New', fontSize: 12, fill: 0xdddddd },
+            style: { fontFamily: 'Courier New', fontSize: hudConfig.statusLabelFontSize, fill: hudConfig.statusLabelColor },
         });
         t.anchor.set(0.5, 1);
         t.x = player.current_position.x + HALF_HIT_BOX;
-        t.y = player.current_position.y - 52;
+        t.y = player.current_position.y + hudConfig.statusLabelYOffset;
         statusLabelLayer.addChild(t);
 
         let timer: ReturnType<typeof setTimeout> | null = null;
         if (event.status !== PlayerStatus.BUYING) {
-            const duration = event.status === PlayerStatus.DEAD ? 2000 : 1500;
+            const duration = event.status === PlayerStatus.DEAD ? hudConfig.statusLabelDeadTimeout : hudConfig.statusLabelDefaultTimeout;
             timer = setTimeout(() => this.removeStatusLabel(event.playerId), duration);
         }
         this.statusLabels.set(event.playerId, { text: t, timer });

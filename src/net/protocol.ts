@@ -24,6 +24,7 @@ export type PlayerSnapshot = {
     money: number;
     weapons: PlayerWeapon[];
     grenades: Record<GrenadeType, number>;
+    hidden?: boolean;
 };
 
 export type SimProjectileSnapshot = {

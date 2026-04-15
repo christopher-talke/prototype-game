@@ -10,9 +10,10 @@ import { TEAM_COLORS } from './teamColors';
 import { onPlayerGlowCreated, clearPlayerGlows } from './playerGlowManager';
 import { addLastKnownLight, removeLastKnownLight } from './lightingManager';
 import { getGraphicsConfig } from './config/graphicsConfig';
+import { playerConfig } from './config/playerConfig';
 
-const RADIUS = 21;
-const HIT_COLOR = 0xff943c;
+const RADIUS = playerConfig.radius;
+const HIT_COLOR = playerConfig.hitFlashColor;
 
 const visibleEnemies = new Set<number>();
 export function getVisibleEnemies(): ReadonlySet<number> {
@@ -22,11 +23,11 @@ const visibleTeammates = new Set<number>();
 export function getVisibleTeammates(): ReadonlySet<number> {
     return visibleTeammates;
 }
-const HEALTH_COLOR = 0x4ade80;
-const ARMOR_COLOR = 0x60a5fa;
-const BAR_WIDTH = 44;
-const BAR_HEIGHT = 4;
-const LAST_KNOWN_FADE_DURATION = 3000;
+const HEALTH_COLOR = playerConfig.healthColor;
+const ARMOR_COLOR = playerConfig.armorColor;
+const BAR_WIDTH = playerConfig.barWidth;
+const BAR_HEIGHT = playerConfig.barHeight;
+const LAST_KNOWN_FADE_DURATION = playerConfig.lastKnownFadeDuration;
 
 interface PlayerEntry {
     container: Container;
@@ -48,7 +49,7 @@ const pixiPlayers = new Map<number, PlayerEntry>();
 const healthBarTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const corpseList: { g: Container; timer: ReturnType<typeof setTimeout> }[] = [];
 
-const SHATTER_DURATION = 1400;
+const SHATTER_DURATION = playerConfig.shatterDuration;
 
 interface Particle {
     g: Graphics;
@@ -487,7 +488,7 @@ export function onPixiPlayerHitFlash(targetId: number) {
     const entry = pixiPlayers.get(targetId);
     if (!entry) return;
     entry.body.tint = HIT_COLOR;
-    entry.hitFlashMs = 150;
+    entry.hitFlashMs = playerConfig.hitFlashDuration;
 }
 
 export function onPixiPlayerKilled(targetId: number) {

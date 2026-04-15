@@ -1,9 +1,12 @@
-// @ts-nocheck
-import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation.ts';
-import { Arena } from '@maps/arena.ts';
-import { Shipment } from '@maps/shipment.ts';
-import { BASE_DEFAULTS } from '@config/defaults.ts';
-import { createDefaultWeapon } from '@simulation/combat/weapons.ts';
+import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation';
+import { Arena } from '@maps/arena';
+import { Shipment } from '@maps/shipment';
+import { BASE_DEFAULTS } from '@config/defaults';
+import { createDefaultWeapon } from '@simulation/combat/weapons';
+import { PlayerStatus } from '@simulation/player/playerData';
+import { isLineBlocked } from '@simulation/detection/rayGeometry';
+import { HALF_HIT_BOX } from '../src/constants';
+import type { GameEvent, PlayerInput } from '@simulation/events';
 
 const MAX_NAME_LENGTH = 24;
 const VALID_GRENADE_TYPES = ['FRAG', 'FLASH', 'SMOKE', 'C4'];
@@ -26,7 +29,7 @@ function clamp(v: number, min: number, max: number): number {
     return v < min ? min : v > max ? max : v;
 }
 
-function validatePlayerInput(msg: any, playerId: number): any | null {
+function validatePlayerInput(msg: Record<string, unknown>, playerId: number): PlayerInput | null {
     if (typeof msg !== 'object' || msg === null) return null;
     const type = msg.type;
     if (typeof type !== 'string' || !VALID_INPUT_TYPES.includes(type)) return null;
@@ -54,13 +57,13 @@ function validatePlayerInput(msg: any, playerId: number): any | null {
         case 'THROW_GRENADE':
             if (typeof msg.grenadeType !== 'string' || !VALID_GRENADE_TYPES.includes(msg.grenadeType)) return null;
             if (typeof msg.chargePercent !== 'number' || typeof msg.aimDx !== 'number' || typeof msg.aimDy !== 'number') return null;
-            return { type, playerId, grenadeType: msg.grenadeType, chargePercent: clamp(msg.chargePercent, 0, 1), aimDx: clamp(msg.aimDx, -1, 1), aimDy: clamp(msg.aimDy, -1, 1) };
+            return { type, playerId, grenadeType: msg.grenadeType as GrenadeType, chargePercent: clamp(msg.chargePercent, 0, 1), aimDx: clamp(msg.aimDx, -1, 1), aimDy: clamp(msg.aimDy, -1, 1) };
         case 'BUY_WEAPON':
             if (typeof msg.weaponType !== 'string' || msg.weaponType.length > 32) return null;
             return { type, playerId, weaponType: msg.weaponType };
         case 'BUY_GRENADE':
             if (typeof msg.grenadeType !== 'string' || !VALID_GRENADE_TYPES.includes(msg.grenadeType)) return null;
-            return { type, playerId, grenadeType: msg.grenadeType };
+            return { type, playerId, grenadeType: msg.grenadeType as GrenadeType };
         default:
             return null;
     }
@@ -93,7 +96,8 @@ export class GameRoom {
     private config = { ...BASE_DEFAULTS };
     private mapName = 'arena';
     private countdownTimer: ReturnType<typeof setInterval> | null = null;
-    private pendingEvents: any[] = [];
+    private pendingEvents: GameEvent[] = [];
+    private lastKnownPositions = new Map<string, { x: number; y: number; rotation: number }>();
 
     constructor(sim?: AuthoritativeSimulation) {
         this.sim = sim ?? new AuthoritativeSimulation();
@@ -120,6 +124,7 @@ export class GameRoom {
                 dead: true,
                 health: 0,
                 armour: 0,
+                status: PlayerStatus.DEAD,
                 current_position: { x: spawn.x, y: spawn.y, rotation: 0 },
                 weapons: [createDefaultWeapon()],
                 grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
@@ -202,11 +207,11 @@ export class GameRoom {
         this.broadcastLobbyState();
     }
 
-    onPlayerInput(conn: Connection, msg: any): void {
+    onPlayerInput(conn: Connection, msg: Record<string, unknown>): void {
         const player = this.players.get(conn.id);
         if (!player) return;
 
-        switch (msg?.t) {
+        switch (msg.t) {
             case 'ready':
                 if (this.phase === 'lobby') {
                     player.ready = !!msg.ready;
@@ -216,9 +221,12 @@ export class GameRoom {
 
             case 'move_player':
                 if (this.phase === 'lobby' && conn.id === this.hostConnId) {
-                    const target = this.findPlayerById(msg.playerId);
-                    if (target && (msg.team === 1 || msg.team === 2)) {
-                        target.team = msg.team;
+                    const playerId = msg.playerId;
+                    const team = msg.team;
+                    if (typeof playerId !== 'number' || typeof team !== 'number') break;
+                    const target = this.findPlayerById(playerId);
+                    if (target && (team === 1 || team === 2)) {
+                        target.team = team;
                         this.broadcastLobbyState();
                     }
                 }
@@ -226,12 +234,14 @@ export class GameRoom {
 
             case 'set_config':
                 if (this.phase === 'lobby' && conn.id === this.hostConnId && msg.config) {
-                    if (msg.config.match) {
-                        if (typeof msg.config.match.roundsToWin === 'number') {
-                            this.config.match.roundsToWin = Math.max(1, Math.min(30, msg.config.match.roundsToWin));
+                    const config = msg.config as Record<string, unknown>;
+                    const match = config.match as Record<string, unknown> | undefined;
+                    if (match) {
+                        if (typeof match.roundsToWin === 'number') {
+                            this.config.match.roundsToWin = Math.max(1, Math.min(30, match.roundsToWin));
                         }
-                        if (typeof msg.config.match.roundDuration === 'number') {
-                            this.config.match.roundDuration = Math.max(20000, Math.min(1200000, msg.config.match.roundDuration));
+                        if (typeof match.roundDuration === 'number') {
+                            this.config.match.roundDuration = Math.max(20000, Math.min(1200000, match.roundDuration));
                         }
                     }
                     this.broadcastLobbyState();
@@ -239,10 +249,12 @@ export class GameRoom {
                 break;
 
             case 'set_map':
-                if (this.phase === 'lobby' && conn.id === this.hostConnId && msg.mapName) {
+                if (this.phase === 'lobby' && conn.id === this.hostConnId) {
+                    const mapName = msg.mapName;
+                    if (typeof mapName !== 'string') break;
                     const valid = ['arena', 'shipment'];
-                    if (valid.includes(msg.mapName)) {
-                        this.mapName = msg.mapName;
+                    if (valid.includes(mapName)) {
+                        this.mapName = mapName;
                         this.broadcastLobbyState();
                     }
                 }
@@ -267,6 +279,13 @@ export class GameRoom {
         const p = this.players.get(conn.id);
         this.players.delete(conn.id);
         if (!p) return;
+
+        // Clean up last-known position entries for the departing player
+        for (const key of this.lastKnownPositions.keys()) {
+            if (key.startsWith(`${p.id}-`) || key.endsWith(`-${p.id}`)) {
+                this.lastKnownPositions.delete(key);
+            }
+        }
 
         this.broadcast({ v: 1, t: 'player_left', playerId: p.id });
 
@@ -309,33 +328,7 @@ export class GameRoom {
 
         if (this.tickId - this.lastSnapshotTick >= 3) {
             this.lastSnapshotTick = this.tickId;
-            this.broadcast({
-                v: 1,
-                t: 'snapshot',
-                tick: this.tickId,
-                players: this.sim
-                    .getPlayers()
-                    .map((p) => {
-                        const state = this.sim.getPlayerState(p.id);
-                        return {
-                            id: p.id,
-                            name: p.name,
-                            team: p.team,
-                            x: p.current_position.x,
-                            y: p.current_position.y,
-                            rotation: p.current_position.rotation,
-                            health: p.health,
-                            armour: p.armour,
-                            dead: p.dead,
-                            money: state?.money ?? 0,
-                            weapons: p.weapons,
-                            grenades: p.grenades,
-                        };
-                    }),
-                projectiles: this.sim.simulation.getProjectiles(),
-                grenades: this.sim.simulation.getGrenades(),
-                timeRemaining: this.sim.getMatchTimeRemaining(),
-            });
+            this.sendFilteredSnapshots();
         }
     }
 
@@ -380,6 +373,7 @@ export class GameRoom {
                 dead: false,
                 health: this.config.player.maxHealth,
                 armour: this.config.player.startingArmor,
+                status: PlayerStatus.IDLE,
                 current_position: { x: spawn.x, y: spawn.y, rotation: 0 },
                 weapons: [createDefaultWeapon()],
                 grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
@@ -403,6 +397,7 @@ export class GameRoom {
         );
         this.sim.setPlayers(simPlayers);
         this.sim.initMatch(simPlayers.map((p) => p.id));
+        this.lastKnownPositions.clear();
 
         const events = this.sim.startRound();
         console.log('[SERVER] startRound produced', events.length, 'events:', events.map(e => e.type));
@@ -411,8 +406,10 @@ export class GameRoom {
         }
     }
 
-    private processGameInput(conn: Connection, player: RoomPlayer, msg: any): void {
-        const authoritativeInput = validatePlayerInput(msg.input, player.id);
+    private processGameInput(conn: Connection, player: RoomPlayer, msg: Record<string, unknown>): void {
+        const input = msg.input;
+        if (typeof input !== 'object' || input === null) return;
+        const authoritativeInput = validatePlayerInput(input as Record<string, unknown>, player.id);
         if (!authoritativeInput) return;
 
         const events = this.sim.processInput(authoritativeInput, Date.now());
@@ -423,7 +420,8 @@ export class GameRoom {
         if (authoritativeInput.type === 'MOVE') {
             const local = this.sim.getPlayers().find((p) => p.id === player.id);
             if (local) {
-                conn.send(JSON.stringify({ v: 1, t: 'input_ack', seq: msg.seq, x: local.current_position.x, y: local.current_position.y }));
+                const seq = typeof msg.seq === 'number' ? msg.seq : 0;
+                conn.send(JSON.stringify({ v: 1, t: 'input_ack', seq, x: local.current_position.x, y: local.current_position.y }));
             }
         }
     }
@@ -454,6 +452,125 @@ export class GameRoom {
             if (p.id === id) return p;
         }
         return undefined;
+    }
+
+    private sendFilteredSnapshots(): void {
+        const allPlayers = this.sim.getPlayers();
+        const segments = this.sim.getSegments();
+        const allProjectiles = this.sim.simulation.getProjectiles();
+        const allGrenades = this.sim.simulation.getGrenades();
+        const timeRemaining = this.sim.getMatchTimeRemaining();
+
+        // Build player_info lookup by id
+        const playerById = new Map<number, player_info>();
+        for (const p of allPlayers) playerById.set(p.id, p);
+
+        // Pre-compute full snapshots
+        const fullSnapshots = allPlayers.map((p) => {
+            const state = this.sim.getPlayerState(p.id);
+            return {
+                id: p.id,
+                name: p.name,
+                team: p.team,
+                x: p.current_position.x,
+                y: p.current_position.y,
+                rotation: p.current_position.rotation,
+                health: p.health,
+                armour: p.armour,
+                dead: p.dead,
+                money: state?.money ?? 0,
+                weapons: p.weapons,
+                grenades: p.grenades,
+            };
+        });
+
+        for (const receiver of this.players.values()) {
+            const observer = playerById.get(receiver.id);
+            if (!observer) continue;
+
+            const filteredPlayers = fullSnapshots.map(snapshot => {
+                // Self: always full data
+                if (snapshot.id === receiver.id) return snapshot;
+
+                const target = playerById.get(snapshot.id);
+                if (!target) return snapshot;
+
+                // Same team: always full data
+                if (target.team === observer.team) return snapshot;
+
+                // Dead targets: always visible (no competitive info to leak)
+                if (snapshot.dead) return snapshot;
+
+                // Dead observers: full data (spectating)
+                if (observer.dead) return snapshot;
+
+                const key = `${observer.id}-${target.id}`;
+                const canSee = this.canPlayerSee(observer, target);
+
+                if (canSee) {
+                    this.lastKnownPositions.set(key, {
+                        x: snapshot.x,
+                        y: snapshot.y,
+                        rotation: snapshot.rotation,
+                    });
+                    return snapshot;
+                }
+
+                // Not visible: send last-known position, strip sensitive data
+                const lastKnown = this.lastKnownPositions.get(key);
+                return {
+                    id: snapshot.id,
+                    name: snapshot.name,
+                    team: snapshot.team,
+                    x: lastKnown?.x ?? snapshot.x,
+                    y: lastKnown?.y ?? snapshot.y,
+                    rotation: lastKnown?.rotation ?? snapshot.rotation,
+                    health: 0,
+                    armour: 0,
+                    dead: false,
+                    money: 0,
+                    weapons: [] as PlayerWeapon[],
+                    grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 } as Record<GrenadeType, number>,
+                    hidden: true,
+                };
+            });
+
+            // Filter projectiles: include if owned by same team or within LOS
+            const ox = observer.current_position.x + HALF_HIT_BOX;
+            const oy = observer.current_position.y + HALF_HIT_BOX;
+
+            const filteredProjectiles = observer.dead ? allProjectiles : allProjectiles.filter(proj => {
+                const owner = playerById.get(proj.ownerId);
+                if (owner && owner.team === observer.team) return true;
+                return !isLineBlocked(ox, oy, proj.x, proj.y, segments);
+            });
+
+            const filteredGrenades = observer.dead ? allGrenades : allGrenades.filter(g => {
+                const owner = playerById.get(g.ownerId);
+                if (owner && owner.team === observer.team) return true;
+                return !isLineBlocked(ox, oy, g.x, g.y, segments);
+            });
+
+            receiver.conn.send(JSON.stringify({
+                v: 1,
+                t: 'snapshot',
+                tick: this.tickId,
+                players: filteredPlayers,
+                projectiles: filteredProjectiles,
+                grenades: filteredGrenades,
+                timeRemaining,
+            }));
+        }
+    }
+
+    private canPlayerSee(observer: player_info, target: player_info): boolean {
+        if (observer.dead) return false;
+        const segments = this.sim.getSegments();
+        const ox = observer.current_position.x + HALF_HIT_BOX;
+        const oy = observer.current_position.y + HALF_HIT_BOX;
+        const tx = target.current_position.x + HALF_HIT_BOX;
+        const ty = target.current_position.y + HALF_HIT_BOX;
+        return !isLineBlocked(ox, oy, tx, ty, segments);
     }
 
     private broadcast(payload: unknown): void {

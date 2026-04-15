@@ -615,6 +615,16 @@ class WebSocketAdapter implements NetAdapter {
                 continue;
             }
 
+            // Hidden players: only update interpolation target for last-known rendering
+            if (snapshot.hidden) {
+                this._interpTargets.set(snapshot.id, {
+                    x: snapshot.x,
+                    y: snapshot.y,
+                    rotation: snapshot.rotation,
+                });
+                continue;
+            }
+
             // Remote players: interpolate position, snap other state
             this._interpTargets.set(snapshot.id, {
                 x: snapshot.x,

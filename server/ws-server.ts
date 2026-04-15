@@ -1,5 +1,5 @@
 import { WebSocketServer } from 'ws';
-import { GameRoom, sanitizeName } from './gameRoom.ts';
+import { GameRoom, sanitizeName } from './gameRoom';
 
 const MAX_MESSAGE_BYTES = 2048;
 const RATE_LIMIT_WINDOW_MS = 1000;

@@ -1,22 +1,24 @@
-// @ts-nocheck
-import { GameRoom, sanitizeName } from './gameRoom.ts';
+import { GameRoom, sanitizeName } from './gameRoom';
 
 const MAX_MESSAGE_BYTES = 2048;
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX_MESSAGES = 120;
 
+type RateState = { count: number; resetAt: number };
+type Connection = { id: string; send(msg: string): void; close(): void };
+
 export class GameRoomDO {
+    room: GameRoom;
+    sessions: Map<CFWebSocket, Connection>;
+    rateLimits: Map<CFWebSocket, RateState>;
+
     constructor(_state: unknown, _env: unknown) {
         this.room = new GameRoom();
         this.sessions = new Map();
         this.rateLimits = new Map();
     }
 
-    room;
-    sessions;
-    rateLimits;
-
-    _isRateLimited(server) {
+    _isRateLimited(server: CFWebSocket): boolean {
         const now = Date.now();
         let state = this.rateLimits.get(server);
         if (!state || now >= state.resetAt) {
@@ -28,15 +30,15 @@ export class GameRoomDO {
         return state.count > RATE_LIMIT_MAX_MESSAGES;
     }
 
-    async fetch(request) {
+    async fetch(_request: Request): Promise<Response> {
         const pair = new WebSocketPair();
         const client = pair[0];
         const server = pair[1];
         server.accept();
 
-        const conn = {
+        const conn: Connection = {
             id: crypto.randomUUID(),
-            send: (msg) => server.send(msg),
+            send: (msg: string) => server.send(msg),
             close: () => server.close(),
         };
 
@@ -71,12 +73,12 @@ export class GameRoomDO {
             this.rateLimits.delete(server);
         });
 
-        return new Response(null, { status: 101, webSocket: client });
+        return new Response(null, { status: 101, webSocket: client } as ResponseInit);
     }
 }
 
 export default {
-    async fetch(request, env) {
+    async fetch(request: Request, env: CFEnv): Promise<Response> {
         const url = new URL(request.url);
         const parts = url.pathname.split('/').filter(Boolean);
         const roomId = parts[0] === 'room' && parts[1] ? parts[1] : 'default';
