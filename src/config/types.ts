@@ -17,7 +17,7 @@ export type DeepPartial<T> = {
  * a mode is applied via {@link setGameMode}.
  */
 export interface GameModeConfig {
-    gameplay: any;
+    gameplay: { disableLowHealthEffects: boolean };
     id: string;
     name: string;
 

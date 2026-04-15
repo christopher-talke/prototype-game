@@ -431,7 +431,7 @@ class WebSocketAdapter implements NetAdapter {
                 this.connected = true;
                 this.localPlayerId = msg.playerId;
                 setLocalPlayerId(msg.playerId);
-                if ((msg as any).phase === 'playing' && msg.players.length > 0) {
+                if (msg.phase === 'playing' && msg.players.length > 0) {
                     this._lateJoinPlayers = msg.players;
                     this._matchActive = true;
                     this._roundActive = true;
@@ -443,7 +443,6 @@ class WebSocketAdapter implements NetAdapter {
                 }
                 break;
             case 'events':
-                console.log('[CLIENT] events received:', msg.events.length, msg.events.map((e: any) => e.type));
                 this.eventHandler(msg.events);
                 break;
             case 'input_ack':

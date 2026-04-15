@@ -6,7 +6,7 @@ Five strict layers.
 
 ```
 simulation/    --> may NOT import from rendering/, ui/, or orchestration/
-rendering/     --> may import from simulation/ and net/GameEvent.ts, may NOT mutate simulation state
+rendering/     --> may import from simulation/ and net/gameEvent.ts, may NOT mutate simulation state
 net/           --> may import from simulation/, may NOT import from rendering/
 orchestration/ --> may import from everything (simulation, rendering, net, ui, ai)
 ui/            --> may import from anything except simulation internals
@@ -163,6 +163,6 @@ Eight boolean toggles in `GraphicsConfig.features` guard expensive rendering pat
 - **Game mode**: add an entry to the mode registry in `config/modes/`.
     - The menu reads it automatically.
 - **Map**: add a file in `maps/` and register it in the map helper.
-- **Game event**: define the type in `net/gameEvent.ts`, emit from `AuthoritativeSimulation` (offline) and `WebSocketAdapter.eventHandler` (online), handle in both `ClientRenderer` classes.
+- **Game event**: define the type in `src/simulation/events.ts`, emit from `AuthoritativeSimulation` (offline) and `WebSocketAdapter.eventHandler` (online), handle in both `ClientRenderer` classes. The `net/gameEvent.ts` module re-exports all types and owns the `EventBus` runtime.
 - **HUD element**: add to `rendering/dom/hud.ts` or the relevant rendering sub-system.
 - **Sound**: add to `audio/soundMap.ts`.
