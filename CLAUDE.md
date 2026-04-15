@@ -74,3 +74,12 @@
   - `particlePool.ts`: `aliveIndices` array enables `updateBank` to skip dead slots instead of scanning full capacity.
   - `webSocketAdapter.ts`: Interpolation skipped for stationary remote players (delta < 0.1px threshold).
   - `graphicsConfig.ts`: New `features.dynamicLighting` toggle; LOW preset disables per-frame lighting updates.
+- **Architecture Audit & Security Hardening**:
+  - Server input validation: `validatePlayerInput()` in `gameRoom.ts` type-checks and clamps all `PlayerInput` fields per input type. Movement dx/dy clamped to [-1,1], chargePercent to [0,1], grenade/weapon types whitelisted. Eliminates raw client data spreading.
+  - Rate limiting: per-connection message throttle (120 msgs/sec) with auto-disconnect. `maxPayload` set on WebSocketServer.
+  - Name sanitization: `sanitizeName()` strips control/zero-width chars, caps at 24 chars. Applied in both ws-server and CF worker.
+  - Layer isolation: `simulation/events.ts` now owns all `GameEvent`/`PlayerInput` type definitions. `net/gameEvent.ts` re-exports them plus the `EventBus` runtime. Simulation no longer imports from net.
+  - Rendering no longer imports from orchestration. Grenade charge state and selected type threaded as parameters from `gameLoop` through `renderPipeline` to aim line renderers and HUD.
+  - `renderPipeline.ts` no longer calls `getActiveWeapon`/`getWeaponDef` directly; camera offset computed in the game loop and passed as a parameter.
+  - Fixed duplicate code blocks in `renderPipeline.ts` (raycast and lighting sections were copy-pasted).
+  - Fixed host reassignment bug in `gameRoom.ts` on player leave.
