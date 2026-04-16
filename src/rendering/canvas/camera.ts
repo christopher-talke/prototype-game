@@ -30,6 +30,12 @@ let shakeStartTime = 0;
 let shakeX = 0;
 let shakeY = 0;
 
+// -- Zoom --
+const ZOOM_HOLD_LEVEL = 1.6;
+const ZOOM_LERP = 0.12;
+let zoomTarget = 1.0;
+let zoomScale = 1.0;
+
 /**
  * Set the world-space position the camera should follow.
  * @param x - Target X in world pixels.
@@ -66,8 +72,15 @@ export function updatePixiCamera(viewportWidth: number, viewportHeight: number) 
     currentOffsetX += (targetOffsetX - currentOffsetX) * cameraConfig.lerpFactor;
     currentOffsetY += (targetOffsetY - currentOffsetY) * cameraConfig.lerpFactor;
 
-    cameraX = targetX + currentOffsetX - viewportWidth / 2;
-    cameraY = targetY + currentOffsetY - viewportHeight / 2;
+    // Smooth zoom transition
+    zoomScale += (zoomTarget - zoomScale) * ZOOM_LERP;
+
+    // Effective viewport in world space shrinks when zoomed in
+    const effectiveW = viewportWidth / zoomScale;
+    const effectiveH = viewportHeight / zoomScale;
+
+    cameraX = targetX + currentOffsetX - effectiveW / 2;
+    cameraY = targetY + currentOffsetY - effectiveH / 2;
 
     const elapsed = performance.now() - shakeStartTime;
     if (elapsed < shakeDuration) {
@@ -83,8 +96,9 @@ export function updatePixiCamera(viewportWidth: number, viewportHeight: number) 
         shakeY = 0;
     }
 
-    worldContainer.x = Math.round(-cameraX + shakeX);
-    worldContainer.y = Math.round(-cameraY + shakeY);
+    worldContainer.scale.set(zoomScale);
+    worldContainer.x = Math.round((-cameraX + shakeX) * zoomScale);
+    worldContainer.y = Math.round((-cameraY + shakeY) * zoomScale);
 }
 
 /**
@@ -130,8 +144,8 @@ export function getPixiCameraOffset(): { x: number; y: number } {
  * @param sy - Screen Y.
  */
 export function pixiScreenToWorld(sx: number, sy: number): { x: number; y: number } {
-    _screenToWorld.x = sx + cameraX;
-    _screenToWorld.y = sy + cameraY;
+    _screenToWorld.x = sx / zoomScale + cameraX;
+    _screenToWorld.y = sy / zoomScale + cameraY;
     return _screenToWorld;
 }
 
@@ -142,7 +156,17 @@ export function pixiScreenToWorld(sx: number, sy: number): { x: number; y: numbe
  * @param wy - World Y.
  */
 export function pixiWorldToScreen(wx: number, wy: number): { x: number; y: number } {
-    _worldToScreen.x = wx - cameraX;
-    _worldToScreen.y = wy - cameraY;
+    _worldToScreen.x = (wx - cameraX) * zoomScale;
+    _worldToScreen.y = (wy - cameraY) * zoomScale;
     return _worldToScreen;
+}
+
+/** Hold-to-zoom: true zooms in, false returns to 1x. */
+export function setZoomHold(active: boolean) {
+    zoomTarget = active ? ZOOM_HOLD_LEVEL : 1.0;
+}
+
+/** Current zoom level. */
+export function getZoomScale(): number {
+    return zoomScale;
 }

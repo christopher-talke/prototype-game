@@ -19,6 +19,7 @@ import { isPlayerDead } from '@simulation/combat/damage';
 import { setMouseWorldPosition, getMouseWorldPosition } from '@utils/mouseWorldPosition';
 import { getConfig } from '@config/activeConfig';
 import { screenToWorld } from '@rendering/coordConvert';
+import { setZoomHold } from '@rendering/canvas/camera';
 
 let isFiring = false;
 
@@ -140,6 +141,8 @@ export function initInputController() {
 
         if (menuOpen) return;
 
+        if (e.key === 'z' || e.key === 'Z') setZoomHold(true);
+
         if (action === 'moveUp' && HELD_DIRECTIONS.indexOf(directions.up) === -1) HELD_DIRECTIONS.unshift(directions.up);
         if (action === 'moveDown' && HELD_DIRECTIONS.indexOf(directions.down) === -1) HELD_DIRECTIONS.unshift(directions.down);
         if (action === 'moveLeft' && HELD_DIRECTIONS.indexOf(directions.left) === -1) HELD_DIRECTIONS.unshift(directions.left);
@@ -190,6 +193,8 @@ export function initInputController() {
     });
 
     window.addEventListener('keyup', (e) => {
+        if (e.key === 'z' || e.key === 'Z') setZoomHold(false);
+
         const action = getActionForKey(e.key);
 
         if (action === 'moveUp') { const i = HELD_DIRECTIONS.indexOf(directions.up); if (i > -1) HELD_DIRECTIONS.splice(i, 1); }

@@ -27,6 +27,7 @@
 - No docstrings or type annotations on code not being changed.
 - No error handling for scenarios that cannot happen.
 - Three similar lines is better than a premature abstraction.
+- No section divider comments (`// ── Section ────`, `// === Section ===`, etc.). Organize code logically without visual separators. Use JSDoc `/** */` on exported functions and a file-level JSDoc comment explaining purpose and architectural layer.
 
 ## Review Rules
 
@@ -83,3 +84,4 @@
   - `renderPipeline.ts` no longer calls `getActiveWeapon`/`getWeaponDef` directly; camera offset computed in the game loop and passed as a parameter.
   - Fixed duplicate code blocks in `renderPipeline.ts` (raycast and lighting sections were copy-pasted).
   - Fixed host reassignment bug in `gameRoom.ts` on player leave.
+- **Diegetic HUD (PixiJS)**: In-world HUD replacing screen-fixed HP/ammo/money/grenade elements. New `src/rendering/diegeticHud/` module with renderer-agnostic state (`diegeticHudState.ts`), config (`diegeticHudConfig.ts`), and PixiJS renderer (`pixiDiegeticHud.ts`). Health/armor arcs orbit opposite the facing direction. Tethered info boxes (ammo, money, grenade) use spring physics, collision avoidance, and auto-fade. New `diegeticHudLayer` in scene graph above `lightingLayer`. Old screen-fixed elements hidden via CSS `.renderer-pixi` class. DOM renderer deferred (old HUD still works in DOM mode). Event-driven reload tracking via `RELOAD_START`/`RELOAD_COMPLETE`. Money/grenade boxes triggered by `PLAYER_STATUS_CHANGED`.

@@ -16,6 +16,8 @@ import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
 import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextures';
 import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 import { getActiveMapId } from '@maps/helpers';
+import { destroyPixiDiegeticHud } from '@rendering/diegeticHud/pixiDiegeticHud';
+import { resetDiegeticHud } from '@rendering/diegeticHud/diegeticHudState';
 
 /**
  * Tears down both renderers and rebuilds the target renderer from current game state.
@@ -26,6 +28,8 @@ import { getActiveMapId } from '@maps/helpers';
 export function switchRenderer(newType: RendererType) {
     if (SETTINGS.renderer === newType) return;
 
+    destroyPixiDiegeticHud();
+    resetDiegeticHud();
     pixiClientRenderer.teardownVisuals();
     clearPixiWalls();
     clearSmokeEffects();

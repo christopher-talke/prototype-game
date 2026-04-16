@@ -765,3 +765,12 @@
 #hud-leaderboard tbody tr.lb-team-3 td:nth-child(2) {
     color: #ffa502;
 }
+
+/* Hide screen-fixed HUD elements replaced by the diegetic (in-world) HUD
+   when the PixiJS renderer is active. DOM renderer keeps them visible. */
+.renderer-pixi #hud-status,
+.renderer-pixi #hud-ammo,
+.renderer-pixi #hud-money,
+.renderer-pixi #hud-grenades {
+    display: none !important;
+}

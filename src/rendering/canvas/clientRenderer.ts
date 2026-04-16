@@ -12,7 +12,7 @@ import { Graphics as PixiGraphics, Text, Ticker } from 'pixi.js';
 import { SETTINGS } from '../../app';
 import { HALF_HIT_BOX } from '../../constants';
 import { gameEventBus, type GameEvent } from '@net/gameEvent';
-import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent, FlashEffectEvent } from '@net/gameEvent';
+import type { PlayerDamagedEvent, PlayerKilledEvent, PlayerRespawnEvent, BulletHitEvent, BulletSpawnEvent, BulletRemovedEvent, GrenadeSpawnEvent, GrenadeDetonateEvent, GrenadeRemovedEvent, SmokeDeployEvent, PlayerStatusChangedEvent, FlashEffectEvent, ReloadStartEvent } from '@net/gameEvent';
 import { ACTIVE_PLAYER } from '@simulation/player/playerRegistry';
 import { getPlayerInfo } from '@simulation/player/playerRegistry';
 import { clearPlayerElements } from '@rendering/playerElements';
@@ -41,6 +41,9 @@ import { spawnFragExplosion, clearFragEffects } from './effects/fragEffect';
 import { spawnC4Explosion, clearC4Effects } from './effects/c4Effect';
 import { triggerFlashEffect, clearFlashEffect } from './effects/flashEffect';
 import { spawnSmokeCloud, clearSmokeEffects, trackBulletDirection, removeBulletDirection } from './effects/smokeEffect';
+import { setReloadStart, clearReload, resetDiegeticHud, showMoneyBox, showGrenadeBox } from '@rendering/diegeticHud/diegeticHudState';
+import { getWeaponDef } from '@simulation/combat/weapons';
+import { getActiveWeapon } from '@simulation/combat/shooting';
 
 /** A floating damage number animating upward from a hit location. */
 type DamageNumber = { text: Text; elapsed: number };
@@ -171,6 +174,8 @@ class PixiClientRendererImpl {
             case 'SMOKE_DEPLOY': this.onSmokeDeploy(event); break;
             case 'FLASH_EFFECT': this.onFlashEffect(event); break;
             case 'PLAYER_STATUS_CHANGED': this.onPlayerStatusChanged(event); break;
+            case 'RELOAD_START': this.onReloadStart(event); break;
+            case 'RELOAD_COMPLETE': this.onReloadComplete(event); break;
             case 'ROUND_START': this.onRoundStart(); break;
         }
     }
@@ -184,6 +189,7 @@ class PixiClientRendererImpl {
     }
 
     private onPlayerRespawn(event: PlayerRespawnEvent) {
+        if (event.playerId === ACTIVE_PLAYER) resetDiegeticHud();
         onPixiPlayerRespawn(event.playerId, event.x, event.y, event.rotation);
     }
 
@@ -268,6 +274,20 @@ class PixiClientRendererImpl {
      * @param event - The PLAYER_STATUS_CHANGED event from the simulation
      */
     private onPlayerStatusChanged(event: PlayerStatusChangedEvent) {
+        // Trigger diegetic HUD box visibility for the local player
+        if (event.playerId === ACTIVE_PLAYER) {
+            if (event.status === PlayerStatus.BUYING) showMoneyBox();
+
+            if (
+                event.status === PlayerStatus.THROWING_FRAG ||
+                event.status === PlayerStatus.THROWING_FLASH ||
+                event.status === PlayerStatus.THROWING_SMOKE ||
+                event.status === PlayerStatus.PLACING_C4
+            ) {
+                showGrenadeBox();
+            }
+        }
+
         this.removeStatusLabel(event.playerId);
         const displayText = PixiClientRendererImpl.STATUS_DISPLAY[event.status];
         if (!displayText) return;
@@ -373,7 +393,23 @@ class PixiClientRendererImpl {
         onPixiGrenadeRemoved(event.grenadeId);
     }
 
+    private onReloadStart(event: ReloadStartEvent) {
+        if (event.playerId !== ACTIVE_PLAYER) return;
+        const player = getPlayerInfo(event.playerId);
+        if (!player) return;
+        const weapon = getActiveWeapon(player);
+        if (!weapon) return;
+        const weaponDef = getWeaponDef(weapon.type);
+        setReloadStart(weaponDef.reloadTime, performance.now());
+    }
+
+    private onReloadComplete(event: { playerId: number }) {
+        if (event.playerId !== ACTIVE_PLAYER) return;
+        clearReload();
+    }
+
     private onRoundStart() {
+        resetDiegeticHud();
         onPixiRoundStart();
         this.detonatedGrenades.clear();
         for (const [id] of this.statusLabels) this.removeStatusLabel(id);

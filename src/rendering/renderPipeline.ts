@@ -23,6 +23,12 @@ import { updateGridTextures } from '@rendering/canvas/gridTextures';
 import { updateSmokeParticles } from '@rendering/canvas/effects/smokeEffect';
 import { updateGloss } from '@rendering/canvas/effects/glossEffect';
 import { getGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
+import { getPixiCameraOffset, getZoomScale } from '@rendering/canvas/camera';
+import { tickDiegeticHud, type DiegeticHudInput } from '@rendering/diegeticHud/diegeticHudState';
+import { updatePixiDiegeticHud, initPixiDiegeticHud } from '@rendering/diegeticHud/pixiDiegeticHud';
+import { getActiveWeapon } from '@simulation/combat/shooting';
+import { PlayerStatus } from '@simulation/player/playerData';
+import { HALF_HIT_BOX } from '../constants';
 
 let _cachedFogEl: HTMLElement | null = null;
 
@@ -137,4 +143,39 @@ export function updateRenderPipeline(
     }
 
     updateHUD(player, adapter.getMatchTimeRemaining(), selectedGrenadeType);
+
+    // -- Diegetic HUD (in-world health arc + info boxes) --
+    if (SETTINGS.renderer === 'pixi') {
+        initPixiDiegeticHud();
+        const weapon = getActiveWeapon(player);
+        const cam = getPixiCameraOffset();
+        const state = adapter.getPlayerState(player.id);
+
+        const zoom = getZoomScale();
+        const diegeticInput: DiegeticHudInput = {
+            playerX: player.current_position.x + HALF_HIT_BOX,
+            playerY: player.current_position.y + HALF_HIT_BOX,
+            facingRad,
+            health: player.health,
+            armour: player.armour,
+            ammo: weapon?.ammo ?? 0,
+            maxAmmo: weapon?.maxAmmo ?? 0,
+            isReloading: weapon?.reloading ?? false,
+            weaponType: weapon?.type ?? '',
+            money: state?.money ?? 0,
+            grenades: player.grenades,
+            selectedGrenadeType,
+            viewportW: vpWidth / zoom,
+            viewportH: vpHeight / zoom,
+            cameraX: cam.x,
+            cameraY: cam.y,
+            timestamp,
+            isDead: player.dead,
+            isBuying: player.status === PlayerStatus.BUYING,
+            isZoomed: zoom > 1.01,
+        };
+
+        const hudOutput = tickDiegeticHud(diegeticInput);
+        updatePixiDiegeticHud(hudOutput);
+    }
 }

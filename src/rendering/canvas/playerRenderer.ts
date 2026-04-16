@@ -528,7 +528,10 @@ export function onPixiPlayerDamaged(targetId: number, health: number, armour: nu
         redrawArmorBar(entry.armorBar, armour);
         entry.lastArmour = armour;
     }
-    showHealthBarTemporarily(targetId);
+    // Skip overhead bar flash for local player -- diegetic arc handles it
+    if (targetId !== ACTIVE_PLAYER) {
+        showHealthBarTemporarily(targetId);
+    }
 }
 
 function showHealthBarTemporarily(playerId: number) {

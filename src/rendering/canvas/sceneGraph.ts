@@ -26,6 +26,7 @@
  *   lightingLayer        - GPU lightmap sprite with blendMode:'multiply'
  *
  * ABOVE LIGHTING (always visible regardless of FOV):
+ *   diegeticHudLayer     - local player's in-world HUD (health arc, info boxes)
  *   sparkLayer           - emissive sparks, hot debris (additive blend)
  *   explosionFxLayer     - shockwave rings, wall sparks
  *   smokeParticleLayer   - volumetric smoke with per-particle CPU lighting
@@ -70,6 +71,7 @@ export let smokeParticleLayer: Container;
 export let flashLayer: Container;
 export let postFxLayer: Container;
 export let damageNumberLayer: Container;
+export let diegeticHudLayer: Container;
 export let fogOfWarLayer: Container;
 
 /**
@@ -112,6 +114,7 @@ export function createSceneGraph(stage: Container) {
 
     lightingLayer = addLayer('lightingLayer');
 
+    diegeticHudLayer = addLayer('diegeticHudLayer');
     sparkLayer = addLayer('sparkLayer');
     explosionFxLayer = addLayer('explosionFxLayer');
     smokeParticleLayer = addLayer('smokeParticleLayer');
