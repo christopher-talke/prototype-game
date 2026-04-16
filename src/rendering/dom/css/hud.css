@@ -767,10 +767,14 @@
 }
 
 /* Hide screen-fixed HUD elements replaced by the diegetic (in-world) HUD
-   when the PixiJS renderer is active. DOM renderer keeps them visible. */
+   when either renderer is active with the diegetic HUD. */
 .renderer-pixi #hud-status,
 .renderer-pixi #hud-ammo,
 .renderer-pixi #hud-money,
-.renderer-pixi #hud-grenades {
+.renderer-pixi #hud-grenades,
+.renderer-dom #hud-status,
+.renderer-dom #hud-ammo,
+.renderer-dom #hud-money,
+.renderer-dom #hud-grenades {
     display: none !important;
 }

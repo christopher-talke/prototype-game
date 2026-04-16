@@ -26,6 +26,8 @@ import { getGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
 import { getPixiCameraOffset, getZoomScale } from '@rendering/canvas/camera';
 import { tickDiegeticHud, type DiegeticHudInput } from '@rendering/diegeticHud/diegeticHudState';
 import { updatePixiDiegeticHud, initPixiDiegeticHud } from '@rendering/diegeticHud/pixiDiegeticHud';
+import { initDomDiegeticHud, updateDomDiegeticHud } from '@rendering/diegeticHud/domDiegeticHud';
+import { getDomCameraOffset } from '@rendering/dom/camera';
 import { getActiveWeapon } from '@simulation/combat/shooting';
 import { PlayerStatus } from '@simulation/player/playerData';
 import { HALF_HIT_BOX } from '../constants';
@@ -177,5 +179,38 @@ export function updateRenderPipeline(
 
         const hudOutput = tickDiegeticHud(diegeticInput);
         updatePixiDiegeticHud(hudOutput);
+    }
+
+    else {
+        initDomDiegeticHud();
+        const weapon = getActiveWeapon(player);
+        const cam = getDomCameraOffset();
+        const state = adapter.getPlayerState(player.id);
+
+        const diegeticInput: DiegeticHudInput = {
+            playerX: player.current_position.x + HALF_HIT_BOX,
+            playerY: player.current_position.y + HALF_HIT_BOX,
+            facingRad,
+            health: player.health,
+            armour: player.armour,
+            ammo: weapon?.ammo ?? 0,
+            maxAmmo: weapon?.maxAmmo ?? 0,
+            isReloading: weapon?.reloading ?? false,
+            weaponType: weapon?.type ?? '',
+            money: state?.money ?? 0,
+            grenades: player.grenades,
+            selectedGrenadeType,
+            viewportW: vpWidth,
+            viewportH: vpHeight,
+            cameraX: cam.x,
+            cameraY: cam.y,
+            timestamp,
+            isDead: player.dead,
+            isBuying: player.status === PlayerStatus.BUYING,
+            isZoomed: false,
+        };
+
+        const hudOutput = tickDiegeticHud(diegeticInput);
+        updateDomDiegeticHud(hudOutput);
     }
 }

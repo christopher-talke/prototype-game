@@ -73,3 +73,15 @@ export function worldToScreen(worldX: number, worldY: number): { x: number; y: n
         y: worldY + MAP_OFFSET - lastScrollY,
     };
 }
+
+/**
+ * Return the current DOM camera offset (world-space top-left of the viewport).
+ * Semantics match `getPixiCameraOffset()` from the canvas camera.
+ * The returned object is freshly allocated each call.
+ */
+export function getDomCameraOffset(): { x: number; y: number } {
+    return {
+        x: (lastScrollX || 0) - MAP_OFFSET,
+        y: (lastScrollY || 0) - MAP_OFFSET,
+    };
+}

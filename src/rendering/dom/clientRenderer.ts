@@ -29,6 +29,7 @@ import { showHitMarker, spawnDamageNumber, showDamageIndicator, addKillFeedEntry
 import { spawnSmokeCloud } from '@rendering/dom/smokeRenderer';
 import { getConfig } from '@config/activeConfig';
 import { cssTransform } from '@rendering/dom/cssTransform';
+import { setReloadStart, clearReload, resetDiegeticHud, showMoneyBox, showGrenadeBox } from '@rendering/diegeticHud/diegeticHudState';
 
 /**
  * Singleton DOM renderer that subscribes to gameEventBus and translates
@@ -222,6 +223,9 @@ class ClientRendererImpl {
             case 'RELOAD_START':
                 this.onReloadStart(event);
                 break;
+            case 'RELOAD_COMPLETE':
+                this.onReloadComplete(event);
+                break;
             case 'PLAYER_STATUS_CHANGED':
                 this.onPlayerStatusChanged(event);
                 break;
@@ -408,6 +412,16 @@ class ClientRendererImpl {
         if (weapon) {
             playSoundAtPlayer(getWeaponReloadSoundId(weapon.type), player);
         }
+
+        if (event.playerId === ACTIVE_PLAYER && weapon) {
+            const weaponDef = getWeaponDef(weapon.type);
+            setReloadStart(weaponDef.reloadTime, performance.now());
+        }
+    }
+
+    private onReloadComplete(event: { playerId: number }) {
+        if (event.playerId !== ACTIVE_PLAYER) return;
+        clearReload();
     }
 
     private onKillFeed(event: KillFeedEvent) {
@@ -419,6 +433,7 @@ class ClientRendererImpl {
     }
 
     private onRoundStart() {
+        resetDiegeticHud();
         for (const { el, timer } of this.corpseMarkers) {
             clearTimeout(timer);
             el.remove();
@@ -441,6 +456,19 @@ class ClientRendererImpl {
 
     private onPlayerStatusChanged(event: PlayerStatusChangedEvent) {
         if (app === undefined) return;
+
+        if (event.playerId === ACTIVE_PLAYER) {
+            if (event.status === PlayerStatus.BUYING) showMoneyBox();
+
+            if (
+                event.status === PlayerStatus.THROWING_FRAG ||
+                event.status === PlayerStatus.THROWING_FLASH ||
+                event.status === PlayerStatus.THROWING_SMOKE ||
+                event.status === PlayerStatus.PLACING_C4
+            ) {
+                showGrenadeBox();
+            }
+        }
 
         this.removeStatusLabel(event.playerId);
 

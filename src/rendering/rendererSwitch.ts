@@ -17,6 +17,7 @@ import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextu
 import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 import { getActiveMapId } from '@maps/helpers';
 import { destroyPixiDiegeticHud } from '@rendering/diegeticHud/pixiDiegeticHud';
+import { destroyDomDiegeticHud } from '@rendering/diegeticHud/domDiegeticHud';
 import { resetDiegeticHud } from '@rendering/diegeticHud/diegeticHudState';
 
 /**
@@ -41,6 +42,7 @@ export function switchRenderer(newType: RendererType) {
 
     clientRenderer.teardownVisuals();
     clearRenderedWalls();
+    destroyDomDiegeticHud();
 
     SETTINGS.renderer = newType;
     saveRendererSetting(newType);
