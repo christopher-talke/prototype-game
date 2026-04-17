@@ -1,8 +1,8 @@
 /**
  * Map validator -- runs before sim instantiation at load, also used by
  * editor compile check. Orchestration layer: the only layer with access
- * to both MapData and (future) sim internals. Phase 1 scope: validates
- * MapData against itself. Registry resolvers join in Phase 2.
+ * to both MapData and (future) sim internals. Validates MapData against
+ * itself and against the shared registries (objectDefs, entityDefs).
  */
 
 import type {
@@ -17,6 +17,8 @@ import type {
     Vec2,
     FloorTransitionMeta,
 } from '@shared/map/MapData';
+import { SHARED_OBJECT_DEFS } from '@shared/registries/sharedObjectDefs';
+import { SHARED_ENTITY_DEFS } from '@shared/registries/sharedEntityDefs';
 
 export type MapValidationError = {
     path: string;
@@ -81,9 +83,21 @@ function validateFloors(map: MapData, errors: MapValidationError[]): void {
 
 function validateLayers(map: MapData, errors: MapValidationError[]): void {
     const floorIds = new Set(map.floors.map((f) => f.id));
-    const objectDefIds = new Set(map.objectDefs.map((d) => d.id));
-    const entityTypeIds = new Set(map.entityDefs.map((d) => d.id));
-    const entityDefById = new Map(map.entityDefs.map((d) => [d.id, d] as const));
+    const objectDefIds = new Set<string>();
+    for (const d of map.objectDefs) objectDefIds.add(d.id);
+    for (const d of SHARED_OBJECT_DEFS) objectDefIds.add(d.id);
+    const entityTypeIds = new Set<string>();
+    const entityDefById = new Map<string, EntityTypeDefinition>();
+    for (const d of map.entityDefs) {
+        entityTypeIds.add(d.id);
+        entityDefById.set(d.id, d);
+    }
+    for (const d of SHARED_ENTITY_DEFS) {
+        if (!entityDefById.has(d.id)) {
+            entityTypeIds.add(d.id);
+            entityDefById.set(d.id, d);
+        }
+    }
     const layerIds = new Set(map.layers.map((l) => l.id));
 
     for (const layer of map.layers) {
@@ -163,7 +177,7 @@ function validateObjectPlacement(
         errors.push({
             path: `layers.${layer.id}.objects.${obj.id}`,
             field: 'objectDefId',
-            message: `unknown objectDefId '${obj.objectDefId}' (Phase 1: only local defs resolved)`,
+            message: `unresolved objectDefId '${obj.objectDefId}' (checked: local, shared)`,
         });
     }
 }
@@ -181,7 +195,7 @@ function validateEntityPlacement(
         errors.push({
             path: `layers.${layer.id}.entities.${ent.id}`,
             field: 'entityTypeId',
-            message: `unknown entityTypeId '${ent.entityTypeId}' (Phase 1: only local defs resolved)`,
+            message: `unresolved entityTypeId '${ent.entityTypeId}' (checked: local, shared)`,
         });
         return;
     }

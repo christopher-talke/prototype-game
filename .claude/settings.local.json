@@ -6,9 +6,7 @@
       "WebFetch(domain:pixijs.com)",
       "Bash(git checkout:*)",
       "Bash(npm test:*)",
-      "mcp__Claude_Preview__preview_start",
-      "Bash(curl -s http://localhost:5173/src/maps/arena/index.ts)",
-      "Bash(curl -s http://localhost:5173/src/main.ts)"
+      "Bash(npx vitest:*)"
     ]
   }
 }

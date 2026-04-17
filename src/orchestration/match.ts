@@ -23,13 +23,14 @@ import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
 import { getActiveMap, getActiveMapId } from '@maps/helpers';
 import {
     collectAllWalls,
-    collectAllLights,
     getSpawnsByTeam,
     getCoverPoints,
     getFloorDecals,
     wallAABB,
 } from '@orchestration/bootstrap/mapAccessors';
 import { compileWalls } from '@orchestration/bootstrap/physicsCompiler';
+import { ObjectDefRegistry } from '@orchestration/bootstrap/objectDefRegistry';
+import { compileAllLights } from '@orchestration/bootstrap/rendererCompiler';
 import type { AABB } from '@simulation/environment/spatialHash';
 import { isGlossDecalAsset } from '@rendering/canvas/gridTextures';
 
@@ -79,7 +80,8 @@ function loadMapWalls() {
         const h = environment.limits.bottom;
         setWorldBounds(w, h);
         renderPixiWalls(walls);
-        const lights = collectAllLights(map);
+        const objectRegistry = new ObjectDefRegistry(map.objectDefs);
+        const lights = compileAllLights(map, objectRegistry);
         const wallBoxes = walls.map(wallAABB);
         initLighting(lights, wallBoxes, map.postProcess);
         const floorDecals = getFloorDecals(map);
