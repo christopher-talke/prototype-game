@@ -32,6 +32,7 @@ export type {
     FootstepEvent,
     EntityStateChangedEvent,
     TriggerFiredEvent,
+    PlayerFloorChangedEvent,
     PlayerInput,
     EventHandler,
 } from '@simulation/events';

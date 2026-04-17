@@ -33,7 +33,8 @@ export type GameEvent =
     | TeamChangedEvent
     | FootstepEvent
     | EntityStateChangedEvent
-    | TriggerFiredEvent;
+    | TriggerFiredEvent
+    | PlayerFloorChangedEvent;
 
 /**
  * Fired when a new bullet is created.
@@ -329,6 +330,18 @@ export type TriggerFiredEvent = {
     triggerZoneId: string;
     triggeringPlayerId: number | null;
     on: 'enter' | 'exit';
+};
+
+/**
+ * Fired when a player traverses a floor-transition zone and swaps floors.
+ * Emitted by the zone runtime. Consumed by rendering (per-floor container
+ * visibility) and physics (wall hash lookup by floorId).
+ */
+export type PlayerFloorChangedEvent = {
+    type: 'PLAYER_FLOOR_CHANGED';
+    playerId: number;
+    prevFloorId: string;
+    newFloorId: string;
 };
 
 /**
