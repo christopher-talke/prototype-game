@@ -30,6 +30,7 @@ export type {
     PlayerStatusChangedEvent,
     TeamChangedEvent,
     FootstepEvent,
+    EntityStateChangedEvent,
     PlayerInput,
     EventHandler,
 } from '@simulation/events';

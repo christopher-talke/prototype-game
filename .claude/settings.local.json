@@ -6,7 +6,9 @@
       "WebFetch(domain:pixijs.com)",
       "Bash(git checkout:*)",
       "Bash(npm test:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }

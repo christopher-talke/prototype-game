@@ -31,7 +31,8 @@ export type GameEvent =
     | ReloadCompleteEvent
     | PlayerStatusChangedEvent
     | TeamChangedEvent
-    | FootstepEvent;
+    | FootstepEvent
+    | EntityStateChangedEvent;
 
 /**
  * Fired when a new bullet is created.
@@ -301,6 +302,19 @@ export type FootstepEvent = {
     type: 'FOOTSTEP';
     playerId: number;
     timestamp: number;
+};
+
+/**
+ * Fired when a dynamic entity's state changes (door open/close, generator destroyed, etc.).
+ * Emitted by simulation/entities/entityRegistry.setEntityState.
+ * Consumed by dynamic collision registry, fog raycaster, and entity-specific listeners.
+ */
+export type EntityStateChangedEvent = {
+    type: 'ENTITY_STATE_CHANGED';
+    entityId: string;
+    prevState: Record<string, unknown>;
+    newState: Record<string, unknown>;
+    changedFields: string[];
 };
 
 /**
