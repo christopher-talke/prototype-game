@@ -12,7 +12,7 @@ const limits = testLimits(3000, 3000);
 const teamSpawns = { 1: [{ x: 100, y: 100 }], 2: [{ x: 2800, y: 2800 }] };
 
 function setupMatch(players: player_info[]) {
-    auth.setMap([], limits, [], teamSpawns, []);
+    auth.setMap(new Map([['default', []]]), limits, [], teamSpawns, [], 'default');
     auth.setPlayers(players);
     auth.initMatch(players.map(p => p.id));
 }

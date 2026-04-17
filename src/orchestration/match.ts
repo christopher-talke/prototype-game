@@ -29,11 +29,12 @@ import {
     getFloorDecals,
     wallAABB,
 } from '@orchestration/bootstrap/mapAccessors';
+import { compileWalls } from '@orchestration/bootstrap/physicsCompiler';
+import type { AABB } from '@simulation/environment/spatialHash';
 import { isGlossDecalAsset } from '@rendering/canvas/gridTextures';
 
 import { stopMenuMusic, playMenuMusic } from '@audio/index';
 
-import { getWallAABBs } from '@simulation/player/collision';
 import { createDefaultWeapon } from '@simulation/combat/weapons';
 import { environment, setEnvironmentLimits } from '@simulation/environment/environment';
 import { createDefaultGrenades } from '@simulation/combat/grenades';
@@ -90,16 +91,23 @@ function loadMapWalls() {
 /**
  * Pushes the current map's wall AABBs, segments, spawn points, and patrol
  * points into the authoritative simulation so it can run collision and
- * grenade physics.
+ * grenade physics. Walls are compiled per-floor via the v1.5 physics
+ * compiler so player collision is filtered by `player.floorId`.
  */
 function syncMapToSim() {
     const map = getActiveMap();
+    const wallHashByFloor = compileWalls(map);
+    const wallsByFloor = new Map<string, readonly AABB[]>();
+    for (const [floorId, hash] of wallHashByFloor) {
+        wallsByFloor.set(floorId, hash.all().map((pw) => pw.aabb));
+    }
     authSim.setMap(
-        [...getWallAABBs()],
+        wallsByFloor,
         { ...environment.limits },
         [...environment.segments],
         getSpawnsByTeam(map),
         getCoverPoints(map),
+        map.floors[0].id,
     );
 }
 
@@ -137,6 +145,7 @@ export function initMatchSystem() {
             dead: snapshot.dead,
             weapons: snapshot.weapons,
             grenades: snapshot.grenades,
+            floorId: getActiveMap().floors[0].id,
         };
         const localId = webSocketAdapter.getLocalPlayerId();
         const localPlayer = localId != null ? getAllPlayers().find(p => p.id === localId) : undefined;
@@ -151,7 +160,8 @@ export function initMatchSystem() {
 function spawnOfflinePlayers() {
     const config = getConfig();
 
-    const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, getSpawnsByTeam(getActiveMap()));
+    const map = getActiveMap();
+    const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, getSpawnsByTeam(map), map.floors[0].id);
     const localTeam = players.find(p => p.id === 1)?.team;
     for (const player of players) {
         createPlayer(player, player.id === 1, localTeam);
@@ -173,6 +183,7 @@ function spawnOfflinePlayers() {
 function spawnOnlinePlayers() {
     const localId = webSocketAdapter.getLocalPlayerId();
 
+    const defaultFloorId = getActiveMap().floors[0].id;
     const lateJoinPlayers = webSocketAdapter.getLateJoinPlayers();
     if (lateJoinPlayers) {
         const localTeam = lateJoinPlayers.find(sp => sp.id === localId)?.team;
@@ -188,6 +199,7 @@ function spawnOnlinePlayers() {
                 dead: sp.dead,
                 weapons: sp.weapons,
                 grenades: sp.grenades,
+                floorId: defaultFloorId,
             };
             createPlayer(info, sp.id === localId, localTeam);
         }
@@ -212,6 +224,7 @@ function spawnOnlinePlayers() {
             dead: false,
             weapons: [createDefaultWeapon()],
             grenades: createDefaultGrenades(),
+            floorId: defaultFloorId,
         };
         createPlayer(info, lp.id === localId, localTeam);
     }

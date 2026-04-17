@@ -6,6 +6,7 @@ import {
     transformShape,
     shapeAABB,
     wallAABB,
+    type PlacedShape,
 } from '@orchestration/bootstrap/physicsCompiler';
 import { ObjectDefRegistry } from '@orchestration/bootstrap/objectDefRegistry';
 
@@ -346,7 +347,7 @@ describe('compileObjectShapes', () => {
         const reg = new ObjectDefRegistry(map.objectDefs);
         const result = compileObjectShapes(map, reg);
 
-        const out: Array<{ placementId: string }> = [];
+        const out: PlacedShape[] = [];
         result.get('ground')!.queryAABB({ x: 0, y: 0, w: 1000, h: 1000 }, out);
         expect(out.every((s) => s.placementId === 'gp')).toBe(true);
     });

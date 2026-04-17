@@ -49,6 +49,8 @@ type MatchState = {
 type AABB = { x: number; y: number; w: number; h: number };
 type Limits = { left: number; right: number; top: number; bottom: number };
 
+const EMPTY_WALLS: readonly AABB[] = [];
+
 /**
  * Finds a spawn position that does not overlap with existing players or walls.
  * Spirals outward from the desired position until a clear spot is found.
@@ -79,7 +81,8 @@ function findNonOverlappingSpawn(x: number, y: number, excludeId: number, player
  */
 export class AuthoritativeSimulation {
     readonly simulation: GameSimulation;
-    private wallAABBs: AABB[] = [];
+    private wallAABBsByFloor = new Map<string, readonly AABB[]>();
+    private defaultFloorId = 'default';
     private limits: Limits = { left: 0, right: 3000, top: 0, bottom: 3000 };
     private segments: WallSegment[] = [];
     private players: player_info[] = [];
@@ -109,20 +112,36 @@ export class AuthoritativeSimulation {
     /**
      * Configures the map geometry for collision, spawning, and projectile simulation.
      * Caches a flattened spawn array for fallback spawn selection.
-     * @param wallAABBs - Axis-aligned bounding boxes for player-wall collision.
+     * @param wallAABBsByFloor - Per-floor wall AABB lists (player collision keyed by player.floorId).
      * @param limits - World boundary rectangle.
-     * @param segments - Wall segments for raycasting and projectile collision.
+     * @param segments - Wall segments for raycasting and projectile collision (flat; floor-keying deferred).
      * @param teamSpawns - Per-team spawn point arrays.
      * @param patrolPoints - AI patrol waypoints.
+     * @param defaultFloorId - Floor used when a player's `floorId` is missing from the map.
      */
-    setMap(wallAABBs: AABB[], limits: Limits, segments: WallSegment[], teamSpawns: Record<number, coordinates[]>, patrolPoints: coordinates[]) {
-        this.wallAABBs = wallAABBs;
+    setMap(
+        wallAABBsByFloor: Map<string, readonly AABB[]>,
+        limits: Limits,
+        segments: WallSegment[],
+        teamSpawns: Record<number, coordinates[]>,
+        patrolPoints: coordinates[],
+        defaultFloorId: string,
+    ) {
+        this.wallAABBsByFloor = wallAABBsByFloor;
+        this.defaultFloorId = defaultFloorId;
         this.limits = limits;
         this.simulation.setLimits(limits);
         this.segments = segments;
         this.teamSpawns = teamSpawns;
         this.allSpawnsFlat = Object.values(teamSpawns).flat();
         this.patrolPoints = patrolPoints;
+    }
+
+    /** Per-floor wall AABB lookup; falls back to the default floor (or empty) for unknown ids. */
+    private wallsForFloor(floorId: string): readonly AABB[] {
+        const walls = this.wallAABBsByFloor.get(floorId);
+        if (walls) return walls;
+        return this.wallAABBsByFloor.get(this.defaultFloorId) ?? EMPTY_WALLS;
     }
 
     /**
@@ -203,8 +222,8 @@ export class AuthoritativeSimulation {
         return this.weaponStates.get(playerId)?.consecutiveShots ?? 0;
     }
 
-    private moveWithCollision(currentX: number, currentY: number, dx: number, dy: number, playerId?: number): { x: number; y: number } {
-        return moveWithCollisionPure(currentX, currentY, dx, dy, this.wallAABBs, this.limits, playerId, this.players);
+    private moveWithCollision(currentX: number, currentY: number, dx: number, dy: number, playerId: number, floorId: string): { x: number; y: number } {
+        return moveWithCollisionPure(currentX, currentY, dx, dy, this.wallsForFloor(floorId), this.limits, playerId, this.players);
     }
 
     /**
@@ -291,6 +310,7 @@ export class AuthoritativeSimulation {
             dx * config.player.speed,
             dy * config.player.speed,
             player.id,
+            player.floorId,
         );
         player.current_position.x = result.x;
         player.current_position.y = result.y;
@@ -813,7 +833,7 @@ export class AuthoritativeSimulation {
             if (x >= left && x <= right && y >= top && y <= bottom) continue;
             const spawnPoints = this.teamSpawns[player.team] ?? this.allSpawnsFlat;
             const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
-            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
+            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallsForFloor(player.floorId));
             player.current_position.x = pos.x;
             player.current_position.y = pos.y;
             events.push({ type: 'PLAYER_RESPAWN', playerId: player.id, x: pos.x, y: pos.y, rotation: player.current_position.rotation });
@@ -837,7 +857,7 @@ export class AuthoritativeSimulation {
         const spawnPoints = this.teamSpawns[player.team] ?? this.allSpawnsFlat;
         const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
 
-        const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
+        const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallsForFloor(player.floorId));
         player.health = getConfig().player.maxHealth;
         player.armour = getConfig().player.startingArmor;
         player.dead = false;
@@ -926,7 +946,7 @@ export class AuthoritativeSimulation {
             const spawn = spawns[teamCounters[player.team] % spawns.length];
             teamCounters[player.team]++;
 
-            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallAABBs);
+            const pos = findNonOverlappingSpawn(spawn.x, spawn.y, player.id, this.players, this.wallsForFloor(player.floorId));
             player.health = getConfig().player.maxHealth;
             player.armour = getConfig().player.startingArmor;
             player.dead = false;

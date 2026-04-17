@@ -26,6 +26,7 @@ export function makePlayer(overrides?: Partial<player_info>): player_info {
         dead: false,
         weapons: [createDefaultWeapon()],
         grenades: createDefaultGrenades(),
+        floorId: 'default',
         ...overrides,
     };
 }

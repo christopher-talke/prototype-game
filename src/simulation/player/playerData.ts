@@ -39,9 +39,10 @@ export const directions: Record<string, string> = {
  * @param num - Total number of players to generate.
  * @param teams - Number of teams to distribute players across.
  * @param teamSpawns - Per-team spawn point arrays.
+ * @param defaultFloorId - Floor all players spawn onto (typically `map.floors[0].id`).
  * @returns Array of initialized player_info objects.
  */
-export function generatePlayers(num: number, teams: number, teamSpawns: Record<number, coordinates[]>): player_info[] {
+export function generatePlayers(num: number, teams: number, teamSpawns: Record<number, coordinates[]>, defaultFloorId: string): player_info[] {
     const players: player_info[] = [];
     const teamCounters: Record<number, number> = {};
 
@@ -68,6 +69,7 @@ export function generatePlayers(num: number, teams: number, teamSpawns: Record<n
             dead: false,
             weapons: [createDefaultWeapon()],
             grenades: createDefaultGrenades(),
+            floorId: defaultFloorId,
         };
 
         players.push(player);

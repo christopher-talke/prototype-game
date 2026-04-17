@@ -39,6 +39,8 @@ declare global {
         dead: boolean;
         weapons: PlayerWeapon[];
         grenades: Record<GrenadeType, number>;
+        /** Which floor of the active map the player is currently occupying. Determines per-floor collision lookup. */
+        floorId: string;
     }
 
     /** A weapon instance carried by a player. */

@@ -176,6 +176,7 @@ export class GameRoom {
                 current_position: { x: spawn.x, y: spawn.y, rotation: 0 },
                 weapons: [createDefaultWeapon()],
                 grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
+                floorId: this.getMapData().floors[0].id,
             };
             this.sim.addPlayer(playerInfo);
 
@@ -464,11 +465,13 @@ export class GameRoom {
                 current_position: { x: spawn.x, y: spawn.y, rotation: 0 },
                 weapons: [createDefaultWeapon()],
                 grenades: { FRAG: 0, FLASH: 0, SMOKE: 0, C4: 0 },
+                floorId: mapData.floors[0].id,
             });
         }
 
+        const defaultFloorId = mapData.floors[0].id;
         this.sim.setMap(
-            mapData.walls.map((w) => ({ x: w.x, y: w.y, w: w.width, h: w.height })),
+            new Map([[defaultFloorId, mapData.walls.map((w) => ({ x: w.x, y: w.y, w: w.width, h: w.height }))]]),
             { left: 0, right: mapData.bounds?.width ?? 3000, top: 0, bottom: mapData.bounds?.height ?? 3000 },
             mapData.walls.flatMap((w) => {
                 const l = w.x, r = w.x + w.width, t = w.y, b = w.y + w.height;
@@ -481,6 +484,7 @@ export class GameRoom {
             }),
             mapData.teamSpawns,
             mapData.patrolPoints,
+            defaultFloorId,
         );
         this.sim.setPlayers(simPlayers);
         this.sim.initMatch(simPlayers.map((p) => p.id));
