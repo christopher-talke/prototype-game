@@ -32,7 +32,8 @@ export type GameEvent =
     | PlayerStatusChangedEvent
     | TeamChangedEvent
     | FootstepEvent
-    | EntityStateChangedEvent;
+    | EntityStateChangedEvent
+    | TriggerFiredEvent;
 
 /**
  * Fired when a new bullet is created.
@@ -315,6 +316,19 @@ export type EntityStateChangedEvent = {
     prevState: Record<string, unknown>;
     newState: Record<string, unknown>;
     changedFields: string[];
+};
+
+/**
+ * Fired when a trigger zone's on-enter/on-exit `TriggerEvent` fires and
+ * emits a map signal. Observability surface for replay and logging; gameplay
+ * effects flow through the signal bus listeners.
+ */
+export type TriggerFiredEvent = {
+    type: 'TRIGGER_FIRED';
+    signal: string;
+    triggerZoneId: string;
+    triggeringPlayerId: number | null;
+    on: 'enter' | 'exit';
 };
 
 /**
