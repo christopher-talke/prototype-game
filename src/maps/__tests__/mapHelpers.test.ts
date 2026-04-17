@@ -10,10 +10,11 @@ describe('getActiveMap / getActiveMapId', () => {
         expect(getActiveMapId()).toBe('arena');
     });
 
-    it('given default state, then getActiveMap returns a map with walls and teamSpawns', () => {
+    it('given default state, then getActiveMap returns a map with layers, zones, and navHints', () => {
         const map = getActiveMap();
-        expect(map.walls).toBeDefined();
-        expect(map.teamSpawns).toBeDefined();
+        expect(map.layers).toBeDefined();
+        expect(map.zones).toBeDefined();
+        expect(map.navHints).toBeDefined();
     });
 });
 

@@ -81,25 +81,6 @@ declare global {
         points: number;
     };
 
-    /** Axis-aligned rectangle defining a wall's position and size in world space. */
-    interface wall_info {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        type?: WallType;
-        sprite?: string;
-    }
-
-    /** Material type applied to a wall, used for rendering and impact sound selection. */
-    type WallType =
-        | 'concrete'
-        | 'metal'
-        | 'crate'
-        | 'sandbag'
-        | 'barrier'
-        | 'pillar';
-
     /** Simple 2D point in world space. */
     type coordinates = {
         x: number;
@@ -432,64 +413,6 @@ declare global {
         shrapnelCount?: number;
         shrapnelDamage?: number;
         shrapnelSpeed?: number;
-    };
-
-    /** Static light placed in a map definition. Consumed by `lightingManager.ts`. */
-    type LightDef = {
-        x: number;
-        y: number;
-        radius: number;
-        color?: number;
-        intensity?: number;
-        angle?: number;
-        cone?: number;
-    };
-
-    /** Per-map ambient lighting overrides. */
-    type LightingConfig = {
-        ambientLight?: number;
-        ambientColor?: number;
-    };
-
-    /** How a floor texture is mapped onto the grid: stretched once or tiled per cell block. */
-    type TextureMode = 'cover' | 'tile';
-
-    /** Definition for one floor texture layer in a map. Multiple layers are composited in order. */
-    type TextureLayerDef = {
-        /** Filename in public/maps/<mapId>/ (e.g. "concrete_floor_worn.jpg") */
-        src: string;
-        /** 'cover' = single image UV-mapped 0-1 across entire grid; 'tile' = repeating per cell block */
-        mode: TextureMode;
-        /** Tile mode only: how many grid cells per texture repeat. Default 1. Ignored for cover. */
-        tileCells?: number;
-        /** Opacity 0-1. Default 1. */
-        opacity?: number;
-        /** PixiJS blend mode string. Default 'normal'. */
-        blendMode?: string;
-        /** Hex tint color. Default 0xffffff (no tint). */
-        tint?: number;
-        /** Render below or above the grid dots/lines. Default 'below'. */
-        zPosition?: 'above' | 'below';
-    };
-
-    /** Optional glossy floor highlight rendered as a radial gradient overlay. */
-    type FloorGloss = {
-        color?: number;
-        alpha?: number;
-        radius?: number;
-        blendMode?: string;
-    };
-
-    /** Complete data payload for a map, loaded by the simulation and consumed by renderers. */
-    type MapData = {
-        bounds?: { width: number; height: number };
-        teamSpawns: Record<number, coordinates[]>;
-        patrolPoints: coordinates[];
-        walls: wall_info[];
-        lights?: LightDef[];
-        lighting?: LightingConfig;
-        textureLayers?: TextureLayerDef[];
-        gloss?: FloorGloss;
     };
 
     /** A point on a visibility ray: position plus distance from the ray origin. */

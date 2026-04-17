@@ -1,5 +1,6 @@
 import { Sprite, Texture } from 'pixi.js';
 
+import type { DecalPlacement } from '@shared/map/MapData';
 import { glossLayer } from '../sceneGraph';
 
 /**
@@ -10,33 +11,32 @@ import { glossLayer } from '../sceneGraph';
  * procedurally via Canvas 2D and composited with additive blending.
  *
  * Rendering layer, part of the effects sub-system under canvas rendering.
- * Configured via the FloorGloss type from map data.
+ * Configured via the floor-layer gloss DecalPlacement from map data.
  */
 
 let sprite: Sprite | null = null;
 let texture: Texture | null = null;
 
 /**
- * Initializes the gloss effect from map configuration. Tears down any
- * existing gloss first. If no config is provided, only clears.
+ * Initializes the gloss effect from a gloss DecalPlacement. Tears down any
+ * existing gloss first. If no decal is provided, only clears.
  *
- * @param config - Optional FloorGloss settings (radius, color, alpha,
- *   blendMode) from the map definition. When omitted, the effect is
- *   disabled.
+ * @param decal - Optional floor-layer gloss decal. When omitted, the effect
+ *   is disabled. Decal scale.x is interpreted as the gradient radius.
  */
-export function initGloss(config?: FloorGloss): void {
+export function initGloss(decal?: DecalPlacement): void {
     clearGloss();
-    if (!config) return;
+    if (!decal) return;
 
-    const radius = config.radius ?? 400;
-    const color = config.color ?? 0xffffff;
-    const alpha = config.alpha ?? 0.15;
+    const radius = Math.max(1, decal.scale.x || 400);
+    const color = 0xffffff;
+    const alpha = decal.alpha;
 
     texture = createGlossTexture(radius, color);
     sprite = new Sprite(texture);
     sprite.anchor.set(0.5, 0.5);
     sprite.alpha = alpha;
-    sprite.blendMode = (config.blendMode as any) ?? 'add';
+    sprite.blendMode = decal.blendMode === 'additive' ? 'add' : (decal.blendMode as any) ?? 'add';
     glossLayer.addChild(sprite);
 }
 

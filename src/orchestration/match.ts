@@ -21,6 +21,15 @@ import { getLobbyState } from '@ui/lobby/lobbyScreen';
 import { hideMainMenu, showMainMenu } from '@ui/mainMenu/mainMenu';
 
 import { getActiveMap, getActiveMapId } from '@maps/helpers';
+import {
+    collectAllWalls,
+    collectAllLights,
+    getSpawnsByTeam,
+    getCoverPoints,
+    getFloorDecals,
+    wallAABB,
+} from '@orchestration/bootstrap/mapAccessors';
+import { isGlossDecalAsset } from '@rendering/canvas/gridTextures';
 
 import { stopMenuMusic, playMenuMusic } from '@audio/index';
 
@@ -55,11 +64,12 @@ const authSim = offlineAdapter.authSim;
  */
 function loadMapWalls() {
     const map = getActiveMap();
-    setEnvironmentLimits(map.bounds?.width ?? 3000, map.bounds?.height ?? 3000);
+    setEnvironmentLimits(map.bounds.width, map.bounds.height);
     clearAllWallData();
     clearRenderedWalls();
     clearPixiWalls();
-    for (const wall of map.walls) {
+    const walls = collectAllWalls(map);
+    for (const wall of walls) {
         registerWallGeometry(wall);
         if (SETTINGS.renderer === 'dom') renderWall(wall);
     }
@@ -67,10 +77,13 @@ function loadMapWalls() {
         const w = environment.limits.right;
         const h = environment.limits.bottom;
         setWorldBounds(w, h);
-        renderPixiWalls(map.walls);
-        initLighting(map.lights ?? [], map.walls, map.lighting);
-        initGridTextures(getActiveMapId(), map.textureLayers);
-        initGloss(map.gloss);
+        renderPixiWalls(walls);
+        const lights = collectAllLights(map);
+        const wallBoxes = walls.map(wallAABB);
+        initLighting(lights, wallBoxes, map.postProcess);
+        const floorDecals = getFloorDecals(map);
+        initGridTextures(getActiveMapId(), floorDecals);
+        initGloss(floorDecals.find(isGlossDecalAsset));
     }
 }
 
@@ -85,8 +98,8 @@ function syncMapToSim() {
         [...getWallAABBs()],
         { ...environment.limits },
         [...environment.segments],
-        map.teamSpawns,
-        map.patrolPoints,
+        getSpawnsByTeam(map),
+        getCoverPoints(map),
     );
 }
 
@@ -138,7 +151,7 @@ export function initMatchSystem() {
 function spawnOfflinePlayers() {
     const config = getConfig();
 
-    const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, getActiveMap().teamSpawns);
+    const players = generatePlayers(config.match.maxPlayers, config.match.teamsCount, getSpawnsByTeam(getActiveMap()));
     const localTeam = players.find(p => p.id === 1)?.team;
     for (const player of players) {
         createPlayer(player, player.id === 1, localTeam);
@@ -185,7 +198,8 @@ function spawnOnlinePlayers() {
     if (!lobby) return;
     const localTeam = lobby.players.find(lp => lp.id === localId)?.team;
     for (const lp of lobby.players) {
-        const spawns = getActiveMap().teamSpawns[lp.team] ?? Object.values(getActiveMap().teamSpawns).flat();
+        const spawnsByTeam = getSpawnsByTeam(getActiveMap());
+        const spawns = spawnsByTeam[lp.team] ?? Object.values(spawnsByTeam).flat();
         const spawn = spawns[0];
         const info: player_info = {
             id: lp.id,

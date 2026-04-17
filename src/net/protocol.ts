@@ -9,6 +9,7 @@
 
 import type { GameEvent, PlayerInput } from '@net/gameEvent';
 import type { GameModeConfig, DeepPartial } from '@config/types';
+import type { MapData, WallType } from '@shared/map/MapData';
 
 /**
  * Serializable map definition sent from server to client in the welcome
@@ -24,6 +25,54 @@ export type MapJSON = {
     patrolPoints: { x: number; y: number }[];
     walls: { x: number; y: number; width: number; height: number; type?: WallType; }[];
 };
+
+/**
+ * Flattens a v1.5 {@link MapData} config into the legacy flat wire format.
+ * Used by the host when relaying its active map to the server and to other
+ * clients. Server-side sim still expects AABB walls; Phase 2a replaces this
+ * with a per-floor physics compiler on the server.
+ */
+export function mapDataToMapJSON(map: MapData): MapJSON {
+    const walls: MapJSON['walls'] = [];
+    for (const layer of map.layers) {
+        if (layer.type !== 'collision' && layer.type !== 'ceiling' && layer.type !== 'object') continue;
+        for (const w of layer.walls) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const v of w.vertices) {
+                if (v.x < minX) minX = v.x;
+                if (v.y < minY) minY = v.y;
+                if (v.x > maxX) maxX = v.x;
+                if (v.y > maxY) maxY = v.y;
+            }
+            walls.push({ x: minX, y: minY, width: maxX - minX, height: maxY - minY, type: w.wallType });
+        }
+    }
+
+    const teamSpawns: Record<number, { x: number; y: number }[]> = {};
+    for (const zone of map.zones) {
+        if (zone.type !== 'spawn' || zone.team === undefined) continue;
+        const teamNum = Number(zone.team);
+        if (!Number.isFinite(teamNum)) continue;
+        let sx = 0, sy = 0;
+        for (const p of zone.polygon) { sx += p.x; sy += p.y; }
+        const n = zone.polygon.length || 1;
+        const c = { x: sx / n, y: sy / n };
+        if (!teamSpawns[teamNum]) teamSpawns[teamNum] = [];
+        teamSpawns[teamNum].push(c);
+    }
+
+    const patrolPoints = map.navHints.filter((h) => h.type === 'cover').map((h) => ({ x: h.position.x, y: h.position.y }));
+
+    return {
+        version: 1,
+        name: map.meta.name,
+        width: map.bounds.width,
+        height: map.bounds.height,
+        teamSpawns,
+        patrolPoints,
+        walls,
+    };
+}
 
 /**
  * Snapshot of a single player's state, sent inside server snapshots and the

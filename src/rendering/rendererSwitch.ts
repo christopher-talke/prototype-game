@@ -13,9 +13,10 @@ import { getActiveMap } from '@maps/helpers';
 import { environment } from '@simulation/environment/environment';
 import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
 import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
-import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextures';
+import { initGridTextures, clearGridTextures, isGlossDecalAsset } from '@rendering/canvas/gridTextures';
 import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 import { getActiveMapId } from '@maps/helpers';
+import { collectAllWalls, collectAllLights, getFloorDecals, wallAABB } from '@orchestration/bootstrap/mapAccessors';
 import { destroyPixiDiegeticHud } from '@rendering/diegeticHud/pixiDiegeticHud';
 import { destroyDomDiegeticHud } from '@rendering/diegeticHud/domDiegeticHud';
 import { resetDiegeticHud } from '@rendering/diegeticHud/diegeticHudState';
@@ -58,16 +59,18 @@ export function switchRenderer(newType: RendererType) {
     }
 
     const map = getActiveMap();
+    const walls = collectAllWalls(map);
     if (newType === 'pixi') {
         setWorldBounds(environment.limits.right, environment.limits.bottom);
-        renderPixiWalls(map.walls);
-        initLighting(map.lights ?? [], map.walls, map.lighting);
-        initGridTextures(getActiveMapId(), map.textureLayers);
-        initGloss(map.gloss);
+        renderPixiWalls(walls);
+        initLighting(collectAllLights(map), walls.map(wallAABB), map.postProcess);
+        const floorDecals = getFloorDecals(map);
+        initGridTextures(getActiveMapId(), floorDecals);
+        initGloss(floorDecals.find(isGlossDecalAsset));
     }
 
     else {
-        for (const wall of map.walls) renderWall(wall);
+        for (const wall of walls) renderWall(wall);
     }
 
     const localPlayer = ACTIVE_PLAYER != null ? getPlayerInfo(ACTIVE_PLAYER) : null;

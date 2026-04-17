@@ -5,6 +5,8 @@
 
 import '@rendering/dom/css/wall.css';
 
+import type { Wall } from '@shared/map/MapData';
+import { wallAABB } from '@orchestration/bootstrap/mapAccessors';
 import { app } from '../../app';
 import { getRandomNumber } from '@utils/getRandomNumber';
 import { cssTransform } from '@rendering/dom/cssTransform';
@@ -18,30 +20,24 @@ export function clearRenderedWalls() {
 }
 
 /**
- * Creates a wall DOM element positioned and sized according to the wall definition.
- * Appends an img child if the wall has a sprite.
- * @param wallInfo - Wall definition containing position, dimensions, type, and optional sprite
+ * Creates a wall DOM element positioned and sized according to the wall's
+ * axis-aligned bounding box (derived from polygon vertices).
+ * @param wall - Wall definition from the map config.
  */
-export function renderWall(wallInfo: wall_info) {
+export function renderWall(wall: Wall) {
     if (app === undefined) return;
 
+    const aabb = wallAABB(wall);
     const newWallEntity = window.document.createElement('div');
     const newWallIdentifier = getRandomNumber(1000, 9999);
 
     newWallEntity.id = `wall-${newWallIdentifier}`;
     newWallEntity.classList.add(`wall`);
     newWallEntity.setAttribute('data-wall-id', `${newWallIdentifier}`);
-    newWallEntity.setAttribute('data-wall-type', wallInfo.type ?? 'concrete');
-    newWallEntity.style.width = `${wallInfo.width}px`;
-    newWallEntity.style.height = `${wallInfo.height}px`;
-    newWallEntity.style.transform = cssTransform(wallInfo.x, wallInfo.y);
-
-    if (wallInfo.sprite) {
-        const img = document.createElement('img');
-        img.src = wallInfo.sprite;
-        img.classList.add('wall-sprite');
-        newWallEntity.appendChild(img);
-    }
+    newWallEntity.setAttribute('data-wall-type', wall.wallType);
+    newWallEntity.style.width = `${aabb.width}px`;
+    newWallEntity.style.height = `${aabb.height}px`;
+    newWallEntity.style.transform = cssTransform(aabb.x, aabb.y);
 
     app.appendChild(newWallEntity);
 }

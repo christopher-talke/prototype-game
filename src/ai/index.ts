@@ -65,8 +65,8 @@ function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
 
     const currentMap = getActiveMap();
-    if (currentMap.patrolPoints.length > 0) {
-        points.push(...currentMap.patrolPoints);
+    for (const h of currentMap.navHints) {
+        if (h.type === 'cover') points.push(h.position);
     }
 
     const margin = 300;

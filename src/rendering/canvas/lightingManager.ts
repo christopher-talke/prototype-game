@@ -12,9 +12,16 @@ import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/
 import { environment } from '@simulation/environment/environment';
 import { getWeaponVfx, DEFAULT_WEAPON_VFX } from '@simulation/combat/weapons';
 import { GRENADE_VFX } from '@simulation/combat/grenades';
+import type { LightPlacement, MapPostProcessProfile, RGBColor } from '@shared/map/MapData';
 
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
 import { LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
+
+interface WallAABB { x: number; y: number; width: number; height: number }
+
+function rgbToHex(c: RGBColor): number {
+    return ((c.r & 0xff) << 16) | ((c.g & 0xff) << 8) | (c.b & 0xff);
+}
 
 let ambientLevel = lightingConfig.ambientLevel;
 let ambientColor = lightingConfig.ambientColor;
@@ -108,7 +115,7 @@ function computeAmbientRGB(level: number, color: number): [number, number, numbe
     ];
 }
 
-function uploadWallUniforms(walls: wall_info[]) {
+function uploadWallUniforms(walls: WallAABB[]) {
     if (!lightingShader) return;
     const u = lightingShader.resources.lightingUniforms.uniforms;
     const arr = u.uWalls as Float32Array;
@@ -567,15 +574,15 @@ export function initLightingSystem() {
  * `blendMode = 'multiply'`. An initial render pass is performed so the
  * lightmap is correct even when dynamic lighting is disabled.
  *
- * @param lights - Static light definitions from the map data.
+ * @param lights - Static light placements from the map data.
  * @param walls - Wall AABBs used for shadow-casting uniform upload.
- * @param config - Optional per-map ambient light overrides.
+ * @param config - Optional per-map post-process profile (ambient overrides).
  */
-export function initLighting(lights: LightDef[], walls: wall_info[], config?: LightingConfig) {
+export function initLighting(lights: LightPlacement[], walls: WallAABB[], config?: MapPostProcessProfile) {
     clearLighting();
 
-    ambientLevel = config?.ambientLight ?? lightingConfig.ambientLevel;
-    ambientColor = config?.ambientColor ?? lightingConfig.ambientColor;
+    ambientLevel = config?.ambientLightIntensity ?? lightingConfig.ambientLevel;
+    ambientColor = config ? rgbToHex(config.ambientLightColor) : lightingConfig.ambientColor;
 
     /**
      * Lightmap RenderTexture is created at half world resolution for perf.
@@ -599,13 +606,13 @@ export function initLighting(lights: LightDef[], walls: wall_info[], config?: Li
     // Upload wall geometry (once per map)
     uploadWallUniforms(walls);
     for (const def of lights) {
-        const color = def.color ?? 0xffffff;
+        const color = rgbToHex(def.color);
         const entry: LightEntry = {
-            x: def.x,
-            y: def.y,
+            x: def.position.x,
+            y: def.position.y,
             radius: def.radius,
             color,
-            intensity: def.intensity ?? 1.0,
+            intensity: def.intensity,
             cr: 0, cg: 0, cb: 0,
         };
         setRGB(entry, color);

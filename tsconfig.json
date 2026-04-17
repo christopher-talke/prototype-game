@@ -27,7 +27,8 @@
             "@audio/*": ["src/audio/*"],
             "@config/*": ["src/config/*"],
             "@maps/*": ["src/maps/*"],
-            "@utils/*": ["src/utils/*"]
+            "@utils/*": ["src/utils/*"],
+            "@shared/*": ["src/shared/*"]
         }
     },
     "include": ["src"]

@@ -156,13 +156,31 @@ Eight boolean toggles in `GraphicsConfig.features` guard expensive rendering pat
 4. Add one `Object.assign` line to `applyGraphicsConfig()`.
 5. If the effect should be toggleable, add a boolean to `features` and guard the call site.
 
+## Map Data
+
+Maps conform to the v1.5 schema in `src/shared/map/MapData.ts` and are validated by `src/orchestration/bootstrap/MapValidator.ts` at load time.
+
+**Map files must be fully declarative.** A map module exports a single `MapData` object literal and nothing else. The intent is that a map file reads like a JSON config: every wall, zone, nav hint, decal, light, and placement is spelled out as a literal with all required fields present.
+
+Not allowed in a map file:
+
+- Factory helpers that fabricate `Wall`, `Zone`, `NavHint`, or any other placement (`aabb()`, `spawnZone()`, `cover()`, etc.).
+- Default-filling tables keyed by type (`WALL_TYPE_DEFAULTS`, etc.). Wall-type-dependent fields like `solid`, `occludesVision`, `bulletPenetrable`, `penetrationDecay`, `audioOcclude` are written out on every wall.
+- Module-level mutable state (counters, accumulators) used to derive IDs or positions.
+- Loops, `.map`, `.filter`, or any other derivation at import time.
+- Imports from `simulation/`, `rendering/`, `net/`, `orchestration/`, or `ai/`. Only `@shared/map/MapData` types are allowed.
+
+Why: the map is authoring data, not code. Keeping it declarative means the file can be round-tripped through an editor, serialised, validated, and diffed as data. Runtime derivations belong in compilers (`orchestration/bootstrap/mapAccessors.ts` today, per-layer compilers in Phase 2) -- not in the map file itself. Every consumer -- physics, rendering, AI, editor -- derives its own runtime representation from the same canonical `MapData`.
+
+Adding a new field with defaults that vary by some classifier (e.g. a new wall type): extend the type in `MapData.ts`, update `MapValidator` if a rule applies, and write the field explicitly on every placement. Do not add lookup tables to map files.
+
 ## Adding Things
 
 - **Weapon / grenade**: add a definition in `simulation/combat/`.
     - The simulation, rendering, buy menu, and AI all read definitions dynamically.
 - **Game mode**: add an entry to the mode registry in `config/modes/`.
     - The menu reads it automatically.
-- **Map**: add a file in `maps/` and register it in the map helper.
+- **Map**: add a file in `maps/` and register it in the map helper. Author as a pure `MapData` literal -- see **Map Data** above.
 - **Game event**: define the type in `src/simulation/events.ts`, emit from `AuthoritativeSimulation` (offline) and `WebSocketAdapter.eventHandler` (online), handle in both `ClientRenderer` classes. The `net/gameEvent.ts` module re-exports all types and owns the `EventBus` runtime.
 - **HUD element**: add to `rendering/dom/hud.ts` or the relevant rendering sub-system.
 - **Sound**: add to `audio/soundMap.ts`.

@@ -26,13 +26,17 @@ vi.mock('@simulation/environment/environment', () => ({
 
 vi.mock('@maps/helpers', () => ({
     getActiveMap: vi.fn().mockReturnValue({
-        patrolPoints: [
-            { x: 500, y: 500 },
-            { x: 1000, y: 1000 },
-            { x: 1500, y: 500 },
+        navHints: [
+            { id: 'n1', type: 'cover', position: { x: 500, y: 500 }, radius: 100, weight: 0.5 },
+            { id: 'n2', type: 'cover', position: { x: 1000, y: 1000 }, radius: 100, weight: 0.5 },
+            { id: 'n3', type: 'cover', position: { x: 1500, y: 500 }, radius: 100, weight: 0.5 },
         ],
-        teamSpawns: { 1: [{ x: 100, y: 100 }] },
-        walls: [],
+        zones: [
+            { id: 'spawn1', type: 'spawn', label: 'Spawn 1', team: '1', polygon: [
+                { x: 50, y: 50 }, { x: 150, y: 50 }, { x: 150, y: 150 }, { x: 50, y: 150 },
+            ] },
+        ],
+        layers: [],
     }),
 }));
 

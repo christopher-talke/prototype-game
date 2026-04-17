@@ -15,6 +15,7 @@ export default defineConfig({
             '@config': path.resolve(__dirname, 'src/config'),
             '@maps': path.resolve(__dirname, 'src/maps'),
             '@utils': path.resolve(__dirname, 'src/utils'),
+            '@shared': path.resolve(__dirname, 'src/shared'),
         },
     },
     test: {

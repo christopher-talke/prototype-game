@@ -1,3 +1,4 @@
+import type { MapData } from '@shared/map/MapData';
 import { Arena } from './arena';
 import { Shipment } from './shipment';
 

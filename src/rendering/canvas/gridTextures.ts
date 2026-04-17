@@ -11,8 +11,9 @@
 
 import { Assets, Geometry, Mesh, Texture, type Container } from 'pixi.js';
 
+import type { DecalPlacement } from '@shared/map/MapData';
 import { getGridGeometry, isGridSettled } from './gridDisplacement';
-import { gridTexturesBelowLayer, gridTexturesAboveLayer } from './sceneGraph';
+import { gridTexturesBelowLayer } from './sceneGraph';
 
 interface ActiveMesh {
     mesh: Mesh;
@@ -22,15 +23,23 @@ interface ActiveMesh {
 const activeMeshes: ActiveMesh[] = [];
 let synced = false;
 
+function isGlossDecal(d: DecalPlacement): boolean {
+    return d.assetPath.toLowerCase().includes('gloss');
+}
+
 /**
- * Load texture layers for a map and build deformable meshes on the grid topology.
- * Replaces any previously loaded textures.
+ * Load floor-decal textures for a map and build deformable meshes on the grid topology.
+ * Replaces any previously loaded textures. Gloss decals are filtered out and handled
+ * by {@link initGlossEffect}.
  * @param mapId - Map identifier used to resolve texture asset paths.
- * @param layers - Texture layer definitions from the map data.
+ * @param decals - Floor-layer decal placements from the map data.
  */
-export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]): Promise<void> {
+export async function initGridTextures(mapId: string, decals?: DecalPlacement[]): Promise<void> {
     clearGridTextures();
-    if (!layers || layers.length === 0) return;
+    if (!decals || decals.length === 0) return;
+
+    const layers = decals.filter((d) => !isGlossDecal(d));
+    if (layers.length === 0) return;
 
     const grid = getGridGeometry();
     if (!grid.displaceX || grid.cols === 0) return;
@@ -62,7 +71,7 @@ export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]
     const positions = buildRestPositions(cols, rows, spacing);
 
     for (const layer of layers) {
-        const url = `/maps/${mapId}/${layer.src}`;
+        const url = `/maps/${mapId}/${layer.assetPath}`;
         let texture: Texture;
         try {
             texture = await Assets.load<Texture>(url);
@@ -71,13 +80,15 @@ export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]
             continue;
         }
 
-        if (layer.mode === 'tile') {
+        if (layer.repeat) {
             texture.source.style.addressModeU = 'repeat';
             texture.source.style.addressModeV = 'repeat';
             texture.source.style.update();
         }
 
-        const uvs = buildUVs(cols, rows, spacing, worldWidth, worldHeight, layer);
+        const uvs = layer.repeat
+            ? buildRepeatUVs(cols, rows, spacing, worldWidth, worldHeight, layer.repeat)
+            : buildCoverUVs(cols, rows, spacing, worldWidth, worldHeight);
 
         const geometry = new Geometry({
             attributes: {
@@ -88,13 +99,14 @@ export async function initGridTextures(mapId: string, layers?: TextureLayerDef[]
         });
 
         const mesh = new Mesh({ geometry: geometry as any, texture });
-        mesh.alpha = layer.opacity ?? 1;
-        mesh.tint = layer.tint ?? 0xffffff;
-        if (layer.blendMode) mesh.blendMode = layer.blendMode as any;
+        mesh.alpha = layer.alpha;
+        if (layer.tint) {
+            mesh.tint = ((layer.tint.r & 0xff) << 16) | ((layer.tint.g & 0xff) << 8) | (layer.tint.b & 0xff);
+        }
+        if (layer.blendMode && layer.blendMode !== 'normal') mesh.blendMode = layer.blendMode as any;
 
-        const container = (layer.zPosition === 'above') ? gridTexturesAboveLayer : gridTexturesBelowLayer;
-        container.addChild(mesh);
-        activeMeshes.push({ mesh, container });
+        gridTexturesBelowLayer.addChild(mesh);
+        activeMeshes.push({ mesh, container: gridTexturesBelowLayer });
     }
 
     synced = false;
@@ -157,40 +169,51 @@ function buildRestPositions(cols: number, rows: number, spacing: number): Float3
 }
 
 /**
- * Build UV coordinates for a texture layer.
- * "cover" mode maps UVs to [0,1] across the full world.
- * "tile" mode repeats based on the configured tile cell count.
+ * Build UV coordinates mapping the texture across the full world.
  */
-function buildUVs(
+function buildCoverUVs(
     cols: number,
     rows: number,
     spacing: number,
     worldWidth: number,
     worldHeight: number,
-    layer: TextureLayerDef,
 ): Float32Array {
     const uvs = new Float32Array(cols * rows * 2);
-
-    if (layer.mode === 'cover') {
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const i = (r * cols + c) * 2;
-                uvs[i] = ((c + 1) * spacing) / worldWidth;
-                uvs[i + 1] = ((r + 1) * spacing) / worldHeight;
-            }
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const i = (r * cols + c) * 2;
+            uvs[i] = ((c + 1) * spacing) / worldWidth;
+            uvs[i + 1] = ((r + 1) * spacing) / worldHeight;
         }
     }
-
-    else {
-        const n = layer.tileCells ?? 1;
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const i = (r * cols + c) * 2;
-                uvs[i] = c / n;
-                uvs[i + 1] = r / n;
-            }
-        }
-    }
-
     return uvs;
+}
+
+/**
+ * Build UV coordinates that tile the texture `repeat.x` times across the world
+ * horizontally and `repeat.y` times vertically. Requires the texture's address
+ * mode to be set to 'repeat' so out-of-[0,1] UVs wrap.
+ */
+function buildRepeatUVs(
+    cols: number,
+    rows: number,
+    spacing: number,
+    worldWidth: number,
+    worldHeight: number,
+    repeat: { x: number; y: number },
+): Float32Array {
+    const uvs = new Float32Array(cols * rows * 2);
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const i = (r * cols + c) * 2;
+            uvs[i] = (((c + 1) * spacing) / worldWidth) * repeat.x;
+            uvs[i + 1] = (((r + 1) * spacing) / worldHeight) * repeat.y;
+        }
+    }
+    return uvs;
+}
+
+/** True when the decal's asset path denotes the floor-gloss layer. */
+export function isGlossDecalAsset(d: DecalPlacement): boolean {
+    return isGlossDecal(d);
 }
