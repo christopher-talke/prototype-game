@@ -22,6 +22,12 @@ const BUY_PRIORITY = ['SMG', 'RIFLE', 'SHOTGUN', 'SNIPER'];
 
 type AIState = 'patrol' | 'chase' | 'search';
 
+/**
+ * Per-bot runtime state. Tracks FSM phase, navigation waypoints, combat
+ * targeting, stuck detection, and LOS caching.
+ *
+ * AI layer - internal to the bot controller, not exported.
+ */
 type AIController = {
     player: player_info;
     state: AIState;
@@ -49,19 +55,24 @@ const AI_LOS_INTERVAL = 3;
 
 let aiFrameCounter = 0;
 
+/**
+ * Builds a set of patrol waypoints for a bot. Uses map-defined patrol
+ * points when available, otherwise generates random points within the
+ * playable area.
+ * @returns Array of world-space coordinates
+ */
 function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
 
     const currentMap = getActiveMap();
-    if (currentMap.patrolPoints.length > 0) {
-        points.push(...currentMap.patrolPoints);
+    for (const h of currentMap.navHints) {
+        if (h.type === 'cover') points.push(h.position);
     }
-    
+
     const margin = 300;
     const mapMin = 200;
     const mapMax = 2700;
     if (points.length === 0) {
-
         for (let i = 0; i < 6; i++) {
             const newPoint = {
                 x: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
@@ -75,10 +86,16 @@ function generatePatrolPoints(): coordinates[] {
     return points;
 }
 
+/** Removes all AI controllers. Called on match reset. */
 export function clearAllAI() {
     controllers.length = 0;
 }
 
+/**
+ * Creates an AI controller for a player and adds it to the update list.
+ * The bot starts in the 'patrol' state with freshly generated waypoints.
+ * @param player - The player_info this bot will control
+ */
 export function registerAI(player: player_info) {
     controllers.push({
         player,
@@ -103,6 +120,15 @@ export function registerAI(player: player_info) {
     });
 }
 
+/**
+ * Runs one AI tick for every registered bot that is alive. LOS checks
+ * are staggered across frames via `AI_LOS_INTERVAL` to spread the cost.
+ *
+ * AI layer - called once per game loop tick from the orchestration layer.
+ *
+ * @param allPlayers - All players in the match (used for enemy scanning)
+ * @param timestamp - Current frame timestamp in ms
+ */
 export function updateAllAI(allPlayers: player_info[], timestamp: number) {
     aiFrameCounter++;
     for (const ai of controllers) {
@@ -111,20 +137,25 @@ export function updateAllAI(allPlayers: player_info[], timestamp: number) {
     }
 }
 
+/**
+ * Core per-bot update. Handles buy phase, stuck detection, enemy
+ * scanning (throttled LOS), state transitions (patrol/chase/search),
+ * and dispatches to the appropriate behavior function.
+ */
 function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number) {
     const me = ai.player;
     const myCx = me.current_position.x + HALF_HIT_BOX;
     const myCy = me.current_position.y + HALF_HIT_BOX;
 
-    // Try to buy a better weapon once
     tryBuyWeapon(ai);
     tryBuyGrenade(ai);
 
-    // Stuck detection
     const movedDist = getDistance(myCx, myCy, ai.lastPos.x + HALF_HIT_BOX, ai.lastPos.y + HALF_HIT_BOX);
     if (movedDist < STUCK_THRESHOLD) {
         ai.stuckFrames++;
-    } else {
+    }
+
+    else {
         ai.stuckFrames = 0;
     }
 
@@ -141,7 +172,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         }
     }
 
-    // If currently unsticking, just walk in the random direction
     if (timestamp < ai.unstickUntil) {
         const dx = Math.cos(ai.unstickAngle);
         const dy = Math.sin(ai.unstickAngle);
@@ -149,7 +179,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         return;
     }
 
-    // Find visible enemies (throttled - expensive LOS check every N frames)
     let closestEnemy: player_info | null = null;
     let closestDist = Infinity;
 
@@ -174,8 +203,8 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         }
         ai.cachedEnemy = closestEnemy;
         ai.cachedEnemyDist = closestDist;
-    } 
-    
+    }
+
     else {
         closestEnemy = ai.cachedEnemy;
         closestDist = ai.cachedEnemyDist;
@@ -194,18 +223,20 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
         };
         ai.lastSawTarget = timestamp;
         ai.wallHitShots = 0;
-    } 
-    
+    }
+
     else if (ai.state === 'chase') {
         if (timestamp - ai.lastSawTarget > getConfig().ai.chaseTimeout) {
             ai.state = 'patrol';
             ai.targetId = null;
             ai.wallHitShots = 0;
-        } else {
+        }
+
+        else {
             ai.state = 'search';
         }
-    } 
-    
+    }
+
     else if (ai.state === 'search') {
         if (timestamp - ai.lastSawTarget > getConfig().ai.chaseTimeout) {
             ai.state = 'patrol';
@@ -225,7 +256,6 @@ function updateAI(ai: AIController, allPlayers: player_info[], timestamp: number
             doSearch(ai, timestamp);
             break;
     }
-
 }
 
 function doPatrol(ai: AIController, timestamp: number) {
@@ -265,18 +295,16 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
 
     if (dist > 200) {
         moveToward(ai, tx, ty, getConfig().ai.speed);
-    } 
-    
+    }
+
     else if (dist < 100) {
         moveToward(ai, tx, ty, -getConfig().ai.speed * 0.5);
     }
 
-    // Check if we actually have line of sight before firing
     const hasLOS = !isLineBlocked(me.current_position.x, me.current_position.y, target.current_position.x, target.current_position.y, environment.segments);
 
     if (!hasLOS) {
         ai.wallHitShots++;
-        // If we've been trying to shoot through walls, stop and move toward target instead
         if (ai.wallHitShots > WALL_CHECK_SHOTS) {
             moveToward(ai, tx, ty, getConfig().ai.speed);
         }
@@ -285,7 +313,6 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
 
     ai.wallHitShots = 0;
 
-    // Fire if facing target and have clear LOS
     const angleToTarget = getAngle(myCx, myCy, tx, ty);
     const facingAngle = me.current_position.rotation - ROTATION_OFFSET;
     const diff = normalizeAngle(angleToTarget - facingAngle);
@@ -294,8 +321,6 @@ function doChase(ai: AIController, target: player_info, timestamp: number) {
         tryAIFire(ai, timestamp);
     }
 
-    // Try to throw a grenade if we have one and are close enough
-    // Only throw if we haven't thrown one recently to avoid spamming
     if (dist < 450 && ai.threwGrenadeRecently < timestamp - 5000) {
         tryAiThrowGrenade(ai, target);
         ai.threwGrenadeRecently = timestamp;
@@ -312,7 +337,7 @@ function doSearch(ai: AIController, _timestamp: number) {
     const dist = getDistance(myCx, myCy, ai.targetLastPos.x, ai.targetLastPos.y);
 
     if (dist < 30) {
-        me.current_position.rotation += getConfig().ai.turnSpeed * 2;
+        offlineAdapter.sendInput({ type: 'ROTATE', playerId: me.id, rotation: me.current_position.rotation + getConfig().ai.turnSpeed * 2 });
         return;
     }
 
@@ -320,6 +345,11 @@ function doSearch(ai: AIController, _timestamp: number) {
     turnToward(ai, ai.targetLastPos.x, ai.targetLastPos.y);
 }
 
+/**
+ * Moves the bot toward (or away from, if speed is negative) a target
+ * point. Normalizes direction and scales to the desired speed relative
+ * to the configured player speed.
+ */
 function moveToward(ai: AIController, tx: number, ty: number, speed: number) {
     const me = ai.player;
     const myCx = me.current_position.x + HALF_HIT_BOX;
@@ -330,7 +360,6 @@ function moveToward(ai: AIController, tx: number, ty: number, speed: number) {
     const dx = Math.cos(angle) * direction;
     const dy = Math.sin(angle) * direction;
 
-    // Convert desired absolute speed into normalized player MOVE input.
     const playerSpeed = getConfig().player.speed;
     const desiredSpeed = Math.abs(speed);
     const scale = playerSpeed > 0 ? desiredSpeed / playerSpeed : 1;
@@ -346,11 +375,15 @@ function turnToward(ai: AIController, tx: number, ty: number) {
     const targetAngle = getAngle(myCx, myCy, tx, ty) + ROTATION_OFFSET;
     const diff = normalizeAngle(targetAngle - me.current_position.rotation);
 
+    let newRotation: number;
     if (Math.abs(diff) < getConfig().ai.turnSpeed) {
-        me.current_position.rotation = targetAngle;
-    } else {
-        me.current_position.rotation += Math.sign(diff) * getConfig().ai.turnSpeed;
+        newRotation = targetAngle;
     }
+
+    else {
+        newRotation = me.current_position.rotation + Math.sign(diff) * getConfig().ai.turnSpeed;
+    }
+    offlineAdapter.sendInput({ type: 'ROTATE', playerId: me.id, rotation: newRotation });
 }
 
 function tryAIFire(ai: AIController, timestamp: number) {
@@ -367,7 +400,9 @@ function tryAIFire(ai: AIController, timestamp: number) {
         const weaponDef = getWeaponDef(weapon.type);
         if (weaponDef.shellReloadTime && weapon.ammo > 0) {
             // Let fire input interrupt shell reload
-        } else {
+        }
+
+        else {
             return;
         }
     }

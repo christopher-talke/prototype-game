@@ -1,5 +1,12 @@
 import type { GameModeConfig } from './types';
 
+/**
+ * Baseline default values for every {@link GameModeConfig} field.
+ * Represents Team Deathmatch with no overrides applied.
+ *
+ * Treat as immutable -- mode switching deep-clones this via
+ * {@link resetConfig} before applying overrides.
+ */
 export const BASE_DEFAULTS: GameModeConfig = {
     id: 'tdm',
     name: 'Team Deathmatch',

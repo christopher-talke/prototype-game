@@ -1,14 +1,26 @@
-import type { DeepPartial } from '../types';
-import type { GameModeConfig } from '../types';
+import type { DeepPartial, GameModeConfig } from '../types';
 
+/**
+ * Registry entry for a selectable game mode.
+ * Displayed in the mode picker UI and applied via {@link setGameMode}.
+ */
 interface ModeEntry {
+    /** Unique slug used as lookup key (e.g. 'tdm', 'snipers-only'). */
     id: string;
+    /** Human-readable mode name shown in the lobby. */
     name: string;
+    /** Short description shown below the mode name in the picker. */
     description: string;
+    /** UI filter tags displayed as badges (e.g. 'ALL WEAPONS', '5 ROUNDS'). */
     tags: string[];
+    /** Sparse config overrides merged onto {@link BASE_DEFAULTS} when this mode is selected. */
     partial: DeepPartial<GameModeConfig>;
 }
 
+/**
+ * Ordered list of all available game modes.
+ * The first entry ('tdm') is the default mode and carries an empty partial.
+ */
 export const GAME_MODES: ModeEntry[] = [
     {
         id: 'tdm',
@@ -118,4 +130,8 @@ export const GAME_MODES: ModeEntry[] = [
     }
 ];
 
+/**
+ * Lookup map for O(1) mode access by id.
+ * Built once from {@link GAME_MODES} at module load.
+ */
 export const GAME_MODES_MAP = new Map<string, ModeEntry>(GAME_MODES.map((m) => [m.id, m]));

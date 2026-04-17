@@ -1,15 +1,30 @@
 /**
- * Computes the intersection of a ray and a line segment.
- * ELI5: This is the distance of where a ray touches a wall, if it does at all. If it doesn't touch the wall, it returns nothing.
- * @param ox The x-coordinate of the ray origin.
- * @param oy The y-coordinate of the ray origin.
- * @param dx The x-component of the ray direction.
- * @param dy The y-component of the ray direction.
- * @param x1 The x-coordinate of the first endpoint of the segment.
- * @param y1 The y-coordinate of the first endpoint of the segment.
- * @param x2 The x-coordinate of the second endpoint of the segment.
- * @param y2 The y-coordinate of the second endpoint of the segment.
- * @returns The distance along the ray to the intersection point, or null if no intersection.
+ * Returns the parametric distance `t` along the ray at which it intersects the
+ * line segment `(x1,y1)-(x2,y2)`, or `null` when there is no intersection.
+ *
+ * Uses the standard 2D ray-segment intersection formula derived from solving:
+ *   P(t) = O + t*D
+ *   Q(u) = A + u*(B-A)   where u in [0,1]
+ *
+ * Cramer's rule gives:
+ *   denom = D.x * S.y - D.y * S.x   (cross product of ray dir and segment dir)
+ *   t     = ((A - O) x S) / denom
+ *   u     = ((A - O) x D) / denom
+ *
+ * Returns `null` when `denom` is near zero (parallel) or `u` is outside [0,1]
+ * (miss). Does not reject negative `t`, so callers that need a forward-only
+ * ray must check `t >= 0` themselves.
+ *
+ * @param ox - Ray origin x.
+ * @param oy - Ray origin y.
+ * @param dx - Ray direction x (need not be normalised for intersection, but `t`
+ *             will be in direction-length units if not normalised).
+ * @param dy - Ray direction y.
+ * @param x1 - Segment start x.
+ * @param y1 - Segment start y.
+ * @param x2 - Segment end x.
+ * @param y2 - Segment end y.
+ * @returns Distance `t` along the ray to the intersection, or `null`.
  */
 export function raySegmentIntersect(ox: number, oy: number, dx: number, dy: number, x1: number, y1: number, x2: number, y2: number): number | null {
     const sx = x2 - x1;
@@ -25,13 +40,17 @@ export function raySegmentIntersect(ox: number, oy: number, dx: number, dy: numb
 }
 
 /**
- * Checks if a line segment between two points is blocked by any wall segments.
- * @param sx The x-coordinate of the start point.
- * @param sy The y-coordinate of the start point.
- * @param tx The x-coordinate of the target point.
- * @param ty The y-coordinate of the target point.
- * @param segments The array of wall segments to check against.
- * @returns True if the line segment is blocked by any wall segment, false otherwise.
+ * Returns true if the segment from `(sx,sy)` to `(tx,ty)` is blocked by at
+ * least one wall segment. The ray is normalised to length 1 so that `t`
+ * values returned by `raySegmentIntersect` are in world units; intersections
+ * within 0.5 units of either endpoint are ignored to avoid self-hits.
+ *
+ * @param sx - Start x.
+ * @param sy - Start y.
+ * @param tx - Target x.
+ * @param ty - Target y.
+ * @param segments - Wall segments to test against.
+ * @returns `true` if any segment straddles the line.
  */
 function isSingleRayBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     const dx = tx - sx;
@@ -48,13 +67,19 @@ function isSingleRayBlocked(sx: number, sy: number, tx: number, ty: number, segm
 }
 
 /**
- * Checks if a line segment between two points is blocked by any wall segments, considering an offset for thicker walls.
- * @param sx The x-coordinate of the start point.
- * @param sy The y-coordinate of the start point.
- * @param tx The x-coordinate of the target point.
- * @param ty The y-coordinate of the target point.
- * @param segments The array of wall segments to check against.
- * @returns True if the line segment is blocked by any wall segment, false otherwise.
+ * Returns true if the straight line between two points is blocked by wall
+ * geometry, using a three-ray test to handle thin walls robustly.
+ *
+ * Casts the direct ray plus two laterally offset rays (perpendicular to the
+ * line, offset by 10 units). All three must be blocked for the function to
+ * return true, reducing false positives near wall endpoints and corners.
+ *
+ * @param sx - Start x.
+ * @param sy - Start y.
+ * @param tx - Target x.
+ * @param ty - Target y.
+ * @param segments - Wall segments to test against.
+ * @returns `true` only when all three rays are blocked.
  */
 export function isLineBlocked(sx: number, sy: number, tx: number, ty: number, segments: WallSegment[]): boolean {
     const dx = tx - sx;

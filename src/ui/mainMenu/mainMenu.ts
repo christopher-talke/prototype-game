@@ -1,4 +1,5 @@
 import './menu.css';
+
 import type { DeepPartial, GameModeConfig } from '@config/types';
 import { GAME_MODES } from '@config/modes/index';
 import { MAP_LIST, setActiveMap } from '@maps/helpers';
@@ -6,7 +7,7 @@ import { toggleSettings } from '@ui/settings/settings';
 import { webSocketAdapter } from '@net/webSocketAdapter';
 import { showLobbyScreen, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
-import { hideCrosshair, showCrosshair } from '@rendering/hud';
+import { hideCrosshair, showCrosshair } from '@rendering/dom/hud';
 
 type Screen = 'main' | 'map-select' | 'mode-select' | 'customize' | 'how-to-play';
 
@@ -17,6 +18,16 @@ let onPlayCallback: ((modeId: string, overrides?: DeepPartial<GameModeConfig>) =
 let settingsClosedHandler: (() => void) | null = null;
 let customizer: GameCustomizerInstance | null = null;
 
+/**
+ * Creates and displays the main menu overlay. Provides navigation to
+ * offline play (map/mode select), online lobby, map editor, settings,
+ * and a how-to-play screen.
+ *
+ * UI layer - entry point screen shown on launch and after leaving a match.
+ *
+ * @param onPlay - Called when the player starts an offline game with the
+ *                 selected mode id and optional config overrides
+ */
 export function showMainMenu(onPlay: (modeId: string) => void) {
     hideCrosshair();
 
@@ -32,6 +43,7 @@ export function showMainMenu(onPlay: (modeId: string) => void) {
     showScreen('main');
 }
 
+/** Fades out and removes the main menu overlay from the DOM. */
 export function hideMainMenu() {
     showCrosshair();
 
@@ -52,8 +64,6 @@ export function hideMainMenu() {
     }, 400);
 }
 
-// ---- Screen switching ----
-
 function showScreen(screen: Screen) {
     if (!menuEl) return;
     menuEl.querySelectorAll<HTMLElement>('.menu-panel').forEach((p) => p.classList.remove('active'));
@@ -61,12 +71,9 @@ function showScreen(screen: Screen) {
     menuEl.classList.toggle('is-subscreen', screen !== 'main');
 }
 
-// ---- Event wiring ----
-
 function wireEvents() {
     if (!menuEl) return;
 
-    // Main screen
     menuEl.querySelector('#btn-offline')?.addEventListener('click', () => showScreen('map-select'));
     menuEl.querySelector('#btn-online')?.addEventListener('click', () => {
         hideMainMenu();
@@ -100,7 +107,6 @@ function wireEvents() {
     document.addEventListener('settings-closed', settingsClosedHandler);
     menuEl.querySelector('#btn-howto')?.addEventListener('click', () => showScreen('how-to-play'));
 
-    // Map select
     menuEl.querySelectorAll<HTMLElement>('.map-card').forEach((card) => {
         card.addEventListener('click', () => {
             selectedMapId = card.dataset.mapId ?? 'arena';
@@ -112,7 +118,6 @@ function wireEvents() {
     menuEl.querySelector('#btn-next-map')?.addEventListener('click', () => showScreen('mode-select'));
     menuEl.querySelector('#btn-back-map')?.addEventListener('click', () => showScreen('main'));
 
-    // Mode select
     menuEl.querySelectorAll<HTMLElement>('.mode-card').forEach((card) => {
         card.addEventListener('click', () => {
             selectedModeId = card.dataset.modeId ?? 'tdm';
@@ -141,7 +146,6 @@ function wireEvents() {
     });
     menuEl.querySelector('#btn-back-mode')?.addEventListener('click', () => showScreen('map-select'));
 
-    // Customize screen
     menuEl.querySelector('#btn-back-customize')?.addEventListener('click', () => {
         if (customizer) {
             customizer.unmount();
@@ -154,11 +158,8 @@ function wireEvents() {
         onPlayCallback?.(selectedModeId, overrides);
     });
 
-    // How to play
     menuEl.querySelector('#btn-back-howto')?.addEventListener('click', () => showScreen('main'));
 }
-
-// ---- HTML builders ----
 
 function buildHTML(): string {
     return `

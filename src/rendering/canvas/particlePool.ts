@@ -1,0 +1,276 @@
+/**
+ * Structure-of-Arrays (SoA) particle pool with Canvas 2D texture atlas.
+ *
+ * Provides a fixed-capacity pool of PixiJS Sprites backed by typed arrays for
+ * position, velocity, scale, rotation, alpha, and lifetime. A free-stack tracks
+ * available slots; an aliveIndices array enables the update loop to skip dead slots.
+ *
+ * Texture generation functions produce soft circles, hard dots, shards, streaks,
+ * and soft blobs using Canvas 2D -- called once at init to build a reusable atlas.
+ *
+ * Part of the canvas rendering layer. Consumed by grenade effect modules
+ * (fragEffect, c4Effect, smokeEffect).
+ */
+
+import { Sprite, Texture, Container } from 'pixi.js';
+
+import { particleConfig } from './config/particleConfig';
+
+/**
+ * Generate a soft-circle texture with configurable radial falloff.
+ * @param size - Canvas dimensions in pixels (square).
+ * @param falloff - Exponent controlling gradient steepness (higher = sharper edge).
+ */
+function generateSoftCircle(size: number, falloff: number = 2.0): Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const half = size / 2;
+    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.3, `rgba(255,255,255,${Math.pow(0.7, falloff)})`);
+    grad.addColorStop(0.7, `rgba(255,255,255,${Math.pow(0.3, falloff)})`);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    return Texture.from(canvas);
+}
+
+function generateHardDot(size: number): Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const half = size / 2;
+    ctx.beginPath();
+    ctx.arc(half, half, half * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    return Texture.from(canvas);
+}
+
+function generateShard(size: number): Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const half = size / 2;
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(half, 0);
+    ctx.lineTo(size * 0.8, half * 0.6);
+    ctx.lineTo(size * 0.7, size);
+    ctx.lineTo(size * 0.2, size * 0.7);
+    ctx.lineTo(0, half * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    return Texture.from(canvas);
+}
+
+function generateStreak(width: number, height: number): Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createLinearGradient(0, 0, width, 0);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.3, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,1)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+    return Texture.from(canvas);
+}
+
+function generateSoftBlob(size: number): Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const half = size / 2;
+    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+    grad.addColorStop(0, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(0.4, 'rgba(255,255,255,0.5)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,0.2)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    return Texture.from(canvas);
+}
+
+/** Shared particle textures. Initialized by {@link initParticleTextures}. */
+export let texSoftCircle: Texture;
+export let texHardDot: Texture;
+export let texShard: Texture;
+export let texStreak: Texture;
+export let texSoftBlob: Texture;
+export let texSoftCircleLarge: Texture;
+
+/** Generate all particle textures using Canvas 2D. Call once during renderer init. */
+export function initParticleTextures() {
+    texSoftCircle = generateSoftCircle(particleConfig.textureSize);
+    texHardDot = generateHardDot(particleConfig.hardDotSize);
+    texShard = generateShard(particleConfig.shardSize);
+    texStreak = generateStreak(particleConfig.streakWidth, particleConfig.streakHeight);
+    texSoftBlob = generateSoftBlob(particleConfig.textureSize);
+    texSoftCircleLarge = generateSoftCircle(particleConfig.largeSoftCircleSize, particleConfig.largeSoftCircleFalloff);
+}
+
+/**
+ * A fixed-capacity pool of particles stored as parallel typed arrays (SoA layout).
+ * Sprites are pre-created and hidden; acquiring a slot makes the sprite visible.
+ */
+export interface ParticleBank {
+    x: Float32Array;
+    y: Float32Array;
+    vx: Float32Array;
+    vy: Float32Array;
+    scale: Float32Array;
+    rotation: Float32Array;
+    alpha: Float32Array;
+    elapsed: Float32Array;
+    duration: Float32Array;
+    alive: Uint8Array;
+    sprites: Sprite[];
+    /** Stack of free slot indices. Pop to acquire, push to release. */
+    freeStack: number[];
+    /** Indices of currently alive particles, enabling sparse iteration. */
+    aliveIndices: number[];
+    aliveCount: number;
+    capacity: number;
+    container: Container;
+}
+
+/**
+ * Allocate a new particle bank with pre-created hidden sprites.
+ * @param capacity - Maximum number of concurrent particles.
+ * @param texture - Shared texture for all sprites in this bank.
+ * @param container - PixiJS container to parent the sprites.
+ * @param blendMode - Optional blend mode string (e.g. 'add').
+ * @returns The initialized bank.
+ */
+export function createParticleBank(capacity: number, texture: Texture, container: Container, blendMode?: string): ParticleBank {
+    const bank: ParticleBank = {
+        x: new Float32Array(capacity),
+        y: new Float32Array(capacity),
+        vx: new Float32Array(capacity),
+        vy: new Float32Array(capacity),
+        scale: new Float32Array(capacity),
+        rotation: new Float32Array(capacity),
+        alpha: new Float32Array(capacity),
+        elapsed: new Float32Array(capacity),
+        duration: new Float32Array(capacity),
+        alive: new Uint8Array(capacity),
+        sprites: new Array(capacity),
+        freeStack: new Array(capacity),
+        aliveIndices: [],
+        aliveCount: 0,
+        capacity,
+        container,
+    };
+
+    for (let i = 0; i < capacity; i++) {
+        const s = new Sprite(texture);
+        s.anchor.set(0.5);
+        s.visible = false;
+        s.cullable = true;
+        if (blendMode) s.blendMode = blendMode as any;
+        container.addChild(s);
+        bank.sprites[i] = s;
+        bank.freeStack[i] = capacity - 1 - i; // fill in reverse so pop gives 0,1,2...
+    }
+
+    return bank;
+}
+
+/**
+ * Acquire a particle slot from the bank.
+ * @param bank - The particle bank.
+ * @returns The slot index, or -1 if the bank is full.
+ */
+export function acquireParticle(bank: ParticleBank): number {
+    if (bank.freeStack.length === 0) return -1;
+    const idx = bank.freeStack.pop()!;
+    bank.alive[idx] = 1;
+    bank.elapsed[idx] = 0;
+    bank.sprites[idx].visible = true;
+    bank.aliveIndices.push(idx);
+    bank.aliveCount++;
+    return idx;
+}
+
+/**
+ * Release a particle slot back to the bank's free stack.
+ * The aliveIndices entry is cleaned up during {@link updateBank} iteration.
+ * @param bank - The particle bank.
+ * @param idx - The slot index to release.
+ */
+export function releaseParticle(bank: ParticleBank, idx: number) {
+    if (!bank.alive[idx]) return;
+    bank.alive[idx] = 0;
+    bank.sprites[idx].visible = false;
+    bank.freeStack.push(idx);
+    bank.aliveCount--;
+}
+
+/**
+ * Copy a particle slot's SoA fields onto its PixiJS Sprite for rendering.
+ * @param bank - The particle bank.
+ * @param idx - The slot index.
+ */
+export function syncSprite(bank: ParticleBank, idx: number) {
+    const s = bank.sprites[idx];
+    s.x = bank.x[idx];
+    s.y = bank.y[idx];
+    s.scale.set(bank.scale[idx]);
+    s.rotation = bank.rotation[idx];
+    s.alpha = bank.alpha[idx];
+}
+
+/**
+ * Per-frame updater callback for a particle bank.
+ * Called once per alive particle. Return false to kill the particle.
+ * @param bank - The particle bank.
+ * @param idx - The slot index of the particle being updated.
+ * @param dt - Delta time in milliseconds.
+ * @returns true to keep the particle alive, false to kill it.
+ */
+export type ParticleUpdater = (bank: ParticleBank, idx: number, dt: number) => boolean;
+
+/**
+ * Iterate alive particles, advance elapsed time, call the updater, and release
+ * particles that expire or are killed by the updater. Iterates in reverse to
+ * allow safe swap-removal from the aliveIndices array.
+ * @param bank - The particle bank.
+ * @param dt - Delta time in milliseconds.
+ * @param updater - Per-particle update function.
+ */
+export function updateBank(bank: ParticleBank, dt: number, updater: ParticleUpdater) {
+    const indices = bank.aliveIndices;
+    for (let j = indices.length - 1; j >= 0; j--) {
+        const i = indices[j];
+        bank.elapsed[i] += dt;
+        if (bank.elapsed[i] >= bank.duration[i] || !updater(bank, i, dt)) {
+            releaseParticle(bank, i);
+
+            const last = indices.length - 1;
+            if (j !== last) indices[j] = indices[last];
+            indices.length = last;
+
+            continue;
+        }
+        syncSprite(bank, i);
+    }
+}
+
+/**
+ * Release all alive particles and clear the aliveIndices array.
+ * @param bank - The particle bank to clear.
+ */
+export function clearBank(bank: ParticleBank) {
+    for (let i = 0; i < bank.capacity; i++) {
+        if (bank.alive[i]) releaseParticle(bank, i);
+    }
+    bank.aliveIndices.length = 0;
+}

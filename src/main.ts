@@ -1,48 +1,38 @@
 import './style.css';
 
-import { drawFogOfWar } from '@rendering/fogOfWar';
+import { drawFogOfWar } from '@rendering/dom/fogOfWar';
 import { generateEnvironment } from '@simulation/environment/environment';
-import { initHUD } from '@rendering/hud';
+import { initHUD } from '@rendering/dom/hud';
 import { resumeAudioContext, playMenuMusic } from '@audio/index';
 import { loadAllSounds } from '@audio/soundMap';
-import { initProjectilePool } from '@simulation/combat/projectilePool';
-import { clientRenderer } from '@rendering/clientRenderer';
+import { initProjectilePool } from '@rendering/dom/projectilePool';
+import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { showMainMenu } from '@ui/mainMenu/mainMenu';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/loading/loadingScreen';
-import { initGameLoop } from '@simulation/gameLoop';
-import { initMatchSystem, launchMatch } from '@simulation/match/match';
-import { getConfig, setGameMode } from '@config/activeConfig';
+import { initGameLoop } from '@orchestration/gameLoop';
+import { initMatchSystem, launchMatch } from '@orchestration/match';
+import { SETTINGS } from './app';
+import { initPixiApp, hidePixiCanvas } from '@rendering/canvas/app';
+import { initPixiProjectilePool } from '@rendering/canvas/projectilePool';
+import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
+import { initPixiFogOfWar } from '@rendering/canvas/fogOfWar';
+import { initPixiAimLine } from '@rendering/canvas/aimLineRenderer';
+import { initPlayerGlowManager } from '@rendering/canvas/playerGlowManager';
+import { initLightingSystem } from '@rendering/canvas/lightingManager';
+import { initGridDisplacement } from '@rendering/canvas/gridDisplacement';
+import { initParticleTextures } from '@rendering/canvas/particlePool';
+import { applyGraphicsConfig } from '@rendering/canvas/config/graphicsConfig';
+import '@ui/debug/lightingDebug';
 
-import { getGPUTier } from '@pmndrs/detect-gpu';
-
+/**
+ * Yields to the browser for one animation frame so the loading screen can repaint
+ * between heavy synchronous init steps.
+ */
 function nextFrame(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-
-    const gpuTier = await getGPUTier();
-    const knownVendors = ['nvidia', 'amd'];
-    const gpuName = gpuTier.gpu?.toLowerCase() || '';
-    if (!knownVendors.some(vendor => gpuName.includes(vendor))) {
-        setGameMode({
-            match: {
-                maxPlayers: 10,
-            },
-            gameplay: {
-                disableLowHealthEffects: true
-            }
-        })
-        console.log(getConfig());
-        alert(`No dedicated GPU detected. The game configurations and effects have been reduced/disabled to improve performance. You may still experience lag or stuttering. If you encounter significant issues, please try closing other applications or upgrading your hardware. We apologize for the inconvenience.`);
-    }
-
-    if (gpuTier.isMobile) {
-        alert('Mobile devices are not supported at this time. You will be redirected to a video showcasing the game instead! Sorry for the inconvenience.');
-        window.location.href = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-        return;
-    }
-
     showLoadingScreen();
     await nextFrame();
 
@@ -57,8 +47,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLoadingProgress(20, 'initializing systems');
     initProjectilePool();
     clientRenderer.init();
+    pixiClientRenderer.init();
 
     setLoadingProgress(30, 'initializing renderer');
+    applyGraphicsConfig('ULTRA');
+    await initPixiApp();
+    initPixiProjectilePool();
+    initPlayerGlowManager();
+    initPixiFogOfWar();
+    initLightingSystem();
+    initGridDisplacement();
+    initParticleTextures();
+    initPixiAimLine();
+
+    if (SETTINGS.renderer === 'dom') {
+        hidePixiCanvas();
+    }
+
+    else {
+        document.body.classList.add('renderer-pixi');
+    }
     await nextFrame();
 
     setLoadingProgress(45, 'initializing input');

@@ -1,10 +1,12 @@
 import './lobby.css';
+
 import type { GameModeConfig, DeepPartial } from '@config/types';
 import type { LobbyPlayer } from '@net/protocol';
 import { MAP_LIST } from '@maps/helpers';
 import { createGameCustomizer, type GameCustomizerInstance } from '@ui/gameCustomizer/gameCustomizer';
-import { hideCrosshair, showCrosshair } from '@rendering/hud';
+import { hideCrosshair, showCrosshair } from '@rendering/dom/hud';
 
+/** Read-only view of the current lobby state, used to drive the lobby UI. */
 type LobbyStateView = {
     host: number;
     players: LobbyPlayer[];
@@ -14,6 +16,7 @@ type LobbyStateView = {
     roomCode?: string;
 };
 
+/** Callbacks supplied by the orchestration layer when opening the lobby screen. */
 type LobbyCallbacks = {
     onConnect: (serverUrl: string, name: string) => Promise<void>;
     onDisconnect: () => void;
@@ -36,12 +39,18 @@ let connectError = '';
 let lobbyCustomizer: GameCustomizerInstance | null = null;
 let lobbyBaseModeId = 'tdm';
 
+/**
+ * Returns the current lobby state snapshot, or null if not in a room.
+ * @returns The latest lobby state view
+ */
 export function getLobbyState(): LobbyStateView | null {
     return currentState;
 }
 
-// ---- Public API ----
-
+/**
+ * Opens the lobby screen overlay. Starts on the connection form phase.
+ * @param cb - Callbacks for lobby actions (connect, disconnect, ready, etc.)
+ */
 export function showLobbyScreen(cb: LobbyCallbacks) {
     hideCrosshair();
     document.body.style.cursor = 'auto';
@@ -65,6 +74,7 @@ export function showLobbyScreen(cb: LobbyCallbacks) {
     render();
 }
 
+/** Fades out and removes the lobby screen overlay from the DOM. */
 export function hideLobbyScreen() {
     showCrosshair();
     document.body.style.cursor = 'none';
@@ -81,10 +91,20 @@ export function hideLobbyScreen() {
     }, 400);
 }
 
+/**
+ * Sets the local player's server-assigned id so the lobby can highlight
+ * the current user and determine host status.
+ * @param id - Server-assigned player id
+ */
 export function setLocalPlayerId(id: number) {
     selfId = id;
 }
 
+/**
+ * Pushes a new lobby state from the network layer and re-renders.
+ * Transitions from the connect form to the room view on first call.
+ * @param state - Latest lobby state from the server
+ */
 export function updateLobbyState(state: LobbyStateView) {
     currentState = state;
     if (phase !== 'room') {
@@ -93,6 +113,10 @@ export function updateLobbyState(state: LobbyStateView) {
     render();
 }
 
+/**
+ * Displays a countdown overlay in the lobby status area.
+ * @param seconds - Seconds remaining before the game starts
+ */
 export function showCountdown(seconds: number) {
     if (!rootEl) return;
     const el = rootEl.querySelector('.lobby-status');
@@ -102,15 +126,15 @@ export function showCountdown(seconds: number) {
     }
 }
 
-// ---- Rendering ----
-
 function render() {
     if (!rootEl) return;
     rootEl.classList.remove('fade-out');
 
     if (phase === 'connect') {
         renderConnectForm();
-    } else {
+    }
+
+    else {
         renderRoom();
     }
 }
@@ -231,7 +255,6 @@ function renderRoom() {
         </div>
     `;
 
-    // Mount customizer
     const custMount = rootEl.querySelector<HTMLElement>('#lobby-customizer-mount');
     if (custMount) {
         if (lobbyCustomizer) lobbyCustomizer.unmount();
@@ -296,6 +319,7 @@ function renderRoom() {
 
 function renderPlayer(p: LobbyPlayer, isHost: boolean, otherTeam: number): string {
     const isSelf = p.id === selfId;
+
     return `
         <div class="lobby-player">
             <span class="lobby-player-name">${p.name}${isSelf ? ' (you)' : ''}</span>

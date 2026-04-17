@@ -1,3 +1,12 @@
+/**
+ * Tracks active smoke clouds for line-of-sight blocking.
+ * Smoke data is registered when a SMOKE_DEPLOY event fires and expires after its duration.
+ * Consumed by the detection layer's raycast module to block LOS through smoke.
+ *
+ * Simulation layer - does not depend on rendering, net, or orchestration.
+ */
+
+/** A single active smoke cloud with position, radius, and expiration time. */
 type SmokeData = {
     x: number;
     y: number;
@@ -7,15 +16,27 @@ type SmokeData = {
 
 const smokeDatas: SmokeData[] = [];
 
-export function addSmokeData(x: number, y: number, radius: number, duration: number) {
+/**
+ * Registers a new smoke cloud.
+ * @param x - Center x of the smoke.
+ * @param y - Center y of the smoke.
+ * @param radius - Radius of the smoke cloud.
+ * @param duration - How long the smoke lasts in ms.
+ * @param timestamp - Current simulation time.
+ */
+export function addSmokeData(x: number, y: number, radius: number, duration: number, timestamp: number) {
     smokeDatas.push({
         x,
         y,
         radius,
-        expiresAt: performance.now() + duration,
+        expiresAt: timestamp + duration,
     });
 }
 
+/**
+ * Removes smoke clouds that have exceeded their duration.
+ * @param timestamp - Current simulation time.
+ */
 export function removeExpiredSmoke(timestamp: number) {
     for (let i = smokeDatas.length - 1; i >= 0; i--) {
         if (timestamp >= smokeDatas[i].expiresAt) {
@@ -24,6 +45,19 @@ export function removeExpiredSmoke(timestamp: number) {
     }
 }
 
+/** Removes all smoke data. Called on round/match reset. */
+export function clearAllSmokeData() {
+    smokeDatas.length = 0;
+}
+
+/**
+ * Checks if the line segment from (x1,y1) to (x2,y2) passes through any active smoke cloud.
+ * @param x1 - Start x.
+ * @param y1 - Start y.
+ * @param x2 - End x.
+ * @param y2 - End y.
+ * @returns True if the line intersects any smoke cloud.
+ */
 export function isSmoked(x1: number, y1: number, x2: number, y2: number): boolean {
     for (const data of smokeDatas) {
         if (lineIntersectsCircle(x1, y1, x2, y2, data.x, data.y, data.radius)) {
@@ -34,16 +68,16 @@ export function isSmoked(x1: number, y1: number, x2: number, y2: number): boolea
 }
 
 /**
- * Checks if a line segment intersects with a circle (algorithm adapted from https://stackoverflow.com/a/1088058)
- * - This sucked, and thank god for LLMs to help me get it right on the first try. I hate geometry (Sorry Mrs Ryan).
- * @param x1 The x-coordinate of the start of the line segment.
- * @param y1 The y-coordinate of the start of the line segment.
- * @param x2 The x-coordinate of the end of the line segment.
- * @param y2 The y-coordinate of the end of the line segment.
- * @param cx The x-coordinate of the circle's center.
- * @param cy The y-coordinate of the circle's center.
- * @param r The radius of the circle.
- * @returns True if the line segment intersects the circle, false otherwise.
+ * Tests whether a line segment intersects a circle using the quadratic formula
+ * on the parametric ray-circle distance equation.
+ * @param x1 - Segment start x.
+ * @param y1 - Segment start y.
+ * @param x2 - Segment end x.
+ * @param y2 - Segment end y.
+ * @param cx - Circle center x.
+ * @param cy - Circle center y.
+ * @param r - Circle radius.
+ * @returns True if the segment intersects the circle.
  */
 function lineIntersectsCircle(x1: number, y1: number, x2: number, y2: number, cx: number, cy: number, r: number): boolean {
     const dx = x2 - x1;

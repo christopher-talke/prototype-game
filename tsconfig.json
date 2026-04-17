@@ -15,9 +15,11 @@
         "noUnusedParameters": true,
         "noImplicitReturns": true,
         "skipLibCheck": true,
+        "types": ["vitest/globals"],
         "baseUrl": ".",
         "paths": {
             "@ai/*": ["src/ai/*"],
+            "@orchestration/*": ["src/orchestration/*"],
             "@simulation/*": ["src/simulation/*"],
             "@rendering/*": ["src/rendering/*"],
             "@net/*": ["src/net/*"],
@@ -25,7 +27,8 @@
             "@audio/*": ["src/audio/*"],
             "@config/*": ["src/config/*"],
             "@maps/*": ["src/maps/*"],
-            "@utils/*": ["src/utils/*"]
+            "@utils/*": ["src/utils/*"],
+            "@shared/*": ["src/shared/*"]
         }
     },
     "include": ["src"]

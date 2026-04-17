@@ -1,5 +1,7 @@
 import './settings.css';
+
 import { SETTINGS } from '../../app';
+import { switchRenderer } from '@rendering/rendererSwitch';
 import { setMasterVolume, setSfxVolume, setMusicVolume, setMuted } from '@audio/index';
 import { removeElements } from '@utils/removeElements';
 import { getAllBinds, setKeybind, getKeyDisplayName, ActionId } from './keybinds';
@@ -9,10 +11,18 @@ let isOpen = false;
 let listeningRow: HTMLElement | null = null;
 let listeningAction: ActionId | null = null;
 
+/** @returns Whether the settings panel is currently visible */
 export function isSettingsOpen(): boolean {
     return isOpen;
 }
 
+/**
+ * Opens the settings panel if closed, or closes it if open. Lazily
+ * builds the DOM on first toggle. Dispatches a 'settings-closed'
+ * CustomEvent when closing so the main menu can un-dim.
+ *
+ * UI layer - top-level settings overlay with Controls, Audio, and Game tabs.
+ */
 export function toggleSettings() {
     if (!settingsEl) buildSettingsUI();
     isOpen = !isOpen;
@@ -20,6 +30,10 @@ export function toggleSettings() {
     if (isOpen) refreshKeybindsTab();
 }
 
+/**
+ * Programmatically closes the settings panel and dispatches the
+ * 'settings-closed' event. No-op if already closed.
+ */
 export function closeSettings() {
     if (!isOpen) return;
     isOpen = false;
@@ -52,10 +66,8 @@ function buildSettingsUI() {
     `;
     document.body.appendChild(settingsEl);
 
-    // Close button
     settingsEl.querySelector('#settings-close')!.addEventListener('click', closeSettings);
 
-    // Tab switching
     settingsEl.querySelectorAll('.settings-tab').forEach((tab) => {
         tab.addEventListener('click', () => {
             settingsEl!.querySelectorAll('.settings-tab').forEach((t) => t.classList.remove('active'));
@@ -70,7 +82,6 @@ function buildSettingsUI() {
     buildGameTab();
     refreshKeybindsTab();
 
-    // Capture key for rebinding
     window.addEventListener('keydown', onRebindKey);
 }
 
@@ -192,7 +203,14 @@ function buildGameTab() {
             <select id="opt-raycast">
                 <option value="DISABLED" ${SETTINGS.raycast.type === 'DISABLED' ? 'selected' : ''}>Simplified FOV Cone</option>
                 <option value="SPRAY" ${SETTINGS.raycast.type === 'SPRAY' ? 'selected' : ''}>Fast Raycasting</option>
-                <option value="MAIN_THREAD" ${SETTINGS.raycast.type === 'MAIN_THREAD' ? 'selected' : ''}>Full Raycasting</option>
+                <option value="CORNERS" ${SETTINGS.raycast.type === 'CORNERS' ? 'selected' : ''}>Full Raycasting</option>
+            </select>
+        </div>
+        <div class="settings-row">
+            <label>Renderer</label>
+            <select id="opt-renderer">
+                <option value="dom" ${SETTINGS.renderer === 'dom' ? 'selected' : ''}>DOM (Classic)</option>
+                <option value="pixi" ${SETTINGS.renderer === 'pixi' ? 'selected' : ''}>WebGL (PixiJS)</option>
             </select>
         </div>
     `;
@@ -201,7 +219,9 @@ function buildGameTab() {
         const val = (e.target as HTMLSelectElement).value;
         if (val === 'true') {
             SETTINGS.debug = true;
-        } else {
+        }
+
+        else {
             removeElements(document.querySelectorAll('.ray'));
             removeElements(document.querySelectorAll('.los'));
             SETTINGS.debug = false;
@@ -214,8 +234,15 @@ function buildGameTab() {
         if (val === 'DISABLED') {
             removeElements(document.querySelectorAll('.ray'));
             document.getElementById('fog-of-war')?.classList.add('d-none');
-        } else {
+        }
+
+        else {
             document.getElementById('fog-of-war')?.classList.remove('d-none');
         }
+    });
+
+    panel.querySelector('#opt-renderer')!.addEventListener('change', (e) => {
+        const val = (e.target as HTMLSelectElement).value as RendererType;
+        switchRenderer(val);
     });
 }

@@ -1,4 +1,5 @@
 import './game-customizer.css';
+
 import type { GameModeConfig, DeepPartial } from '@config/types';
 import { BASE_DEFAULTS } from '@config/defaults';
 import { deepMerge } from '@config/activeConfig';
@@ -26,37 +27,30 @@ const msToSec = (v: number) => Math.round(v / 1000);
 const secToMs = (v: number) => v * 1000;
 
 const FIELDS: FieldDescriptor[] = [
-    // Match
     { section: 'match', key: 'roundsToWin', label: 'Rounds to Win', type: 'number', min: 1, max: 30 },
     { section: 'match', key: 'roundDuration', label: 'Round Duration (s)', type: 'number', min: 20, max: 1200, toDisplay: msToSec, toStore: secToMs },
     { section: 'match', key: 'roundIntermission', label: 'Intermission (s)', type: 'number', min: 1, max: 30, toDisplay: msToSec, toStore: secToMs },
     { section: 'match', key: 'maxPlayers', label: 'Max Players', type: 'number', min: 2, max: 64 },
     { section: 'match', key: 'teamsCount', label: 'Teams', type: 'number', min: 2, max: 4 },
     { section: 'match', key: 'friendlyFire', label: 'Friendly Fire', type: 'boolean' },
-    // Economy
     { section: 'economy', key: 'startingMoney', label: 'Starting Money', type: 'number', min: 0, max: 99999 },
     { section: 'economy', key: 'killRewardMultiplier', label: 'Kill Reward Mult', type: 'number', min: 0, max: 10, step: 0.1 },
     { section: 'economy', key: 'armorCost', label: 'Armor Cost', type: 'number', min: 0, max: 5000 },
     { section: 'economy', key: 'healthCost', label: 'Health Cost', type: 'number', min: 0, max: 5000 },
     { section: 'economy', key: 'disableArmor', label: 'Disable Armor Buy', type: 'boolean' },
     { section: 'economy', key: 'disableHealth', label: 'Disable Health Buy', type: 'boolean' },
-    // Player
     { section: 'player', key: 'maxHealth', label: 'Max Health', type: 'number', min: 1, max: 1000 },
     { section: 'player', key: 'maxArmor', label: 'Max Armor', type: 'number', min: 0, max: 1000 },
     { section: 'player', key: 'startingArmor', label: 'Starting Armor', type: 'number', min: 0, max: 1000 },
     { section: 'player', key: 'speed', label: 'Move Speed', type: 'number', min: 1, max: 20, step: 0.5 },
     { section: 'player', key: 'respawnTime', label: 'Respawn Time (s)', type: 'number', min: 0, max: 60, toDisplay: msToSec, toStore: secToMs },
     { section: 'player', key: 'armorAbsorption', label: 'Armor Absorption', type: 'number', min: 0, max: 1, step: 0.05 },
-    // Physics
     { section: 'physics', key: 'bulletSpeedMultiplier', label: 'Bullet Speed Mult', type: 'number', min: 0.1, max: 5, step: 0.1 },
     { section: 'physics', key: 'grenadeFriction', label: 'Grenade Friction', type: 'number', min: 0.5, max: 1, step: 0.01 },
-    // Weapons (number fields only - checkboxes handled separately)
     { section: 'weapons', key: 'globalDamageMultiplier', label: 'Damage Mult', type: 'number', min: 0.1, max: 10, step: 0.1 },
     { section: 'weapons', key: 'recoilMultiplier', label: 'Recoil Mult', type: 'number', min: 0, max: 5, step: 0.1 },
-    // Grenades (number fields only)
     { section: 'grenades', key: 'chargeTime', label: 'Charge Time (ms)', type: 'number', min: 100, max: 5000, step: 50 },
     { section: 'grenades', key: 'minThrowFraction', label: 'Min Throw Power', type: 'number', min: 0, max: 1, step: 0.05 },
-    // AI
     { section: 'ai', key: 'speed', label: 'AI Speed', type: 'number', min: 1, max: 15, step: 0.5 },
     { section: 'ai', key: 'turnSpeed', label: 'Turn Speed', type: 'number', min: 1, max: 15, step: 0.5 },
     { section: 'ai', key: 'detectRange', label: 'Detect Range', type: 'number', min: 100, max: 3000 },
@@ -75,25 +69,54 @@ const TABS: { id: string; label: string }[] = [
     { id: 'ai', label: 'AI' },
 ];
 
+/** Options for creating a game customizer widget. Consumed by the lobby and main menu. */
 export type GameCustomizerOptions = {
+    /** DOM element to mount into */
     container: HTMLElement;
+    /** Initial game mode id to derive defaults from (default: 'tdm') */
     baseModeId?: string;
+    /** When true, all inputs are disabled */
     readonly?: boolean;
+    /** Whether to show the AI configuration section */
     showAISection?: boolean;
+    /** Use compact layout for embedding in the lobby panel */
     compact?: boolean;
+    /** Called on every value change with the partial override diff */
     onChange?: (partial: DeepPartial<GameModeConfig>) => void;
 };
 
+/**
+ * Handle returned by `createGameCustomizer` for controlling the widget lifecycle.
+ * Consumed by lobby and main menu screens.
+ */
 export type GameCustomizerInstance = {
+    /** Builds DOM and attaches to the container */
     mount(): void;
+    /** Removes DOM from the container */
     unmount(): void;
+    /** Returns only the fields that differ from the resolved base mode */
     getValue(): DeepPartial<GameModeConfig>;
+    /** Returns the full config with overrides merged onto the base mode */
     getResolvedConfig(): GameModeConfig;
+    /** Switches the base mode and rebuilds all controls */
     setBaseModeId(id: string): void;
+    /** Enables or disables all inputs */
     setReadonly(v: boolean): void;
+    /** Replaces the resolved base with an arbitrary config and rebuilds */
     applyConfig(config: GameModeConfig): void;
 };
 
+/**
+ * Creates a tabbed game configuration widget that lets users tweak match,
+ * economy, player, physics, weapon, grenade, and AI settings. Diffs against
+ * a base game mode so only changed values are emitted.
+ *
+ * UI layer - mounted inside both the main menu customize screen and the
+ * online lobby panel.
+ *
+ * @param opts - Creation options (container, base mode, readonly flag, etc.)
+ * @returns Controller handle for mounting, reading values, and teardown
+ */
 export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomizerInstance {
     let el: HTMLElement | null = null;
     let baseModeId = opts.baseModeId ?? 'tdm';
@@ -169,6 +192,7 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
         }
 
         const displayVal = f.toDisplay ? f.toDisplay(val) : val;
+
         return `
             <div class="gc-row">
                 <label>${f.label}</label>
@@ -235,7 +259,6 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
     function wireEvents() {
         if (!el) return;
 
-        // Tab switching
         el.querySelectorAll<HTMLElement>('.gc-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
                 el!.querySelectorAll('.gc-tab').forEach((t) => t.classList.remove('active'));
@@ -246,7 +269,6 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
             });
         });
 
-        // Mode dropdown
         el.querySelector('#gc-mode-dropdown')?.addEventListener('change', (e) => {
             const select = e.target as HTMLSelectElement;
             baseModeId = select.value;
@@ -255,7 +277,6 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
             opts.onChange?.(getValue());
         });
 
-        // Boolean toggles
         el.querySelectorAll<HTMLElement>('.gc-toggle').forEach((toggle) => {
             toggle.addEventListener('click', () => {
                 if (isReadonly) return;
@@ -264,7 +285,6 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
             });
         });
 
-        // Number inputs
         el.querySelectorAll<HTMLInputElement>('input[type="number"]').forEach((input) => {
             input.addEventListener('change', () => {
                 opts.onChange?.(getValue());
@@ -288,9 +308,10 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
                     el!.querySelectorAll<HTMLElement>('[data-wgroup="allowed"]:not([data-wid="ALL"])').forEach((c) => {
                         c.classList.toggle('checked', shouldCheck);
                     });
-                } else {
+                }
+
+                else {
                     chip.classList.toggle('checked');
-                    // Update ALL toggle
                     const allChecked = WEAPON_IDS.every((id) =>
                         el!.querySelector<HTMLElement>(`[data-wgroup="allowed"][data-wid="${id}"]`)?.classList.contains('checked'),
                     );
@@ -336,7 +357,9 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
                     el!.querySelectorAll<HTMLElement>('[data-ggroup="allowed"]:not([data-gid="ALL"])').forEach((c) => {
                         c.classList.toggle('checked', shouldCheck);
                     });
-                } else {
+                }
+
+                else {
                     chip.classList.toggle('checked');
                     const allChecked = GRENADE_TYPES.every((id) =>
                         el!.querySelector<HTMLElement>(`[data-ggroup="allowed"][data-gid="${id}"]`)?.classList.contains('checked'),
@@ -371,6 +394,7 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
         if (!el) return 'ALL';
         const allToggle = el.querySelector<HTMLElement>('[data-wgroup="allowed"][data-wid="ALL"]');
         if (allToggle?.classList.contains('checked')) return 'ALL';
+
         return WEAPON_IDS.filter((id) =>
             el!.querySelector<HTMLElement>(`[data-wgroup="allowed"][data-wid="${id}"]`)?.classList.contains('checked'),
         );
@@ -378,6 +402,7 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
 
     function readStartingWeapons(): string[] {
         if (!el) return [];
+
         return WEAPON_IDS.filter((id) =>
             el!.querySelector<HTMLElement>(`[data-wgroup="starting"][data-wid="${id}"]`)?.classList.contains('checked'),
         );
@@ -387,6 +412,7 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
         if (!el) return 'ALL';
         const allToggle = el.querySelector<HTMLElement>('[data-ggroup="allowed"][data-gid="ALL"]');
         if (allToggle?.classList.contains('checked')) return 'ALL';
+
         return GRENADE_TYPES.filter((id) =>
             el!.querySelector<HTMLElement>(`[data-ggroup="allowed"][data-gid="${id}"]`)?.classList.contains('checked'),
         );
@@ -402,6 +428,7 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
                 if (v > 0) result[id] = v;
             }
         });
+
         return result;
     }
 
@@ -418,7 +445,9 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
 
             if (f.type === 'boolean') {
                 currentVal = el.querySelector<HTMLElement>(`#${id}`)?.classList.contains('active') ?? false;
-            } else {
+            }
+
+            else {
                 const raw = readInput(id);
                 if (raw === null) continue;
                 const num = Number(raw);
@@ -431,7 +460,6 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
             }
         }
 
-        // Weapons checkboxes
         const allowedW = readAllowedWeapons();
         const baseAllowedW = resolvedBase.weapons.allowedWeapons;
         if (JSON.stringify(allowedW) !== JSON.stringify(baseAllowedW)) {
@@ -446,7 +474,6 @@ export function createGameCustomizer(opts: GameCustomizerOptions): GameCustomize
             partial.weapons.startingWeapons = startingW;
         }
 
-        // Grenades checkboxes
         const allowedG = readAllowedGrenades();
         const baseAllowedG = resolvedBase.grenades.allowedGrenades;
         if (JSON.stringify(allowedG) !== JSON.stringify(baseAllowedG)) {

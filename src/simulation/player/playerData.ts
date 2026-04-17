@@ -1,6 +1,11 @@
 import { createDefaultWeapon } from '@simulation/combat/weapons';
 import { createDefaultGrenades } from '@simulation/combat/grenades';
 
+/**
+ * Enum-like constant object for player activity states.
+ * Used by AuthoritativeSimulation to track what a player is doing,
+ * and consumed by rendering (status labels) and UI (HUD) layers.
+ */
 export const PlayerStatus = {
     RELOADING: 'RELOADING',
     BUYING: 'BUYING',
@@ -14,10 +19,13 @@ export const PlayerStatus = {
     SHOOTING: 'SHOOTING',
 } as const;
 
+/** Union type of all valid player status string values. */
 export type PlayerStatus = typeof PlayerStatus[keyof typeof PlayerStatus];
 
+/** Tracks currently held movement directions for local input handling. */
 export const HELD_DIRECTIONS = [] as string[];
 
+/** Canonical direction key names used by the input system. */
 export const directions: Record<string, string> = {
     up: 'up',
     down: 'down',
@@ -25,6 +33,14 @@ export const directions: Record<string, string> = {
     right: 'right',
 };
 
+/**
+ * Creates an array of player_info objects distributed evenly across teams,
+ * placed at the corresponding team spawn points.
+ * @param num - Total number of players to generate.
+ * @param teams - Number of teams to distribute players across.
+ * @param teamSpawns - Per-team spawn point arrays.
+ * @returns Array of initialized player_info objects.
+ */
 export function generatePlayers(num: number, teams: number, teamSpawns: Record<number, coordinates[]>): player_info[] {
     const players: player_info[] = [];
     const teamCounters: Record<number, number> = {};

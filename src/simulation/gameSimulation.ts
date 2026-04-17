@@ -1,15 +1,18 @@
 /**
- * Game simulation module responsible for handling core game mechanics such as movement, combat, and grenades.
- * This module is designed to be used by both the authoritative server simulation and the client-side prediction.
- * It operates on simple data structures and pure functions to ensure consistency across different environments.
+ * Core game simulation for projectile and grenade physics.
+ * Shared by both the authoritative server simulation and client-side prediction.
+ * Operates on simple data structures and pure functions to ensure cross-environment consistency.
+ *
+ * Simulation layer - innermost ring. Imports nothing from rendering, UI, net, or orchestration.
  */
 
-import type { GameEvent } from '@net/gameEvent';
+import type { GameEvent } from '@simulation/events';
 import { raySegmentIntersect, isLineBlocked } from './detection/rayGeometry';
-import { HALF_HIT_BOX, MAP_SIZE } from '../constants';
+import { HALF_HIT_BOX } from '../constants';
 import { getGrenadeDef } from '@simulation/combat/grenades';
 import { getConfig } from '@config/activeConfig';
 
+/** Internal representation of a live projectile in the simulation. */
 type SimProjectile = {
     id: number;
     x: number;
@@ -23,6 +26,7 @@ type SimProjectile = {
     weaponType?: string;
 };
 
+/** Internal representation of a live grenade in the simulation. */
 type SimGrenade = {
     id: number;
     type: GrenadeType;
@@ -36,14 +40,42 @@ type SimGrenade = {
     detonated: boolean;
 };
 
+/** World boundary rectangle used to cull out-of-bounds entities. */
+type Limits = { left: number; right: number; top: number; bottom: number };
+
 const MIN_GRENADE_SPEED = 0.3;
 
+/**
+ * Core simulation engine for projectiles, grenades, and damage application.
+ * Stateless with respect to player management - players are passed in per call.
+ * Used by AuthoritativeSimulation (server) and could be used for client-side prediction.
+ *
+ * Simulation layer - does not depend on rendering, net, or orchestration.
+ */
 export class GameSimulation {
+    private limits: Limits = { left: 0, right: 3000, top: 0, bottom: 3000 };
     private projectiles: SimProjectile[] = [];
     private grenadesList: SimGrenade[] = [];
     private nextProjectileId = 0;
     private nextGrenadeId = 0;
 
+    /**
+     * Sets the world boundary limits for out-of-bounds checks.
+     * @param limits - Rectangle defining the playable area.
+     */
+    setLimits(limits: Limits) {
+        this.limits = limits;
+    }
+
+    /**
+     * Applies raw damage to a target, accounting for armor absorption and friendly fire rules.
+     * Emits PLAYER_DAMAGED and optionally PLAYER_KILLED events.
+     * @param target - The player receiving damage.
+     * @param rawDamage - Pre-mitigation damage value.
+     * @param attackerId - ID of the player dealing damage.
+     * @param players - All players, used for friendly fire team check.
+     * @returns Array of damage/kill events produced.
+     */
     applyDamage(target: player_info, rawDamage: number, attackerId: number, players: player_info[]): GameEvent[] {
         if (target.dead) return [];
 
@@ -79,8 +111,8 @@ export class GameSimulation {
                 targetId: target.id,
                 killerId: attackerId,
             });
-        } 
-        
+        }
+
         else {
             events.push({
                 type: 'PLAYER_DAMAGED',
@@ -95,15 +127,35 @@ export class GameSimulation {
         return events;
     }
 
+    /**
+     * Creates a new projectile and emits a BULLET_SPAWN event.
+     * @param ownerId - ID of the player who fired.
+     * @param x - Spawn x position.
+     * @param y - Spawn y position.
+     * @param dx - Normalized x direction.
+     * @param dy - Normalized y direction.
+     * @param speed - Pixels per tick.
+     * @param damage - Damage on hit.
+     * @param weaponType - Optional weapon identifier for VFX lookup.
+     * @returns Array containing the BULLET_SPAWN event.
+     */
     spawnBullet(ownerId: number, x: number, y: number, dx: number, dy: number, speed: number, damage: number, weaponType?: string): GameEvent[] {
         const id = this.nextProjectileId++;
         this.projectiles.push({ id, x, y, dx, dy, speed, damage, ownerId, alive: true, weaponType});
 
-        return [ 
+        return [
             { type: 'BULLET_SPAWN', bulletId: id, ownerId, x, y, dx, dy, speed, weaponType }
         ];
     }
 
+    /**
+     * Advances all live projectiles by one tick. Tests wall collisions via segment AABB
+     * broad-phase, then player hit detection using closest-point-on-ray distance.
+     * Removes projectiles that hit walls, players, or go out of bounds.
+     * @param segments - Wall segments with precomputed AABB bounds for broad-phase culling.
+     * @param players - All players for hit detection.
+     * @returns Array of BULLET_HIT, BULLET_REMOVED, PLAYER_DAMAGED, and PLAYER_KILLED events.
+     */
     tickProjectiles(segments: WallSegment[], players: player_info[]): GameEvent[] {
         const events: GameEvent[] = [];
 
@@ -113,7 +165,14 @@ export class GameSimulation {
 
             const newX = p.x + p.dx * p.speed;
             const newY = p.y + p.dy * p.speed;
+
+            // Broad-phase AABB of bullet travel this tick
+            const bMinX = p.x < newX ? p.x : newX;
+            const bMinY = p.y < newY ? p.y : newY;
+            const bMaxX = p.x > newX ? p.x : newX;
+            const bMaxY = p.y > newY ? p.y : newY;
             for (const seg of segments) {
+                if (seg.maxX < bMinX || seg.minX > bMaxX || seg.maxY < bMinY || seg.minY > bMaxY) continue;
                 const t = raySegmentIntersect(p.x, p.y, p.dx, p.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                 if (t !== null && t >= 0 && t <= p.speed) {
                     p.alive = false;
@@ -123,15 +182,15 @@ export class GameSimulation {
             }
 
             if (p.alive) {
-                for (const player of players) { // Detect if we are hitting a player
+                for (const player of players) {
                     if (player.id === p.ownerId) continue;
                     if (player.dead) continue;
 
                     const pcx = player.current_position.x + HALF_HIT_BOX;
                     const pcy = player.current_position.y + HALF_HIT_BOX;
 
-                    // Scary math time... 
-                    // Find closest point on bullet path to player center, and check if it's within hitbox radius
+                    // Find closest point on bullet path to player center, check if within hitbox radius.
+                    // Leniency is intentional to account for high bullet speeds and low tick rates.
                     const ox = pcx - p.x;
                     const oy = pcy - p.y;
                     const t = Math.max(0, Math.min(p.speed, ox * p.dx + oy * p.dy));
@@ -141,12 +200,10 @@ export class GameSimulation {
                     const distY = closestY - pcy;
                     const distSq = distX * distX + distY * distY;
 
-                    // This allows for some leniency in hit registration, as the player doesn't have to be perfectly intersected by the bullet path to get hit. 
-                    // This is intentional to account for high bullet speeds and low tick rates (Added this to fix a bug with snipers, but should help with general latency).
                     if (distSq < HALF_HIT_BOX * HALF_HIT_BOX) {
                         const wasAlive = !player.dead;
                         const dmgEvents = this.applyDamage(player, p.damage, p.ownerId, players);
-                        events.push(...dmgEvents);
+                        for (let j = 0; j < dmgEvents.length; j++) events.push(dmgEvents[j]);
                         const isKill = wasAlive && player.dead;
 
                         events.push({
@@ -170,7 +227,7 @@ export class GameSimulation {
                 }
             }
 
-            if (p.alive && (newX < 0 || newX > MAP_SIZE || newY < 0 || newY > MAP_SIZE)) {
+            if (p.alive && (newX < 0 || newX > this.limits.right || newY < 0 || newY > this.limits.bottom)) {
                 p.alive = false;
                 events.push({ type: 'BULLET_REMOVED', bulletId: p.id });
             }
@@ -178,8 +235,8 @@ export class GameSimulation {
             if (p.alive) {
                 p.x = newX;
                 p.y = newY;
-            } 
-            
+            }
+
             else {
                 const last = this.projectiles.length - 1;
                 if (i !== last) this.projectiles[i] = this.projectiles[last];
@@ -194,6 +251,18 @@ export class GameSimulation {
         return this.projectiles;
     }
 
+    /**
+     * Creates a new grenade entity and emits a GRENADE_SPAWN event.
+     * @param type - Grenade type (FRAG, FLASH, SMOKE, C4).
+     * @param ownerId - ID of the throwing player.
+     * @param x - Spawn x position.
+     * @param y - Spawn y position.
+     * @param dx - Normalized x direction.
+     * @param dy - Normalized y direction.
+     * @param speed - Initial throw speed (0 for C4).
+     * @param timestamp - Current simulation time for fuse tracking.
+     * @returns Array containing the GRENADE_SPAWN event.
+     */
     throwGrenade(type: GrenadeType, ownerId: number, x: number, y: number, dx: number, dy: number, speed: number, timestamp: number): GameEvent[] {
         const id = this.nextGrenadeId++;
         this.grenadesList.push({ id, type, x, y, dx, dy, speed, ownerId, spawnTime: timestamp, detonated: false});
@@ -203,6 +272,12 @@ export class GameSimulation {
         ];
     }
 
+    /**
+     * Manually detonates the first undetonated C4 owned by the given player.
+     * @param playerId - ID of the player triggering detonation.
+     * @param segments - Wall segments for explosion LOS checks.
+     * @returns Events from the detonation, or empty if no C4 found.
+     */
     detonateC4(playerId: number, segments: WallSegment[]): GameEvent[] {
         for (const g of this.grenadesList) {
             if (g.type === 'C4' && g.ownerId === playerId && !g.detonated) {
@@ -212,7 +287,14 @@ export class GameSimulation {
         return [];
     }
 
-
+    /**
+     * Advances all live grenades by one tick. Applies friction, wall bouncing,
+     * fuse-based detonation, and world boundary clamping.
+     * @param segments - Wall segments for bounce and explosion LOS checks.
+     * @param allPlayers - All players for explosion damage application.
+     * @param timestamp - Current simulation time for fuse checks.
+     * @returns Array of grenade-related events.
+     */
     tickGrenades(segments: WallSegment[], allPlayers: player_info[], timestamp: number): GameEvent[] {
         const events: GameEvent[] = [];
 
@@ -231,7 +313,12 @@ export class GameSimulation {
                 const newY = g.y + g.dy * g.speed;
 
                 let bounced = false;
+                const gMinX = g.x < newX ? g.x : newX;
+                const gMinY = g.y < newY ? g.y : newY;
+                const gMaxX = g.x > newX ? g.x : newX;
+                const gMaxY = g.y > newY ? g.y : newY;
                 for (const seg of segments) {
+                    if (seg.maxX < gMinX || seg.minX > gMaxX || seg.maxY < gMinY || seg.minY > gMaxY) continue;
                     const t = raySegmentIntersect(g.x, g.y, g.dx, g.dy, seg.x1, seg.y1, seg.x2, seg.y2);
                     if (t !== null && t >= 0 && t <= g.speed) {
                         const sx = seg.x2 - seg.x1;
@@ -270,8 +357,8 @@ export class GameSimulation {
                 }
             }
 
-            g.x = Math.max(0, Math.min(MAP_SIZE, g.x));
-            g.y = Math.max(0, Math.min(MAP_SIZE, g.y));
+            g.x = Math.max(0, Math.min(this.limits.right, g.x));
+            g.y = Math.max(0, Math.min(this.limits.bottom, g.y));
         }
 
         return events;
@@ -281,6 +368,14 @@ export class GameSimulation {
         return this.grenadesList;
     }
 
+    /**
+     * Detonates a grenade, emitting type-specific effects (explosion damage,
+     * shrapnel, flash, or smoke deploy).
+     * @param g - The grenade to detonate.
+     * @param allPlayers - All players for damage/effect application.
+     * @param segments - Wall segments for explosion LOS checks.
+     * @returns Array of detonation-related events.
+     */
     private detonateGrenade(g: SimGrenade, allPlayers: player_info[], segments: WallSegment[]): GameEvent[] {
         g.detonated = true;
         const def = getGrenadeDef(g.type);
@@ -319,6 +414,15 @@ export class GameSimulation {
         return events;
     }
 
+    /**
+     * Applies distance-based explosion damage to all players within radius,
+     * checking LOS through wall segments.
+     * @param g - The exploding grenade.
+     * @param def - Grenade definition with radius and damage.
+     * @param allPlayers - All players to check.
+     * @param segments - Wall segments for LOS blocking.
+     * @returns Array of EXPLOSION_HIT and damage events.
+     */
     private applyExplosionDamage(g: SimGrenade, def: GrenadeDef, allPlayers: player_info[], segments: WallSegment[]): GameEvent[] {
         const events: GameEvent[] = [];
 
@@ -356,6 +460,14 @@ export class GameSimulation {
         return events;
     }
 
+    /**
+     * Applies flashbang effect to all players within the flash radius.
+     * Intensity falls off with distance; no LOS check (flashes go through walls).
+     * @param g - The flash grenade.
+     * @param def - Grenade definition with radius and effect duration.
+     * @param allPlayers - All players to check.
+     * @returns Array of FLASH_EFFECT events.
+     */
     private applyFlashEffect(g: SimGrenade, def: GrenadeDef, allPlayers: player_info[]): GameEvent[] {
         const events: GameEvent[] = [];
 
@@ -384,6 +496,15 @@ export class GameSimulation {
         return events;
     }
 
+    /**
+     * Spawns radial shrapnel projectiles around the detonation point.
+     * Each shrapnel piece is a regular bullet with slight angular randomization.
+     * @param x - Detonation x position.
+     * @param y - Detonation y position.
+     * @param ownerId - ID of the grenade's owner (credited for shrapnel kills).
+     * @param def - Grenade definition with shrapnel count, damage, and speed.
+     * @returns Array of BULLET_SPAWN events for each shrapnel piece.
+     */
     private spawnShrapnel(x: number, y: number, ownerId: number, def: GrenadeDef): GameEvent[] {
         if (!def.shrapnelCount || !def.shrapnelDamage || !def.shrapnelSpeed) return [];
 

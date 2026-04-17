@@ -1,6 +1,5 @@
 import { loadSound } from '.';
 
-// Weapon shoot sounds - keyed by weapon ID
 const WEAPON_SOUNDS: Record<string, string> = {
     PISTOL: '/sounds/weapons/pistol_shoot.wav',
     SMG: '/sounds/weapons/smg_shoot.wav',
@@ -9,7 +8,6 @@ const WEAPON_SOUNDS: Record<string, string> = {
     SNIPER: '/sounds/weapons/sniper_shoot.wav',
 };
 
-// Weapon reload sounds - keyed by weapon ID
 const WEAPON_RELOAD_SOUNDS: Record<string, string> = {
     PISTOL: '/sounds/weapons/pistol_reload.mp3',
     SMG: '/sounds/weapons/smg_reload.mp3',
@@ -18,14 +16,12 @@ const WEAPON_RELOAD_SOUNDS: Record<string, string> = {
     SNIPER: '/sounds/weapons/sniper_reload.mp3',
 };
 
-// Weapon mechanical sounds (pump, bolt, etc.)
 const MECHANICAL_SOUNDS: Record<string, string> = {
     shotgun_pump: '/sounds/weapons/shotgun_pump.mp3',
     shotgun_shell: '/sounds/weapons/shotgun_shell.mp3',
     sniper_bolt: '/sounds/weapons/sniper_bolt.mp3',
 };
 
-// Action sounds
 const ACTION_SOUNDS: Record<string, string> = {
     footstep: '/sounds/player/footstep.mp3',
     hit: '/sounds/player/hit.mp3',
@@ -34,7 +30,6 @@ const ACTION_SOUNDS: Record<string, string> = {
     kill: '/sounds/player/kill.mp3',
 };
 
-// Grenade sounds
 const GRENADE_SOUNDS: Record<string, string> = {
     grenade_throw: '/sounds/grenades/grenade_throw.mp3',
     grenade_bounce: '/sounds/grenades/grenade_bounce.mp3',
@@ -55,14 +50,31 @@ const HUD_SOUNDS: Record<string, string> = {
     match_lose: '/sounds/hud/match_lose.mp3',
 };
 
+/**
+ * Derives the cache key used by `playSound` for a weapon's fire sound.
+ * @param weaponType - Weapon identifier (e.g. 'PISTOL')
+ * @returns Sound id in the form `shoot_<weaponType>`
+ */
 export function getWeaponSoundId(weaponType: string): string {
     return `shoot_${weaponType}`;
 }
 
+/**
+ * Derives the cache key used by `playSound` for a weapon's reload sound.
+ * @param weaponType - Weapon identifier (e.g. 'PISTOL')
+ * @returns Sound id in the form `reload_<weaponType>`
+ */
 export function getWeaponReloadSoundId(weaponType: string): string {
     return `reload_${weaponType}`;
 }
 
+/**
+ * Pre-loads every sound asset in the game (weapons, actions, grenades,
+ * music, HUD) into the audio buffer cache. Called once during the
+ * loading screen phase.
+ *
+ * Audio layer - asset preloading, consumed by the orchestration boot sequence.
+ */
 export async function loadAllSounds(): Promise<void> {
     const promises: Promise<void>[] = [];
 
