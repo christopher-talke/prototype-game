@@ -12,6 +12,7 @@ import { getConfig } from '@config/activeConfig';
 import { getActiveMap } from '@maps/helpers';
 import { offlineAdapter } from '@net/offlineAdapter';
 import { getGrenadeDef, isGrenadeAllowed } from '@simulation/combat/grenades';
+import { compileNavHints, sampleWeighted } from '@orchestration/bootstrap/aiCompiler';
 
 const STUCK_THRESHOLD = 0.5;
 const STUCK_FRAMES_BEFORE_REROUTE = 15;
@@ -65,22 +66,36 @@ function generatePatrolPoints(): coordinates[] {
     const points: coordinates[] = [];
 
     const currentMap = getActiveMap();
-    for (const h of currentMap.navHints) {
-        if (h.type === 'cover') points.push(h.position);
+    const registry = compileNavHints(currentMap);
+    const cover = registry.getByType('cover');
+    if (cover.length > 0) {
+        const target = 6;
+        if (cover.length <= target) {
+            for (const h of cover) points.push(h.position);
+        }
+        else {
+            const used = new Set<string>();
+            for (let i = 0; i < target; i++) {
+                const pool = cover.filter((h) => !used.has(h.id));
+                const pick = sampleWeighted(pool);
+                if (!pick) break;
+                used.add(pick.id);
+                points.push(pick.position);
+            }
+        }
+        return points;
     }
 
     const margin = 300;
     const mapMin = 200;
     const mapMax = 2700;
-    if (points.length === 0) {
-        for (let i = 0; i < 6; i++) {
-            const newPoint = {
-                x: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
-                y: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
-            }
-
-            points.push(newPoint);
+    for (let i = 0; i < 6; i++) {
+        const newPoint = {
+            x: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
+            y: mapMin + margin + Math.random() * (mapMax - mapMin - margin * 2),
         }
+
+        points.push(newPoint);
     }
 
     return points;
