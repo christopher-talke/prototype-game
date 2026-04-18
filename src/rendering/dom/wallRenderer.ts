@@ -1,6 +1,7 @@
 /**
- * DOM wall renderer. Creates positioned/rotated div elements for each wall
- * segment, with optional sprite images. Part of the DOM rendering layer.
+ * DOM wall renderer. Creates positioned div elements for each wall, sized to
+ * the wall's axis-aligned bounding box and clipped to the polygon shape via
+ * CSS clip-path. Part of the DOM rendering layer.
  */
 
 import '@rendering/dom/css/wall.css';
@@ -20,12 +21,14 @@ export function clearRenderedWalls() {
 }
 
 /**
- * Creates a wall DOM element positioned and sized according to the wall's
- * axis-aligned bounding box (derived from polygon vertices).
+ * Creates a wall DOM element sized to the polygon's bounding box and clipped
+ * via CSS clip-path to the actual polygon shape. Axis-aligned rectangles
+ * produce a full-div clip-path and render identically to a plain rect.
  * @param wall - Wall definition from the map config.
  */
 export function renderWall(wall: Wall) {
     if (app === undefined) return;
+    if (wall.vertices.length < 3) return;
 
     const aabb = wallAABB(wall);
     const newWallEntity = window.document.createElement('div');
@@ -38,6 +41,11 @@ export function renderWall(wall: Wall) {
     newWallEntity.style.width = `${aabb.width}px`;
     newWallEntity.style.height = `${aabb.height}px`;
     newWallEntity.style.transform = cssTransform(aabb.x, aabb.y);
+
+    const points = wall.vertices
+        .map((v) => `${v.x - aabb.x}px ${v.y - aabb.y}px`)
+        .join(', ');
+    newWallEntity.style.clipPath = `polygon(${points})`;
 
     app.appendChild(newWallEntity);
 }

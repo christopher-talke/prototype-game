@@ -50,6 +50,31 @@ describe('collidesWithWalls', () => {
     });
 });
 
+describe('collidesWithWalls with polygon', () => {
+    const diamond = [
+        { x: 150, y: 100 },
+        { x: 200, y: 150 },
+        { x: 150, y: 200 },
+        { x: 100, y: 150 },
+    ];
+    const diamondWall = { x: 100, y: 100, w: 100, h: 100, vertices: diamond };
+
+    it('given a diamond polygon, when player AABB overlaps bounding box but not the diamond, then returns false', () => {
+        // Player box (85,85)-(123,123) overlaps the diamond AABB (100,100)-(200,200)
+        // but lies entirely outside the diamond's top-left edge.
+        expect(collidesWithWalls(82, 82, [diamondWall])).toBe(false);
+    });
+
+    it('given a diamond polygon, when player AABB is inside the diamond, then returns true', () => {
+        // Player box (133,133)-(171,171) lies entirely inside the diamond.
+        expect(collidesWithWalls(130, 130, [diamondWall])).toBe(true);
+    });
+
+    it('given a diamond polygon, when player AABB is far away, then returns false', () => {
+        expect(collidesWithWalls(0, 0, [diamondWall])).toBe(false);
+    });
+});
+
 describe('collidesWithPlayers', () => {
     it('given no other players, when checking collision, then returns false', () => {
         expect(collidesWithPlayers(100, 100, 1, [])).toBe(false);

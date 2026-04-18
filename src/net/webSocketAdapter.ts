@@ -17,7 +17,7 @@ import { getConfig } from '@config/activeConfig';
 import { setLocalPlayerId, updateLobbyState, showCountdown, hideLobbyScreen } from '@ui/lobby/lobbyScreen';
 import { setActiveMap } from '@maps/helpers';
 import type { DeepPartial, GameModeConfig } from '@config/types';
-import { moveWithCollisionPure, getWallAABBs } from '@simulation/player/collision';
+import { moveWithCollisionPure, getWallShapes } from '@simulation/player/collision';
 import { environment } from '@simulation/environment/environment';
 import { addSmokeData } from '@simulation/combat/smokeData';
 
@@ -663,7 +663,7 @@ class WebSocketAdapter implements NetAdapter {
             player.current_position.y,
             input.dx * speed,
             input.dy * speed,
-            getWallAABBs(),
+            getWallShapes(),
             environment.limits,
             id,
             getAllPlayers(),
@@ -694,7 +694,7 @@ class WebSocketAdapter implements NetAdapter {
         const speed = getConfig().player.speed;
         for (const pending of this.pendingInputs) {
             if (pending.input.type !== 'MOVE') continue;
-            const result = moveWithCollisionPure(reconX, reconY, pending.input.dx * speed, pending.input.dy * speed, getWallAABBs(), environment.limits, this.localPlayerId ?? 0, getAllPlayers());
+            const result = moveWithCollisionPure(reconX, reconY, pending.input.dx * speed, pending.input.dy * speed, getWallShapes(), environment.limits, this.localPlayerId ?? 0, getAllPlayers());
             reconX = result.x;
             reconY = result.y;
         }

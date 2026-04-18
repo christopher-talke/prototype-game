@@ -11,12 +11,12 @@ import { createPlayer } from './dom/playerRenderer';
 import { getAllPlayers, ACTIVE_PLAYER, getPlayerInfo } from '@simulation/player/playerRegistry';
 import { getActiveMap } from '@maps/helpers';
 import { environment } from '@simulation/environment/environment';
-import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
+import { initLighting, clearLighting, type LightSegment } from '@rendering/canvas/lightingManager';
 import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
 import { initGridTextures, clearGridTextures, isGlossDecalAsset } from '@rendering/canvas/gridTextures';
 import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
 import { getActiveMapId } from '@maps/helpers';
-import { collectAllWalls, collectAllLights, getFloorDecals, wallAABB } from '@orchestration/bootstrap/mapAccessors';
+import { collectAllWalls, collectAllLights, getFloorDecals } from '@orchestration/bootstrap/mapAccessors';
 import { destroyPixiDiegeticHud } from '@rendering/diegeticHud/pixiDiegeticHud';
 import { destroyDomDiegeticHud } from '@rendering/diegeticHud/domDiegeticHud';
 import { resetDiegeticHud } from '@rendering/diegeticHud/diegeticHudState';
@@ -63,7 +63,17 @@ export function switchRenderer(newType: RendererType) {
     if (newType === 'pixi') {
         setWorldBounds(environment.limits.right, environment.limits.bottom);
         renderPixiWalls(walls);
-        initLighting(collectAllLights(map), walls.map(wallAABB), map.postProcess);
+        const segments: LightSegment[] = [];
+        for (const wall of walls) {
+            const v = wall.vertices;
+            if (v.length < 2) continue;
+            for (let i = 0; i < v.length; i++) {
+                const a = v[i];
+                const b = v[(i + 1) % v.length];
+                segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+            }
+        }
+        initLighting(collectAllLights(map), segments, map.postProcess);
         const floorDecals = getFloorDecals(map);
         initGridTextures(getActiveMapId(), floorDecals);
         initGloss(floorDecals.find(isGlossDecalAsset));

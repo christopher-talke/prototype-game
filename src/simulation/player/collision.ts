@@ -1,54 +1,127 @@
 /**
  * Player collision detection and movement resolution.
- * Handles player-wall AABB overlap, player-player overlap, and
- * axis-separated slide movement with world boundary clamping.
+ * Handles player-wall AABB broad-phase + optional convex-polygon fine-phase
+ * (SAT), player-player overlap, and axis-separated slide movement with world
+ * boundary clamping.
  *
  * Simulation layer - does not depend on rendering, net, or orchestration.
  */
 
+import type { Vec2 } from '@shared/map/MapData';
 import { PLAYER_HIT_BOX } from '../../constants';
 
-type AABB = { x: number; y: number; w: number; h: number };
 type Limits = { left: number; right: number; top: number; bottom: number };
+
+/**
+ * Wall collision shape. `x/y/w/h` is the AABB (always required; used for
+ * broad-phase). When `vertices` is present, the wall is treated as a convex
+ * polygon and a SAT fine-phase test runs after the AABB overlap check.
+ */
+export type WallShape = { x: number; y: number; w: number; h: number; vertices?: readonly Vec2[] };
+
 const COLLISION_MARGIN = 3;
 const CBOX = PLAYER_HIT_BOX - COLLISION_MARGIN * 2;
 
-const wallAABBs: AABB[] = [];
+const wallShapes: WallShape[] = [];
 
 /**
- * Registers a wall AABB for client-side player collision.
- * @param x - Left edge.
- * @param y - Top edge.
- * @param w - Width.
- * @param h - Height.
+ * Registers a wall shape for player collision. AABB is required; pass
+ * `vertices` to opt in to polygon-accurate collision.
+ */
+export function registerWallShape(shape: WallShape) {
+    wallShapes.push(shape);
+}
+
+/** Removes all registered wall shapes. Called on map change. */
+export function clearWallShapes() {
+    wallShapes.length = 0;
+}
+
+export function getWallShapes(): readonly WallShape[] {
+    return wallShapes;
+}
+
+/**
+ * Back-compat alias. `WallShape` is a structural superset of AABB, so
+ * callers that read only `x/y/w/h` continue to work unchanged.
+ */
+export const getWallAABBs = getWallShapes;
+
+/** Back-compat alias. */
+export const clearWallAABBs = clearWallShapes;
+
+/**
+ * Back-compat registration helper for callers that only have AABB data.
  */
 export function registerWallAABB(x: number, y: number, w: number, h: number) {
-    wallAABBs.push({ x, y, w, h });
-}
-
-/** Removes all registered wall AABBs. Called on map change. */
-export function clearWallAABBs() {
-    wallAABBs.length = 0;
-}
-
-export function getWallAABBs(): readonly AABB[] {
-    return wallAABBs;
+    wallShapes.push({ x, y, w, h });
 }
 
 /**
- * Tests whether a player at the given position overlaps any wall AABB.
- * Uses a shrunken collision box (COLLISION_MARGIN inset on each side).
+ * Projects a convex polygon (or AABB corners) onto an axis (ax, ay) and
+ * returns the [min, max] interval of projection scalars. Axis does not need
+ * to be normalized; we only compare intervals on the same axis.
+ */
+function projectInterval(points: readonly Vec2[], ax: number, ay: number): { min: number; max: number } {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const p of points) {
+        const d = p.x * ax + p.y * ay;
+        if (d < min) min = d;
+        if (d > max) max = d;
+    }
+    return { min, max };
+}
+
+/**
+ * AABB-vs-convex-polygon SAT test. Tests separating axes from both shapes:
+ * the AABB's x/y axes and each polygon edge normal. Polygon must be convex
+ * (editor enforces this via convex CW check).
+ */
+function aabbOverlapsConvexPolygon(ax: number, ay: number, aw: number, ah: number, verts: readonly Vec2[]): boolean {
+    const aCorners: Vec2[] = [
+        { x: ax, y: ay },
+        { x: ax + aw, y: ay },
+        { x: ax + aw, y: ay + ah },
+        { x: ax, y: ay + ah },
+    ];
+
+    const testAxis = (axisX: number, axisY: number): boolean => {
+        const a = projectInterval(aCorners, axisX, axisY);
+        const b = projectInterval(verts, axisX, axisY);
+        return a.max >= b.min && b.max >= a.min;
+    };
+
+    if (!testAxis(1, 0)) return false;
+    if (!testAxis(0, 1)) return false;
+
+    const n = verts.length;
+    for (let i = 0; i < n; i++) {
+        const a = verts[i];
+        const b = verts[(i + 1) % n];
+        const ex = b.x - a.x;
+        const ey = b.y - a.y;
+        // edge normal (rotated 90deg)
+        if (!testAxis(-ey, ex)) return false;
+    }
+    return true;
+}
+
+/**
+ * Tests whether a player at the given position overlaps any wall. Walls with
+ * a `vertices` polygon get a SAT fine-phase after the AABB broad-phase.
  * @param px - Player top-left x.
  * @param py - Player top-left y.
- * @param walls - Wall AABBs to test against.
+ * @param walls - Wall shapes to test against.
  * @returns True if the player overlaps any wall.
  */
-export function collidesWithWalls(px: number, py: number, walls: readonly AABB[]): boolean {
+export function collidesWithWalls(px: number, py: number, walls: readonly WallShape[]): boolean {
     const cx = px + COLLISION_MARGIN;
     const cy = py + COLLISION_MARGIN;
     for (const wall of walls) {
         if (cx < wall.x + wall.w && cx + CBOX > wall.x && cy < wall.y + wall.h && cy + CBOX > wall.y) {
-            return true;
+            if (wall.vertices === undefined) return true;
+            if (aabbOverlapsConvexPolygon(cx, cy, CBOX, CBOX, wall.vertices)) return true;
         }
     }
     return false;
@@ -98,13 +171,13 @@ export function clampToBounds(x: number, y: number, limits: Limits): { x: number
  * @param currentY - Current player y.
  * @param dx - Desired x displacement.
  * @param dy - Desired y displacement.
- * @param walls - Wall AABBs for collision.
+ * @param walls - Wall shapes for collision.
  * @param limits - World boundary for clamping.
  * @param excludeId - Optional player ID for player-player collision.
  * @param players - Optional player list for player-player collision.
  * @returns The resolved position after collision.
  */
-export function moveWithCollisionPure(currentX: number, currentY: number, dx: number, dy: number, walls: readonly AABB[], limits: Limits, excludeId?: number, players?: readonly player_info[]): { x: number; y: number } {
+export function moveWithCollisionPure(currentX: number, currentY: number, dx: number, dy: number, walls: readonly WallShape[], limits: Limits, excludeId?: number, players?: readonly player_info[]): { x: number; y: number } {
     const collides = excludeId !== undefined && players
         ? (px: number, py: number) => collidesWithWalls(px, py, walls) || collidesWithPlayers(px, py, excludeId, players)
         : (px: number, py: number) => collidesWithWalls(px, py, walls);

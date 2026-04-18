@@ -1,10 +1,10 @@
 import type { Wall } from '@shared/map/MapData';
 import { environment, clearWallGeometry, makeSegment } from './environment';
-import { registerWallAABB, clearWallAABBs } from '@simulation/player/collision';
+import { registerWallShape, clearWallShapes } from '@simulation/player/collision';
 
-/** Clears all wall geometry and AABB collision data, resetting to the empty boundary state. */
+/** Clears all wall geometry and collision data, resetting to the empty boundary state. */
 export function clearAllWallData() {
-    clearWallAABBs();
+    clearWallShapes();
     clearWallGeometry();
 }
 
@@ -24,7 +24,7 @@ export function registerWallGeometry(wall: Wall) {
         if (v.x > maxX) maxX = v.x;
         if (v.y > maxY) maxY = v.y;
     }
-    registerWallAABB(minX, minY, maxX - minX, maxY - minY);
+    registerWallShape({ x: minX, y: minY, w: maxX - minX, h: maxY - minY, vertices: verts });
 
     const n = verts.length;
     for (let i = 0; i < n; i++) {

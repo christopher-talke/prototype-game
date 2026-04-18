@@ -15,9 +15,10 @@ import { GRENADE_VFX } from '@simulation/combat/grenades';
 import type { LightPlacement, MapPostProcessProfile, RGBColor } from '@shared/map/MapData';
 
 import { HALF_HIT_BOX, FOV, ROTATION_OFFSET } from '../../constants';
-import { LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS } from './renderConstants';
+import { LIGHTMAP_SCALE, LAST_KNOWN_DECAY_MS, MAX_GPU_SEGMENTS } from './renderConstants';
 
-interface WallAABB { x: number; y: number; width: number; height: number }
+/** Polygon edge endpoints in world coordinates; uploaded to the lighting shader. */
+export interface LightSegment { x1: number; y1: number; x2: number; y2: number }
 
 function rgbToHex(c: RGBColor): number {
     return ((c.r & 0xff) << 16) | ((c.g & 0xff) << 8) | (c.b & 0xff);
@@ -115,20 +116,20 @@ function computeAmbientRGB(level: number, color: number): [number, number, numbe
     ];
 }
 
-function uploadWallUniforms(walls: WallAABB[]) {
+function uploadSegmentUniforms(segments: readonly LightSegment[]) {
     if (!lightingShader) return;
     const u = lightingShader.resources.lightingUniforms.uniforms;
-    const arr = u.uWalls as Float32Array;
-    const count = Math.min(walls.length, 128);
+    const arr = u.uSegments as Float32Array;
+    const count = Math.min(segments.length, MAX_GPU_SEGMENTS);
     for (let i = 0; i < count; i++) {
-        const w = walls[i];
+        const s = segments[i];
         const off = i * 4;
-        arr[off] = w.x;
-        arr[off + 1] = w.y;
-        arr[off + 2] = w.width;
-        arr[off + 3] = w.height;
+        arr[off] = s.x1;
+        arr[off + 1] = s.y1;
+        arr[off + 2] = s.x2;
+        arr[off + 3] = s.y2;
     }
-    u.uWallCount = count;
+    u.uSegmentCount = count;
 }
 
 function uploadLightUniforms() {
@@ -575,10 +576,10 @@ export function initLightingSystem() {
  * lightmap is correct even when dynamic lighting is disabled.
  *
  * @param lights - Static light placements from the map data.
- * @param walls - Wall AABBs used for shadow-casting uniform upload.
+ * @param segments - Polygon edge segments used for shadow-casting uniform upload.
  * @param config - Optional per-map post-process profile (ambient overrides).
  */
-export function initLighting(lights: LightPlacement[], walls: WallAABB[], config?: MapPostProcessProfile) {
+export function initLighting(lights: LightPlacement[], segments: readonly LightSegment[], config?: MapPostProcessProfile) {
     clearLighting();
 
     ambientLevel = config?.ambientLightIntensity ?? lightingConfig.ambientLevel;
@@ -603,8 +604,8 @@ export function initLighting(lights: LightPlacement[], walls: WallAABB[], config
     ws[0] = w;
     ws[1] = h;
 
-    // Upload wall geometry (once per map)
-    uploadWallUniforms(walls);
+    // Upload wall edge segments (once per map)
+    uploadSegmentUniforms(segments);
     for (const def of lights) {
         const color = rgbToHex(def.color);
         const entry: LightEntry = {

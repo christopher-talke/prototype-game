@@ -14,7 +14,7 @@ import type { GameEvent, PlayerInput, PlayerStatusChangedEvent } from '@simulati
 
 import { GameSimulation } from '@simulation/gameSimulation';
 import { PlayerStatus } from '@simulation/player/playerData';
-import { collidesWithPlayers, collidesWithWalls, moveWithCollisionPure } from '@simulation/player/collision';
+import { collidesWithPlayers, collidesWithWalls, moveWithCollisionPure, type WallShape } from '@simulation/player/collision';
 import { getWeaponDef, createDefaultWeapon } from '@simulation/combat/weapons';
 import { getGrenadeDef, createDefaultGrenades } from '@simulation/combat/grenades';
 import { addSmokeData } from '@simulation/combat/smokeData';
@@ -46,7 +46,6 @@ type MatchState = {
     playerStates: Map<number, PlayerGameState>;
 };
 
-type AABB = { x: number; y: number; w: number; h: number };
 type Limits = { left: number; right: number; top: number; bottom: number };
 
 /**
@@ -59,7 +58,7 @@ type Limits = { left: number; right: number; top: number; bottom: number };
  * @param walls - Wall AABBs for collision.
  * @returns A non-overlapping spawn position, or the original if none found.
  */
-function findNonOverlappingSpawn(x: number, y: number, excludeId: number, players: readonly player_info[], walls: readonly AABB[]): { x: number; y: number } {
+function findNonOverlappingSpawn(x: number, y: number, excludeId: number, players: readonly player_info[], walls: readonly WallShape[]): { x: number; y: number } {
     if (!collidesWithPlayers(x, y, excludeId, players) && !collidesWithWalls(x, y, walls)) return { x, y };
     for (let r = PLAYER_HIT_BOX; r <= PLAYER_HIT_BOX * 10; r += PLAYER_HIT_BOX) {
         const angle = Math.random() * Math.PI * 2;
@@ -79,7 +78,7 @@ function findNonOverlappingSpawn(x: number, y: number, excludeId: number, player
  */
 export class AuthoritativeSimulation {
     readonly simulation: GameSimulation;
-    private wallAABBs: AABB[] = [];
+    private wallAABBs: WallShape[] = [];
     private limits: Limits = { left: 0, right: 3000, top: 0, bottom: 3000 };
     private segments: WallSegment[] = [];
     private players: player_info[] = [];
@@ -115,7 +114,7 @@ export class AuthoritativeSimulation {
      * @param teamSpawns - Per-team spawn point arrays.
      * @param patrolPoints - AI patrol waypoints.
      */
-    setMap(wallAABBs: AABB[], limits: Limits, segments: WallSegment[], teamSpawns: Record<number, coordinates[]>, patrolPoints: coordinates[]) {
+    setMap(wallAABBs: WallShape[], limits: Limits, segments: WallSegment[], teamSpawns: Record<number, coordinates[]>, patrolPoints: coordinates[]) {
         this.wallAABBs = wallAABBs;
         this.limits = limits;
         this.simulation.setLimits(limits);

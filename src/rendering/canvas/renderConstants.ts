@@ -23,7 +23,7 @@ export function setLightmapScale(v: number) {
 
 /** Maximum number of lights uploadable to the lighting shader in a single frame. */
 export const MAX_GPU_LIGHTS = 128;
-/** Maximum number of wall AABBs uploadable to the lighting shader in a single frame. */
-export const MAX_GPU_WALLS = 512;
+/** Maximum number of wall edge segments uploadable to the lighting shader in a single frame. */
+export const MAX_GPU_SEGMENTS = 512;
 /** Duration in ms before a last-known-position marker begins fading out. */
 export const LAST_KNOWN_DECAY_MS = 3500;

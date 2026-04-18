@@ -27,13 +27,12 @@ import {
     getSpawnsByTeam,
     getCoverPoints,
     getFloorDecals,
-    wallAABB,
 } from '@orchestration/bootstrap/mapAccessors';
 import { isGlossDecalAsset } from '@rendering/canvas/gridTextures';
 
 import { stopMenuMusic, playMenuMusic } from '@audio/index';
 
-import { getWallAABBs } from '@simulation/player/collision';
+import { getWallShapes } from '@simulation/player/collision';
 import { createDefaultWeapon } from '@simulation/combat/weapons';
 import { environment, setEnvironmentLimits } from '@simulation/environment/environment';
 import { createDefaultGrenades } from '@simulation/combat/grenades';
@@ -50,7 +49,7 @@ import { SETTINGS } from '../app';
 import { renderPixiWalls, clearPixiWalls } from '@rendering/canvas/wallRenderer';
 import { setWorldBounds } from '@rendering/canvas/sceneGraph';
 import { pixiClientRenderer } from '@rendering/canvas/clientRenderer';
-import { initLighting, clearLighting } from '@rendering/canvas/lightingManager';
+import { initLighting, clearLighting, type LightSegment } from '@rendering/canvas/lightingManager';
 import { clearGridDisplacement } from '@rendering/canvas/gridDisplacement';
 import { initGridTextures, clearGridTextures } from '@rendering/canvas/gridTextures';
 import { initGloss, clearGloss } from '@rendering/canvas/effects/glossEffect';
@@ -79,8 +78,17 @@ function loadMapWalls() {
         setWorldBounds(w, h);
         renderPixiWalls(walls);
         const lights = collectAllLights(map);
-        const wallBoxes = walls.map(wallAABB);
-        initLighting(lights, wallBoxes, map.postProcess);
+        const segments: LightSegment[] = [];
+        for (const wall of walls) {
+            const v = wall.vertices;
+            if (v.length < 2) continue;
+            for (let i = 0; i < v.length; i++) {
+                const a = v[i];
+                const b = v[(i + 1) % v.length];
+                segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+            }
+        }
+        initLighting(lights, segments, map.postProcess);
         const floorDecals = getFloorDecals(map);
         initGridTextures(getActiveMapId(), floorDecals);
         initGloss(floorDecals.find(isGlossDecalAsset));
@@ -95,7 +103,7 @@ function loadMapWalls() {
 function syncMapToSim() {
     const map = getActiveMap();
     authSim.setMap(
-        [...getWallAABBs()],
+        [...getWallShapes()],
         { ...environment.limits },
         [...environment.segments],
         getSpawnsByTeam(map),
