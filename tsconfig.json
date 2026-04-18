@@ -28,7 +28,8 @@
             "@config/*": ["src/config/*"],
             "@maps/*": ["src/maps/*"],
             "@utils/*": ["src/utils/*"],
-            "@shared/*": ["src/shared/*"]
+            "@shared/*": ["src/shared/*"],
+            "@editor/*": ["src/editor/*"]
         }
     },
     "include": ["src"]

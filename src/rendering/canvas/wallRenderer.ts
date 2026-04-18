@@ -10,18 +10,10 @@
 
 import { Container, Graphics } from 'pixi.js';
 
-import type { Wall, WallType } from '@shared/map/MapData';
+import type { Wall } from '@shared/map/MapData';
 import { wallAABB } from '@orchestration/bootstrap/mapAccessors';
+import { WALL_COLORS } from '@shared/render/wallColors';
 import { wallLayer } from './sceneGraph';
-
-const WALL_COLORS: Record<WallType, { fill: number; stroke: number }> = {
-    concrete: { fill: 0x4a5568, stroke: 0x2d3748 },
-    metal:    { fill: 0x374151, stroke: 0x1f2937 },
-    crate:    { fill: 0x78450a, stroke: 0x4a2c06 },
-    sandbag:  { fill: 0x8a7352, stroke: 0x5a4530 },
-    barrier:  { fill: 0x5a6474, stroke: 0x3a4454 },
-    pillar:   { fill: 0x3d4a5c, stroke: 0x2d3748 },
-};
 
 /**
  * Render all wall geometry into the wall scene layer and cache the result as a texture.

@@ -16,6 +16,15 @@ export default defineConfig({
             '@maps': path.resolve(__dirname, 'src/maps'),
             '@utils': path.resolve(__dirname, 'src/utils'),
             '@shared': path.resolve(__dirname, 'src/shared'),
+            '@editor': path.resolve(__dirname, 'src/editor'),
+        },
+    },
+    build: {
+        rollupOptions: {
+            input: {
+                main: path.resolve(__dirname, 'index.html'),
+                editor: path.resolve(__dirname, 'editor.html'),
+            },
         },
     },
     test: {
