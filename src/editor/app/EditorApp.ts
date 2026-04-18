@@ -42,7 +42,7 @@ import { SnapIndicator } from '../snap/SnapIndicator';
 import { SnapService } from '../snap/SnapService';
 import { createDefaultMapData } from '../state/defaultMap';
 import { DirtyTracker } from '../state/dirtyTracker';
-import { createWorkingState, type EditorWorkingState } from '../state/EditorWorkingState';
+import { createWorkingState, replaceFromSnapshot, type EditorWorkingState } from '../state/EditorWorkingState';
 import { snapshotJson } from '../state/serializeToMapData';
 import { EditorCamera } from '../viewport/EditorCamera';
 import { initEditorPixi } from '../viewport/EditorPixiApp';
@@ -131,7 +131,8 @@ export class EditorApp {
     constructor(private readonly deps: EditorAppDeps) {}
 
     async init(): Promise<void> {
-        this.state = createWorkingState(createDefaultMapData());
+        const initialMap = consumeReturnMap() ?? createDefaultMapData();
+        this.state = createWorkingState(initialMap);
         this.stack = new CommandStack(this.state);
         this.dirty = new DirtyTracker(this.stack);
 
@@ -629,9 +630,8 @@ export class EditorApp {
         }
         this.currentHandle = null;
         this.currentFilePath = UNTITLED_KEY;
-        this.state = createWorkingState(createDefaultMapData());
-        this.stack = new CommandStack(this.state);
-        this.dirty = new DirtyTracker(this.stack);
+        replaceFromSnapshot(this.state, JSON.stringify(createDefaultMapData()));
+        this.stack.reset();
         this.persistedState = defaultEditorState();
         this.selection.clear();
         this.renderer.setState(this.state);
@@ -640,7 +640,6 @@ export class EditorApp {
             this.state.map.bounds.width / 2,
             this.state.map.bounds.height / 2,
         );
-        this.wireStackListeners();
         this.applyCompileResult(null);
         this.refreshPanels();
         this.updateTitle();
@@ -686,9 +685,8 @@ export class EditorApp {
         hash: string,
         persisted: EditorStatePersisted,
     ): Promise<void> {
-        this.state = createWorkingState(map);
-        this.stack = new CommandStack(this.state);
-        this.dirty = new DirtyTracker(this.stack);
+        replaceFromSnapshot(this.state, JSON.stringify(map));
+        this.stack.reset();
         this.persistedState = persisted;
 
         if (persisted.contentHash && persisted.contentHash !== hash) {
@@ -736,7 +734,6 @@ export class EditorApp {
         this.renderer.setState(this.state);
         this.applyCompileResult(persisted.lastCompileResult ?? null);
         this.refreshPanels();
-        this.wireStackListeners();
     }
 
     private refreshPanels(): void {
@@ -855,4 +852,20 @@ export class EditorApp {
 
 function isAbortError(err: unknown): boolean {
     return err instanceof DOMException && err.name === 'AbortError';
+}
+
+/**
+ * If the user is returning from play-test, load the map they sent into the
+ * game page. Single-consumption: the key is removed on read so a subsequent
+ * editor reload starts clean.
+ */
+function consumeReturnMap(): MapData | null {
+    const raw = sessionStorage.getItem('editor_return_map');
+    if (!raw) return null;
+    sessionStorage.removeItem('editor_return_map');
+    try {
+        return JSON.parse(raw) as MapData;
+    } catch {
+        return null;
+    }
 }
