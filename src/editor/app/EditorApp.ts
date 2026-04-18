@@ -82,6 +82,7 @@ import { ErrorOverlay } from '../viewport/errorOverlay';
 import { enterPlayTest } from '../playtest/editorPlayTest';
 import { openMapPropertiesDialog } from '../panels/dialogs/mapPropertiesDialog';
 import { openSignalRegistryDialog } from '../panels/dialogs/signalRegistryDialog';
+import { openFloorManagementDialog } from '../panels/dialogs/floorManagementDialog';
 
 interface EditorAppDeps {
     root: HTMLElement;
@@ -260,7 +261,7 @@ export class EditorApp {
             zoneOverlay: () => { /* stub -- post-Phase-4 */ },
             activateTool: (id) => this.tools.activate(id),
             mapProperties: () => openMapPropertiesDialog(this.state, (cmd) => this.stack.dispatch(cmd)),
-            floorManagement: () => this.leftPanel.setTab('layers'),
+            floorManagement: () => openFloorManagementDialog(this.state, (cmd) => this.stack.dispatch(cmd)),
             signalRegistry: () => openSignalRegistryDialog(this.state, (cmd) => this.stack.dispatch(cmd)),
             compile: () => this.runCompile(),
             playTest: () => this.runPlayTest(),
@@ -587,6 +588,32 @@ export class EditorApp {
         this.errorOverlay.rebuild(errors, this.state, this.state.activeFloorId);
     }
 
+    /**
+     * Prune compile errors whose referenced GUIDs no longer exist. Called after
+     * every command so deleting an erroring item removes its row from the
+     * bottom panel + toolbar count. Modified-but-still-present items keep
+     * their errors until the next compile per spec.
+     */
+    private refreshErrorsAfterMutation(): void {
+        if (!this.compileResult) {
+            this.rebuildErrorOverlay();
+            return;
+        }
+        const filtered = this.compileResult.errors.filter(
+            (e) => e.itemGUID === null || this.state.byGUID.has(e.itemGUID),
+        );
+        if (filtered.length === this.compileResult.errors.length) {
+            this.rebuildErrorOverlay();
+            return;
+        }
+        const pruned: CompileResult = {
+            passed: filtered.length === 0,
+            errors: filtered,
+            timestamp: this.compileResult.timestamp,
+        };
+        this.applyCompileResult(pruned);
+    }
+
     private handleErrorRowClick(error: CompileError): void {
         if (error.floorId && error.floorId !== this.state.activeFloorId) {
             this.state.activeFloorId = error.floorId;
@@ -749,7 +776,7 @@ export class EditorApp {
         this.stack.subscribe(() => {
             this.selection.pruneAgainst(this.state);
             this.renderer.rebuild();
-            this.rebuildErrorOverlay();
+            this.refreshErrorsAfterMutation();
             const top = this.stack.serialize();
             const last = top.stack[top.pointer];
             if (last?.isStructural && this.autoSave) this.autoSave.triggerImmediate();
