@@ -116,19 +116,7 @@ describe('moveWithCollisionPure', () => {
     });
 
     it('given wall blocking diagonal, when X-only is free, then slides along X', () => {
-        // Wall blocks the diagonal destination and the Y-only path, but X-only is free
-        const walls = [makeWall(105, 105, 50, 50)];
-        // Moving from (100, 100) by (5, 10). Diagonal (105,110) collides. X-only (105, 100) - check overlap:
-        // Collision box for (105,100): (108,103)-(146,141) vs wall (105,105)-(155,155) -> overlaps in Y(103<155 && 141>105)
-        // So X-only also collides. Let's use a wall that only blocks Y movement.
-        const wallBlockingY = [makeWall(0, 115, 2000, 50)];
-        // Moving from (100, 100) by (10, 20). Diagonal to (110, 120):
-        // cbox for (110,120): (113,123)-(151,161) vs wall (0,115)-(2000,165) -> overlaps
-        // X-only (110, 100): cbox (113,103)-(151,141) vs wall (0,115)-(2000,165) -> 103<165 && 141>115 -> overlaps
-        // Y-only (100, 120): cbox (103,123)-(141,161) vs wall (0,115)-(2000,165) -> overlaps
-        // Hmm, that wall is too close. Let me think more carefully.
-
-        // Better approach: wall only blocks a specific region in the Y direction
+        // Wall only blocks Y movement; X slide is free
         const wallsV2 = [makeWall(0, 150, 2000, 50)];
         // Moving from (100, 100) by (10, 60). Diagonal to (110, 160):
         // cbox (113,163)-(151,201) vs wall (0,150)-(2000,200) -> overlaps

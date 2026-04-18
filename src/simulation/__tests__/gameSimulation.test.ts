@@ -3,8 +3,6 @@ import { GameSimulation } from '@simulation/gameSimulation';
 import { setGameMode, resetConfig } from '@config/activeConfig';
 import { makePlayer, testSegment, testLimits } from '../../test/helpers';
 import { HALF_HIT_BOX } from '../../constants';
-import type { GameEvent } from '@net/gameEvent';
-
 let sim: GameSimulation;
 
 beforeEach(() => {

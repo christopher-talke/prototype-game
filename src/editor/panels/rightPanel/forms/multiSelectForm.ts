@@ -241,6 +241,24 @@ function sharedZoneFields(
         },
     });
 
+    const label = sharedValue(zones.map((z) => z.label ?? ''));
+    fields.push({
+        key: 'shared.label',
+        label: 'Label',
+        type: 'text',
+        value: label ?? '',
+        onCommit: (next) => {
+            const cmd = buildBatchSetPropertyCommand(
+                state,
+                guids,
+                ['label'],
+                next,
+                `Set zone label (${guids.length})`,
+            );
+            if (cmd) stack.dispatch(cmd);
+        },
+    });
+
     fields.push({
         key: 'shared.team',
         label: 'Team',

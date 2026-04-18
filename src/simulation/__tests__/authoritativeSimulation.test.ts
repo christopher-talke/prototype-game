@@ -3,9 +3,8 @@ import { AuthoritativeSimulation } from '@simulation/authoritativeSimulation';
 import { setGameMode, resetConfig } from '@config/activeConfig';
 import { BASE_DEFAULTS } from '@config/defaults';
 import { WEAPON_DEFS } from '@simulation/combat/weapons';
-import { makePlayer, makeWall, testSegment, testLimits } from '../../test/helpers';
+import { makePlayer, testLimits } from '../../test/helpers';
 import { clearAllSmokeData } from '@simulation/combat/smokeData';
-import type { GameEvent } from '@net/gameEvent';
 
 let auth: AuthoritativeSimulation;
 const limits = testLimits(3000, 3000);

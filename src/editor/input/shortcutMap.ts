@@ -1,10 +1,11 @@
 /**
- * Phase 1 + Phase 2 shortcut bindings.
+ * Phase 1 + Phase 2 + Phase 4 shortcut bindings.
  *
  * Phase 1: file ops, undo/redo, grid/snap toggles.
  * Phase 2: tool shortcuts (S/W/Z/O/E/L/N), edit-clipboard (Ctrl+X/C/V/D),
  * delete (Delete/Backspace), select-all (Ctrl+A), Esc to cancel + return to
  * Select tool.
+ * Phase 4: compile (Ctrl+Shift+B), play-test (Ctrl+P).
  *
  * Part of the editor layer.
  */
@@ -69,4 +70,18 @@ export function installPhase2Shortcuts(
     dispatcher.bind('ctrl+-', actions.zoomOut);
     dispatcher.bind('ctrl+0', actions.zoomFit);
     dispatcher.bind('ctrl+1', actions.zoomReset);
+}
+
+export interface Phase4ShortcutActions {
+    compile: () => void;
+    playTest: () => void;
+}
+
+/** Register Phase 4 shortcuts: compile check and play-test. */
+export function installPhase4Shortcuts(
+    dispatcher: KeyboardDispatcher,
+    actions: Phase4ShortcutActions,
+): void {
+    dispatcher.bind('ctrl+shift+b', actions.compile);
+    dispatcher.bind('ctrl+p', actions.playTest);
 }

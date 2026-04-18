@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { FOV, ROTATION_OFFSET } from '../../../constants';
+import { ROTATION_OFFSET } from '../../../constants';
 import { makePlayer } from '../../../test/helpers';
 
 // We need fresh module state per describe block because visibility.ts

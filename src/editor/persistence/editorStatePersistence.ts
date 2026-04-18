@@ -9,6 +9,7 @@
  */
 
 import type { SerializedCommand } from '../commands/EditorCommand';
+import type { CompileResult } from '../compile/mapCompiler';
 
 import { STORE_EDITOR_STATE, idbGet, idbPut } from './IndexedDbStore';
 
@@ -42,7 +43,7 @@ export interface EditorStatePersisted {
     selectedItemGUIDs: string[];
     undoStack: SerializedCommand[];
     undoPointer: number;
-    lastCompileErrors: unknown[];
+    lastCompileResult: CompileResult | null;
     groups: unknown[];
     contentHash: string;
     paletteRecents: PaletteRecents;
@@ -62,7 +63,7 @@ export function defaultEditorState(): EditorStatePersisted {
         selectedItemGUIDs: [],
         undoStack: [],
         undoPointer: -1,
-        lastCompileErrors: [],
+        lastCompileResult: null,
         groups: [],
         contentHash: '',
         paletteRecents: { object: [], entity: [] },
@@ -74,6 +75,8 @@ export async function loadEditorState(filePath: string): Promise<EditorStatePers
     const stored = await idbGet<EditorStatePersisted>(STORE_EDITOR_STATE, filePath);
     if (!stored) return defaultEditorState();
     if (!stored.paletteRecents) stored.paletteRecents = { object: [], entity: [] };
+    // Migrate from old lastCompileErrors field (unknown[]) to lastCompileResult.
+    if (stored.lastCompileResult === undefined) stored.lastCompileResult = null;
     return stored;
 }
 

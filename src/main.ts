@@ -8,6 +8,8 @@ import { loadAllSounds } from '@audio/soundMap';
 import { initProjectilePool } from '@rendering/dom/projectilePool';
 import { clientRenderer } from '@rendering/dom/clientRenderer';
 import { showMainMenu } from '@ui/mainMenu/mainMenu';
+import { setActiveMapData } from '@maps/helpers';
+import type { MapData } from '@shared/map/MapData';
 import { showLoadingScreen, setLoadingProgress, hideLoadingScreen } from '@ui/loading/loadingScreen';
 import { initGameLoop } from '@orchestration/gameLoop';
 import { initMatchSystem, launchMatch } from '@orchestration/match';
@@ -89,5 +91,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     initMatchSystem();
 
     await hideLoadingScreen();
-    showMainMenu(launchMatch);
+
+    const playtestJson = sessionStorage.getItem('editor_playtest_map');
+    if (playtestJson) {
+        sessionStorage.removeItem('editor_playtest_map');
+        try {
+            const mapData = JSON.parse(playtestJson) as MapData;
+            setActiveMapData(mapData);
+        } catch {
+            // Malformed session data -- fall through to main menu
+        }
+        mountPlayTestExitButton();
+        launchMatch('deathmatch');
+    } else {
+        showMainMenu(launchMatch);
+    }
 });
+
+function mountPlayTestExitButton(): void {
+    const returnUrl = sessionStorage.getItem('editor_playtest_return_url') ?? '/editor.html';
+
+    const btn = document.createElement('button');
+    btn.id = 'playtest-exit-btn';
+    btn.textContent = 'Exit Play-Test';
+    btn.style.cssText = [
+        'position: fixed',
+        'top: 12px',
+        'right: 12px',
+        'z-index: 9999',
+        'background: rgba(0,0,0,0.75)',
+        'color: #fff',
+        'border: 1px solid rgba(255,255,255,0.25)',
+        'padding: 6px 14px',
+        'font-size: 12px',
+        'cursor: pointer',
+        'border-radius: 3px',
+        'font-family: inherit',
+    ].join(';');
+    document.body.appendChild(btn);
+
+    btn.addEventListener('click', exitPlayTest);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') exitPlayTest();
+    });
+
+    function exitPlayTest(): void {
+        sessionStorage.removeItem('editor_playtest_return_url');
+        window.location.href = returnUrl;
+    }
+}

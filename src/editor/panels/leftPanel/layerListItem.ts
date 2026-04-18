@@ -12,6 +12,7 @@ import { LAYER_COLORS } from '@shared/render/layerColors';
 export interface LayerListItemOptions {
     layer: MapLayer;
     isActive: boolean;
+    hasError: boolean;
     onActivate: () => void;
     onToggleVisibility: () => void;
     onToggleLock: () => void;
@@ -37,6 +38,13 @@ export function buildLayerListItem(opts: LayerListItemOptions): HTMLElement {
     name.className = 'editor-layer-name';
     name.textContent = opts.layer.label;
     row.appendChild(name);
+
+    if (opts.hasError) {
+        const badge = document.createElement('span');
+        badge.className = 'layer-error-badge';
+        badge.title = 'This layer has compile errors';
+        row.appendChild(badge);
+    }
 
     const eye = document.createElement('button');
     eye.type = 'button';

@@ -62,3 +62,15 @@ export function setActiveMap(id: string): void {
         activeMap = entry.data;
     }
 }
+
+/**
+ * Set the active map directly from a MapData object, bypassing the ID
+ * registry. Used by the editor play-test mode to inject the current
+ * working map without registering it.
+ *
+ * @param data - The MapData to activate.
+ */
+export function setActiveMapData(data: MapData): void {
+    activeMapId = 'editor-playtest';
+    activeMap = data;
+}

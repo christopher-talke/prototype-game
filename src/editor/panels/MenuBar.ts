@@ -1,9 +1,11 @@
 /**
- * Top menu bar. Phase 1: File menu is wired (New, Open, Save, Save As);
- * other menus display their items as disabled with shortcut hints.
+ * Top menu bar. All menus fully wired: File, Edit, View, Insert, Map.
+ * Also hosts the compile status indicator (neutral / passed / failed).
  *
  * Part of the editor layer.
  */
+
+import type { CompileResult } from '../compile/mapCompiler';
 
 interface MenuItemSpec {
     label: string;
@@ -23,12 +25,36 @@ export interface MenuBarActions {
     saveAs: () => void;
     undo: () => void;
     redo: () => void;
+    cut: () => void;
+    copy: () => void;
+    paste: () => void;
+    duplicate: () => void;
+    deleteSelection: () => void;
+    selectAll: () => void;
     toggleGrid: () => void;
     toggleSnap: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    zoomFit: () => void;
+    zoomReset: () => void;
+    collisionOverlay: () => void;
+    zoneOverlay: () => void;
+    activateTool: (id: string) => void;
+    mapProperties: () => void;
+    floorManagement: () => void;
+    signalRegistry: () => void;
+    compile: () => void;
+    playTest: () => void;
+    toggleErrorPanel: () => void;
 }
 
-/** Build the menu bar inside `container` and return a reference for updates. */
-export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): HTMLElement {
+export interface MenuBarHandle {
+    titleEl: HTMLElement;
+    setCompileStatus(result: CompileResult | null): void;
+}
+
+/** Build the menu bar inside `container` and return a handle for updates. */
+export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): MenuBarHandle {
     container.innerHTML = '';
 
     const menus: MenuSpec[] = [
@@ -48,11 +74,13 @@ export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): H
                 { label: 'Undo', shortcut: 'Ctrl+Z', action: actions.undo },
                 { label: 'Redo', shortcut: 'Ctrl+Shift+Z', action: actions.redo },
                 'sep',
-                { label: 'Cut', shortcut: 'Ctrl+X' },
-                { label: 'Copy', shortcut: 'Ctrl+C' },
-                { label: 'Paste', shortcut: 'Ctrl+V' },
-                { label: 'Delete', shortcut: 'Delete' },
-                { label: 'Select All', shortcut: 'Ctrl+A' },
+                { label: 'Cut', shortcut: 'Ctrl+X', action: actions.cut },
+                { label: 'Copy', shortcut: 'Ctrl+C', action: actions.copy },
+                { label: 'Paste', shortcut: 'Ctrl+V', action: actions.paste },
+                { label: 'Duplicate', shortcut: 'Ctrl+D', action: actions.duplicate },
+                'sep',
+                { label: 'Delete', shortcut: 'Delete', action: actions.deleteSelection },
+                { label: 'Select All', shortcut: 'Ctrl+A', action: actions.selectAll },
             ],
         },
         {
@@ -61,32 +89,35 @@ export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): H
                 { label: 'Toggle Grid', shortcut: 'G', action: actions.toggleGrid },
                 { label: 'Toggle Snap', shortcut: 'Ctrl+G', action: actions.toggleSnap },
                 'sep',
-                { label: 'Zoom In', shortcut: 'Ctrl+=' },
-                { label: 'Zoom Out', shortcut: 'Ctrl+-' },
-                { label: 'Zoom to Fit', shortcut: 'Ctrl+0' },
-                { label: 'Zoom 100%', shortcut: 'Ctrl+1' },
+                { label: 'Zoom In', shortcut: 'Ctrl+=', action: actions.zoomIn },
+                { label: 'Zoom Out', shortcut: 'Ctrl+-', action: actions.zoomOut },
+                { label: 'Zoom to Fit', shortcut: 'Ctrl+0', action: actions.zoomFit },
+                { label: 'Zoom 100%', shortcut: 'Ctrl+1', action: actions.zoomReset },
+                'sep',
+                { label: 'Collision Overlay', action: actions.collisionOverlay },
+                { label: 'Zone Overlay', action: actions.zoneOverlay },
             ],
         },
         {
             title: 'Insert',
             items: [
-                { label: 'Wall', shortcut: 'W' },
-                { label: 'Zone', shortcut: 'Z' },
-                { label: 'Object', shortcut: 'O' },
-                { label: 'Entity', shortcut: 'E' },
-                { label: 'Light', shortcut: 'L' },
-                { label: 'NavHint', shortcut: 'N' },
+                { label: 'Wall', shortcut: 'W', action: () => actions.activateTool('wall') },
+                { label: 'Zone', shortcut: 'Z', action: () => actions.activateTool('zone') },
+                { label: 'Object', shortcut: 'O', action: () => actions.activateTool('object') },
+                { label: 'Entity', shortcut: 'E', action: () => actions.activateTool('entity') },
+                { label: 'Light', shortcut: 'L', action: () => actions.activateTool('light') },
+                { label: 'NavHint', shortcut: 'N', action: () => actions.activateTool('navHint') },
             ],
         },
         {
             title: 'Map',
             items: [
-                { label: 'Map Properties' },
-                { label: 'Floor Management' },
-                { label: 'Signal Registry' },
+                { label: 'Map Properties', action: actions.mapProperties },
+                { label: 'Floor Management', action: actions.floorManagement },
+                { label: 'Signal Registry', action: actions.signalRegistry },
                 'sep',
-                { label: 'Compile Check', shortcut: 'Ctrl+Shift+B' },
-                { label: 'Play-Test', shortcut: 'Ctrl+P' },
+                { label: 'Compile Check', shortcut: 'Ctrl+Shift+B', action: actions.compile },
+                { label: 'Play-Test', shortcut: 'Ctrl+P', action: actions.playTest },
             ],
         },
     ];
@@ -94,6 +125,14 @@ export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): H
     for (const menu of menus) {
         container.appendChild(buildMenu(menu));
     }
+
+    const compileIndicator = document.createElement('span');
+    compileIndicator.id = 'editor-compile-status';
+    compileIndicator.className = 'neutral';
+    compileIndicator.textContent = '● Not compiled';
+    compileIndicator.title = 'Click to toggle error panel';
+    compileIndicator.addEventListener('click', () => actions.toggleErrorPanel());
+    container.appendChild(compileIndicator);
 
     const title = document.createElement('div');
     title.id = 'editor-map-title';
@@ -109,7 +148,24 @@ export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): H
         if (e.key === 'Escape') closeAllMenus(container);
     });
 
-    return title;
+    return {
+        titleEl: title,
+        setCompileStatus(result: CompileResult | null): void {
+            if (!result) {
+                compileIndicator.className = 'neutral';
+                compileIndicator.textContent = '● Not compiled';
+                return;
+            }
+            if (result.passed) {
+                compileIndicator.className = 'passed';
+                compileIndicator.textContent = '✓ No errors';
+            } else {
+                const n = result.errors.length;
+                compileIndicator.className = 'failed';
+                compileIndicator.textContent = `✗ ${n} error${n === 1 ? '' : 's'}`;
+            }
+        },
+    };
 }
 
 function buildMenu(spec: MenuSpec): HTMLElement {

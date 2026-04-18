@@ -65,11 +65,6 @@ function getSentInputs(): PlayerInput[] {
     return mockSendInput.mock.calls.map((c: any[]) => c[0]);
 }
 
-function getLastInput(): PlayerInput | undefined {
-    const calls = mockSendInput.mock.calls;
-    return calls.length > 0 ? calls[calls.length - 1][0] : undefined;
-}
-
 // ---- State Machine Transitions ----
 
 describe('AI state machine transitions', () => {

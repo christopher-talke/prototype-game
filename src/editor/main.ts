@@ -16,11 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const left = document.getElementById('editor-left');
     const right = document.getElementById('editor-right');
     const viewport = document.getElementById('editor-viewport');
+    const bottom = document.getElementById('editor-bottom');
 
-    if (!root || !topbar || !toolOptions || !left || !right || !viewport) {
+    if (!root || !topbar || !toolOptions || !left || !right || !viewport || !bottom) {
         throw new Error('Editor DOM skeleton missing required containers.');
     }
 
-    const app = new EditorApp({ root, topbar, toolOptions, left, right, viewport });
+    const app = new EditorApp({ root, topbar, toolOptions, left, right, viewport, bottom });
     void app.init();
 });

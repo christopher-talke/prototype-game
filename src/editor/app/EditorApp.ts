@@ -1,11 +1,12 @@
 /**
  * Editor bootstrap and wiring.
  *
- * Owns the lifetime of every Phase 1 + Phase 2 subsystem: working state,
- * command stack, dirty tracker, file service, persistence, Pixi viewport,
- * grid renderer, snap service, menu bar, keyboard dispatcher, auto-save,
- * editor map renderer, selection store, drag overlay/controller, tool
- * manager, selection overlay, left/right panel, context menu actions.
+ * Owns the lifetime of every Phase 1-4 subsystem: working state, command
+ * stack, dirty tracker, file service, persistence, Pixi viewport, grid
+ * renderer, snap service, menu bar, keyboard dispatcher, auto-save, editor
+ * map renderer, selection store, drag overlay/controller, tool manager,
+ * selection overlay, error overlay, left/right/bottom panels, context menu
+ * actions, compile check, play-test.
  *
  * Part of the editor layer.
  */
@@ -18,9 +19,9 @@ import { deserializeCommand } from '../commands/deserialize';
 import { GridRenderer } from '../grid/GridRenderer';
 import { MapBoundsOverlay } from '../viewport/mapBoundsOverlay';
 import { KeyboardDispatcher } from '../input/KeyboardDispatcher';
-import { installPhase1Shortcuts, installPhase2Shortcuts } from '../input/shortcutMap';
+import { installPhase1Shortcuts, installPhase2Shortcuts, installPhase4Shortcuts } from '../input/shortcutMap';
 import { mountLeftPanel, type LeftPanelHandle } from '../panels/LeftPanel';
-import { type MenuBarActions, mountMenuBar } from '../panels/MenuBar';
+import { type MenuBarActions, type MenuBarHandle, mountMenuBar } from '../panels/MenuBar';
 import { mountRightPanel, type RightPanelHandle } from '../panels/RightPanel';
 import { TitleBar } from '../panels/titleBar';
 import { AutoSaveTimer, readAutoSave } from '../persistence/autoSave';
@@ -75,6 +76,13 @@ import { buildMoveToLayerCommand } from '../commands/moveToLayerCommand';
 import { buildSetLayerLockCommand } from '../commands/setLayerLockCommand';
 import { copyToClipboard } from '../clipboard/clipboard';
 
+import { runCompile, errorLayerIds, type CompileResult, type CompileError } from '../compile/mapCompiler';
+import { mountErrorPanel, type ErrorPanelHandle } from '../panels/ErrorPanel';
+import { ErrorOverlay } from '../viewport/errorOverlay';
+import { enterPlayTest } from '../playtest/editorPlayTest';
+import { openMapPropertiesDialog } from '../panels/dialogs/mapPropertiesDialog';
+import { openSignalRegistryDialog } from '../panels/dialogs/signalRegistryDialog';
+
 interface EditorAppDeps {
     root: HTMLElement;
     topbar: HTMLElement;
@@ -82,6 +90,7 @@ interface EditorAppDeps {
     left: HTMLElement;
     right: HTMLElement;
     viewport: HTMLElement;
+    bottom: HTMLElement;
 }
 
 export class EditorApp {
@@ -93,6 +102,7 @@ export class EditorApp {
     private snap = new SnapService();
     private grid!: GridRenderer;
     private titleBar!: TitleBar;
+    private menuBarHandle!: MenuBarHandle;
     private autoSave!: AutoSaveTimer;
     private currentHandle: FileSystemFileHandle | null = null;
     private currentFilePath: string = UNTITLED_KEY;
@@ -109,10 +119,14 @@ export class EditorApp {
     private toolSettings = new ToolSettingsStore();
     private leftPanel!: LeftPanelHandle;
     private rightPanel!: RightPanelHandle;
+    private errorPanel!: ErrorPanelHandle;
+    private errorOverlay!: ErrorOverlay;
     private viewportEl!: HTMLElement;
     private canvasEl!: HTMLCanvasElement;
     private cursorWorld: Vec2 = { x: 0, y: 0 };
     private cursorScreen: Vec2 = { x: 0, y: 0 };
+
+    private compileResult: CompileResult | null = null;
 
     constructor(private readonly deps: EditorAppDeps) {}
 
@@ -123,8 +137,9 @@ export class EditorApp {
 
         const actions = this.buildActions();
 
-        const titleEl = mountMenuBar(this.deps.topbar, actions);
-        this.titleBar = new TitleBar(titleEl);
+        const handle = mountMenuBar(this.deps.topbar, actions);
+        this.menuBarHandle = handle;
+        this.titleBar = new TitleBar(handle.titleEl);
         this.updateTitle();
 
         mountToolOptionsBar(this.deps.toolOptions, this.tools, this.toolSettings);
@@ -157,9 +172,13 @@ export class EditorApp {
         this.drag = new DragController(this.state, this.dragOverlay, this.stack, this.canvasEl, this.snap);
         void this.selectionOverlay;
 
+        this.errorOverlay = new ErrorOverlay(pixi.scene.overlayLayer);
+
         this.registerTools(pixi.scene.overlayLayer);
         this.tools.setCursorTarget(this.canvasEl);
         this.tools.activate('select');
+
+        this.errorPanel = mountErrorPanel(this.deps.bottom, (error) => this.handleErrorRowClick(error));
 
         this.leftPanel = mountLeftPanel(this.deps.left, this.deps.root, {
             state: this.state,
@@ -170,8 +189,12 @@ export class EditorApp {
             tools: this.tools,
             onPersist: () => void this.persistCurrent(),
             onActiveLayerChange: () => this.renderer.rebuild(),
-            onFloorChange: () => this.renderer.rebuild(),
+            onFloorChange: () => {
+                this.renderer.rebuild();
+                this.rebuildErrorOverlay();
+            },
             onHiddenChange: () => this.renderer.rebuild(),
+            getErrorLayerIds: () => (this.compileResult ? errorLayerIds(this.compileResult) : new Set()),
         });
 
         this.rightPanel = mountRightPanel(this.deps.right, this.deps.root, {
@@ -182,19 +205,17 @@ export class EditorApp {
 
         installPhase1Shortcuts(this.dispatcher, actions);
         installPhase2Shortcuts(this.dispatcher, this.buildPhase2ShortcutActions());
+        installPhase4Shortcuts(this.dispatcher, {
+            compile: () => this.runCompile(),
+            playTest: () => this.runPlayTest(),
+        });
 
         this.wirePointerEvents();
 
         this.stack.subscribe(() => this.updateTitle());
         this.dirty.subscribe(() => this.updateTitle());
 
-        this.stack.subscribe(() => {
-            this.selection.pruneAgainst(this.state);
-            this.renderer.rebuild();
-            const top = this.stack.serialize();
-            const last = top.stack[top.pointer];
-            if (last?.isStructural && this.autoSave) this.autoSave.triggerImmediate();
-        });
+        this.wireStackListeners();
 
         this.autoSave = new AutoSaveTimer({
             getFilePathKey: () => this.currentFilePath,
@@ -219,11 +240,30 @@ export class EditorApp {
             saveAs: () => void this.saveAs(),
             undo: () => this.stack.undo(),
             redo: () => this.stack.redo(),
+            cut: () => this.runCut(),
+            copy: () => this.runCopy(),
+            paste: () => this.runPaste(this.cursorWorld),
+            duplicate: () => this.runDuplicate(),
+            deleteSelection: () => this.runDelete(),
+            selectAll: () => this.runSelectAll(),
             toggleGrid: () => this.grid.setVisible(!this.grid.isVisible()),
             toggleSnap: () => {
                 this.snap.toggle();
                 void this.persistCurrent();
             },
+            zoomIn: () => this.buildPhase2ShortcutActions().zoomIn(),
+            zoomOut: () => this.buildPhase2ShortcutActions().zoomOut(),
+            zoomFit: () => this.buildPhase2ShortcutActions().zoomFit(),
+            zoomReset: () => this.buildPhase2ShortcutActions().zoomReset(),
+            collisionOverlay: () => { /* stub -- post-Phase-4 */ },
+            zoneOverlay: () => { /* stub -- post-Phase-4 */ },
+            activateTool: (id) => this.tools.activate(id),
+            mapProperties: () => openMapPropertiesDialog(this.state, (cmd) => this.stack.dispatch(cmd)),
+            floorManagement: () => this.leftPanel.setTab('layers'),
+            signalRegistry: () => openSignalRegistryDialog(this.state, (cmd) => this.stack.dispatch(cmd)),
+            compile: () => this.runCompile(),
+            playTest: () => this.runPlayTest(),
+            toggleErrorPanel: () => this.errorPanel.toggle(),
         };
     }
 
@@ -525,6 +565,63 @@ export class EditorApp {
         if (cmd) this.stack.dispatch(cmd);
     }
 
+    /** Run compile check, update all error surfaces, persist result. */
+    private runCompile(): void {
+        const result = runCompile(this.state);
+        this.applyCompileResult(result);
+        this.errorPanel.show();
+        void this.persistCurrent();
+    }
+
+    private applyCompileResult(result: CompileResult | null): void {
+        this.compileResult = result;
+        this.menuBarHandle.setCompileStatus(result);
+        this.errorPanel.update(result, this.state);
+        this.rebuildErrorOverlay();
+        this.leftPanel.refreshLayers();
+    }
+
+    private rebuildErrorOverlay(): void {
+        const errors = this.compileResult?.errors ?? [];
+        this.errorOverlay.rebuild(errors, this.state, this.state.activeFloorId);
+    }
+
+    private handleErrorRowClick(error: CompileError): void {
+        if (error.floorId && error.floorId !== this.state.activeFloorId) {
+            this.state.activeFloorId = error.floorId;
+            const firstLayer = this.state.map.layers.find((l) => l.floorId === error.floorId);
+            if (firstLayer) this.state.activeLayerId = firstLayer.id;
+            this.renderer.rebuild();
+            this.rebuildErrorOverlay();
+            this.leftPanel.refreshFloors();
+            this.leftPanel.refreshLayers();
+        }
+
+        if (error.itemGUID && this.state.byGUID.has(error.itemGUID)) {
+            this.selection.select(error.itemGUID);
+            this.rightPanel.refresh();
+        }
+
+        if (error.worldPosition) {
+            this.camera.centerOn(error.worldPosition.x, error.worldPosition.y);
+        }
+
+        this.leftPanel.refreshItems();
+    }
+
+    /** Compile-gated play-test entry. */
+    private runPlayTest(): void {
+        const result = runCompile(this.state);
+        this.applyCompileResult(result);
+
+        if (!result.passed) {
+            this.errorPanel.show();
+            return;
+        }
+
+        enterPlayTest(this.state);
+    }
+
     private async newMap(): Promise<void> {
         if (this.dirty.isDirty()) {
             const ok = window.confirm('Discard unsaved changes?');
@@ -544,6 +641,7 @@ export class EditorApp {
             this.state.map.bounds.height / 2,
         );
         this.wireStackListeners();
+        this.applyCompileResult(null);
         this.refreshPanels();
         this.updateTitle();
     }
@@ -636,6 +734,7 @@ export class EditorApp {
         }
 
         this.renderer.setState(this.state);
+        this.applyCompileResult(persisted.lastCompileResult ?? null);
         this.refreshPanels();
         this.wireStackListeners();
     }
@@ -653,6 +752,7 @@ export class EditorApp {
         this.stack.subscribe(() => {
             this.selection.pruneAgainst(this.state);
             this.renderer.rebuild();
+            this.rebuildErrorOverlay();
             const top = this.stack.serialize();
             const last = top.stack[top.pointer];
             if (last?.isStructural && this.autoSave) this.autoSave.triggerImmediate();
@@ -707,6 +807,7 @@ export class EditorApp {
         this.persistedState.undoStack = serializedStack.stack;
         this.persistedState.undoPointer = serializedStack.pointer;
         this.persistedState.selectedItemGUIDs = this.selection.selectedArray();
+        this.persistedState.lastCompileResult = this.compileResult;
         await saveEditorState(this.currentFilePath, this.persistedState);
     }
 
@@ -723,6 +824,7 @@ export class EditorApp {
             );
             if (live.length > 0) this.selection.selectMany(live);
         }
+        this.applyCompileResult(this.persistedState.lastCompileResult ?? null);
         this.refreshPanels();
     }
 
@@ -746,6 +848,7 @@ export class EditorApp {
             dispatch: (cmd: unknown) => this.stack.dispatch(cmd as never),
             persistedState: () => this.persistedState,
             filePath: () => this.currentFilePath,
+            compile: () => this.runCompile(),
         };
     }
 }

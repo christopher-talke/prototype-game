@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getGrenadeDef, isGrenadeAllowed, createDefaultGrenades, GRENADE_DEFS } from '@simulation/combat/grenades';
+import { getGrenadeDef, isGrenadeAllowed, createDefaultGrenades } from '@simulation/combat/grenades';
 import { setGameMode, resetConfig } from '@config/activeConfig';
 
 beforeEach(() => {

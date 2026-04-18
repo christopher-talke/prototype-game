@@ -32,6 +32,7 @@ export interface LeftPanelDeps {
     onActiveLayerChange: () => void;
     onFloorChange: () => void;
     onHiddenChange: () => void;
+    getErrorLayerIds?: () => Set<string>;
 }
 
 export interface LeftPanelHandle {
@@ -157,6 +158,7 @@ export function mountLeftPanel(
             refreshItems();
         },
         onPersist: deps.onPersist,
+        getErrorLayerIds: deps.getErrorLayerIds,
     });
 
     const refreshItems = mountItemList(itemListHost, {

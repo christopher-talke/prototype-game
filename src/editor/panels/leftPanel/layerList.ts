@@ -19,6 +19,8 @@ export interface LayerListOptions {
     stack: CommandStack;
     onActiveLayerChange: () => void;
     onPersist: () => void;
+    /** Returns the set of layer IDs that have at least one compile error. */
+    getErrorLayerIds?: () => Set<string>;
 }
 
 /** Build the layer list. Returns refresh fn. */
@@ -29,8 +31,11 @@ export function mountLayerList(container: HTMLElement, opts: LayerListOptions): 
     const refresh = (): void => {
         container.innerHTML = '';
         const layers = opts.state.map.layers.filter((l) => l.floorId === opts.state.activeFloorId);
+        const errorIds = opts.getErrorLayerIds?.() ?? new Set<string>();
         for (const layer of layers) {
+            const hasError = errorIds.has(layer.id);
             const row = buildLayerListItem({
+                hasError,
                 layer,
                 isActive: layer.id === opts.state.activeLayerId,
                 onActivate: () => {
