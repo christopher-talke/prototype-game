@@ -29,6 +29,7 @@ import { type HandleId } from '../gizmos/transformHandles';
 import { DoubleClickTracker } from '../input/DoubleClickTracker';
 import { CURSORS } from './cursors';
 import type { Tool, ToolKeyEvent, ToolPointerEvent } from './tool';
+import type { ToolManager } from './toolManager';
 
 interface BoxSelectState {
     pointerId: number;
@@ -49,6 +50,7 @@ export interface SelectToolDeps {
     camera: EditorCamera;
     overlayParent: Container;
     canvasEl: HTMLCanvasElement;
+    toolManager: ToolManager;
 }
 
 export class SelectTool implements Tool {
@@ -113,9 +115,15 @@ export class SelectTool implements Tool {
             const topGroup = findTopmostGroup(state, hit);
             const entered = groupEnter.enteredId();
 
-            if (isDoubleClick && topGroup) {
+            if (isDoubleClick && topGroup && topGroup.id !== entered) {
                 groupEnter.enter(topGroup.id);
                 selection.select(hit);
+                return;
+            }
+
+            if (isDoubleClick && isPolygonHit(state, hit)) {
+                selection.select(hit);
+                this.deps.toolManager.activate('vertexEdit', { targetGuid: hit });
                 return;
             }
 
@@ -290,6 +298,12 @@ function isInsideEntered(
 ): boolean {
     if (!enteredGroupId) return false;
     return groupMembersFlattened(state, enteredGroupId).includes(guid);
+}
+
+function isPolygonHit(state: EditorWorkingState, guid: string): boolean {
+    const ref = state.byGUID.get(guid);
+    if (!ref) return false;
+    return ref.kind === 'wall' || ref.kind === 'zone';
 }
 
 function isScaleHandle(h: HandleId): boolean {

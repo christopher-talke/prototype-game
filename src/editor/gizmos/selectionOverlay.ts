@@ -12,6 +12,7 @@ import type { EditorCamera } from '../viewport/EditorCamera';
 import type { SelectionStore } from '../selection/selectionStore';
 import type { EditorWorkingState } from '../state/EditorWorkingState';
 import type { CommandStack } from '../commands/CommandStack';
+import type { VertexEditState } from '../tools/vertexEditState';
 import { boundsOfGUID, unionBounds } from '../selection/boundsOf';
 import { findGroupForExactSelection } from '../groups/groupQueries';
 import { LAYER_COLORS } from '@shared/render/layerColors';
@@ -33,6 +34,7 @@ export class SelectionOverlay {
     private unsubscribeSelection: (() => void) | null = null;
     private unsubscribeCamera: (() => void) | null = null;
     private unsubscribeStack: (() => void) | null = null;
+    private unsubscribeVertexEdit: (() => void) | null = null;
 
     constructor(
         private readonly state: EditorWorkingState,
@@ -40,6 +42,7 @@ export class SelectionOverlay {
         private readonly camera: EditorCamera,
         private readonly stack: CommandStack,
         parent: Container,
+        private readonly vertexEdit: VertexEditState | null = null,
     ) {
         this.container.label = 'editor.selectionOverlay';
         this.labelText = new Text({
@@ -69,6 +72,9 @@ export class SelectionOverlay {
             this.selection.pruneAgainst(this.state);
             this.redraw();
         });
+        if (this.vertexEdit) {
+            this.unsubscribeVertexEdit = this.vertexEdit.subscribe(() => this.redraw());
+        }
         this.redraw();
     }
 
@@ -82,6 +88,7 @@ export class SelectionOverlay {
         this.unsubscribeSelection?.();
         this.unsubscribeCamera?.();
         this.unsubscribeStack?.();
+        this.unsubscribeVertexEdit?.();
         this.container.destroy({ children: true });
     }
 
@@ -100,6 +107,11 @@ export class SelectionOverlay {
         this.labelContainer.visible = false;
         const guids = this.selection.selectedArray();
         if (guids.length === 0) return;
+
+        const vertexEditTarget = this.vertexEdit?.getTargetGuid() ?? null;
+        if (vertexEditTarget && guids.length === 1 && guids[0] === vertexEditTarget) {
+            return;
+        }
 
         const aabb = unionBounds(this.state, guids);
         if (aabb.width === 0 && aabb.height === 0) return;

@@ -54,6 +54,7 @@ import { SelectionStore } from '../selection/selectionStore';
 import { GroupEnterState } from '../selection/groupEnterState';
 import { EditorMapRenderer } from '../rendering/editorMapRenderer';
 import { SelectionOverlay } from '../gizmos/selectionOverlay';
+import { VertexEditOverlay } from '../gizmos/vertexEditOverlay';
 import { DragOverlay } from '../drag/dragOverlay';
 import { DragController } from '../drag/dragController';
 import { ToolManager } from '../tools/toolManager';
@@ -64,6 +65,8 @@ import { LightTool } from '../tools/lightTool';
 import { NavHintTool } from '../tools/navHintTool';
 import { ObjectTool } from '../tools/objectTool';
 import { EntityTool } from '../tools/entityTool';
+import { VertexEditTool } from '../tools/vertexEditTool';
+import { VertexEditState } from '../tools/vertexEditState';
 import { ToolSettingsStore } from '../tools/toolSettings';
 import { mountToolOptionsBar } from '../panels/ToolOptionsBar';
 import { openQuickPalette, closeQuickPalette } from '../palette/quickPalettePopup';
@@ -120,6 +123,8 @@ export class EditorApp {
     private renderer!: EditorMapRenderer;
     /** Holds subscriptions to selection/camera/stack; kept alive via field reference. */
     private selectionOverlay!: SelectionOverlay;
+    private vertexEditOverlay!: VertexEditOverlay;
+    private vertexEditState = new VertexEditState();
     private drag!: DragController;
     private tools = new ToolManager();
     private toolSettings = new ToolSettingsStore();
@@ -175,9 +180,18 @@ export class EditorApp {
             this.camera,
             this.stack,
             pixi.scene.overlayLayer,
+            this.vertexEditState,
+        );
+        this.vertexEditOverlay = new VertexEditOverlay(
+            this.state,
+            this.camera,
+            this.stack,
+            this.vertexEditState,
+            pixi.scene.overlayLayer,
         );
         this.drag = new DragController(this.state, this.dragOverlay, this.stack, this.canvasEl, this.snap);
         void this.selectionOverlay;
+        void this.vertexEditOverlay;
 
         this.errorOverlay = new ErrorOverlay(pixi.scene.overlayLayer);
 
@@ -200,6 +214,7 @@ export class EditorApp {
                 this.groupEnter.exit();
                 this.renderer.rebuild();
                 this.rebuildErrorOverlay();
+                this.enforceVertexEditInvariants();
             },
             onHiddenChange: () => this.renderer.rebuild(),
             getErrorLayerIds: () => (this.compileResult ? errorLayerIds(this.compileResult) : new Set()),
@@ -220,6 +235,7 @@ export class EditorApp {
         installPhase5Shortcuts(this.dispatcher, {
             groupSelection: () => this.runGroupSelection(),
             dissolveGroup: () => this.runDissolveGroup(),
+            vertexEdit: () => this.runEnterVertexEdit(),
         });
 
         this.wirePointerEvents();
@@ -260,6 +276,7 @@ export class EditorApp {
             selectAll: () => this.runSelectAll(),
             groupSelection: () => this.runGroupSelection(),
             dissolveGroup: () => this.runDissolveGroup(),
+            enterVertexEdit: () => this.runEnterVertexEdit(),
             toggleGrid: () => this.grid.setVisible(!this.grid.isVisible()),
             toggleSnap: () => {
                 this.snap.toggle();
@@ -362,6 +379,7 @@ export class EditorApp {
                 camera: this.camera,
                 overlayParent: overlay,
                 canvasEl: this.canvasEl,
+                toolManager: this.tools,
             }),
         );
         const spriteCache = this.renderer.getSpriteCache();
@@ -447,6 +465,19 @@ export class EditorApp {
                         screenY: this.cursorScreen.y,
                         onPick: (defId) => this.tools.activate('entity', { defId }),
                     }),
+            }),
+        );
+        this.tools.register(
+            new VertexEditTool({
+                state: this.state,
+                stack: this.stack,
+                selection: this.selection,
+                snap: this.snap,
+                camera: this.camera,
+                renderer: this.renderer,
+                overlayParent: overlay,
+                toolManager: this.tools,
+                store: this.vertexEditState,
             }),
         );
     }
@@ -580,6 +611,10 @@ export class EditorApp {
         const cmd = buildDissolveGroupCommand(this.state, group.id);
         if (!cmd) return;
         this.stack.dispatch(cmd);
+    }
+
+    private runEnterVertexEdit(): void {
+        this.tools.activate('vertexEdit');
     }
 
     private runMoveToLayer(layerId: string): void {
@@ -807,10 +842,34 @@ export class EditorApp {
             this.selection.pruneAgainst(this.state);
             this.renderer.rebuild();
             this.refreshErrorsAfterMutation();
+            this.enforceVertexEditInvariants();
             const top = this.stack.serialize();
             const last = top.stack[top.pointer];
             if (last?.isStructural && this.autoSave) this.autoSave.triggerImmediate();
         });
+        this.selection.subscribe(() => this.enforceVertexEditInvariants());
+    }
+
+    /**
+     * Auto-exit vertex-edit mode when the edited item leaves the selection,
+     * is deleted, or is on a floor that is no longer active.
+     */
+    private enforceVertexEditInvariants(): void {
+        const target = this.vertexEditState.getTargetGuid();
+        if (!target) return;
+        if (this.tools.activeToolId() !== 'vertexEdit') return;
+        const ref = this.state.byGUID.get(target);
+        if (!ref) {
+            this.tools.activate('select');
+            return;
+        }
+        if (ref.floorId && ref.floorId !== this.state.activeFloorId) {
+            this.tools.activate('select');
+            return;
+        }
+        if (!this.selection.has(target)) {
+            this.tools.activate('select');
+        }
     }
 
     private async save(): Promise<void> {

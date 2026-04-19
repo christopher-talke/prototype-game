@@ -75,15 +75,17 @@ export function installPhase2Shortcuts(
 export interface Phase5ShortcutActions {
     groupSelection: () => void;
     dissolveGroup: () => void;
+    vertexEdit: () => void;
 }
 
-/** Register Phase 5 shortcuts: group creation and dissolution. */
+/** Register Phase 5 shortcuts: group creation, dissolution, vertex edit. */
 export function installPhase5Shortcuts(
     dispatcher: KeyboardDispatcher,
     actions: Phase5ShortcutActions,
 ): void {
     dispatcher.bind('ctrl+shift+g', actions.groupSelection);
     dispatcher.bind('ctrl+shift+u', actions.dissolveGroup);
+    dispatcher.bind('v', actions.vertexEdit);
 }
 
 export interface Phase4ShortcutActions {

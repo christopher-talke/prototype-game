@@ -33,6 +33,7 @@ export interface MenuBarActions {
     selectAll: () => void;
     groupSelection: () => void;
     dissolveGroup: () => void;
+    enterVertexEdit: () => void;
     toggleGrid: () => void;
     toggleSnap: () => void;
     zoomIn: () => void;
@@ -86,6 +87,8 @@ export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): M
                 'sep',
                 { label: 'Group Selection', shortcut: 'Ctrl+Shift+G', action: actions.groupSelection },
                 { label: 'Dissolve Group', shortcut: 'Ctrl+Shift+U', action: actions.dissolveGroup },
+                'sep',
+                { label: 'Enter Vertex Edit', shortcut: 'V', action: actions.enterVertexEdit },
             ],
         },
         {
