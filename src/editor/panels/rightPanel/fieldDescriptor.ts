@@ -5,7 +5,17 @@
  * Part of the editor layer.
  */
 
-export type FieldType = 'number' | 'text' | 'enum' | 'bool' | 'color' | 'readonly' | 'guid';
+export type FieldType =
+    | 'number'
+    | 'text'
+    | 'enum'
+    | 'bool'
+    | 'color'
+    | 'readonly'
+    | 'guid'
+    | 'range'
+    | 'nested'
+    | 'array';
 
 export interface FieldDescriptorBase {
     key: string;
@@ -63,6 +73,32 @@ export interface GuidFieldDescriptor extends FieldDescriptorBase {
     value: string;
 }
 
+export interface RangeFieldDescriptor extends FieldDescriptorBase {
+    type: 'range';
+    value: number;
+    min: number;
+    max: number;
+    step?: number;
+    onCommit: (next: number) => void;
+}
+
+export interface NestedFieldDescriptor extends FieldDescriptorBase {
+    type: 'nested';
+    fields: FieldDescriptor[];
+    /** Initial expanded/collapsed state. Default collapsed. */
+    expanded?: boolean;
+}
+
+export interface ArrayFieldDescriptor extends FieldDescriptorBase {
+    type: 'array';
+    /** One descriptor per current element. */
+    items: FieldDescriptor[];
+    /** Append a new default element and dispatch a command. */
+    onAdd: () => void;
+    /** Remove element at index and dispatch a command. */
+    onRemove: (index: number) => void;
+}
+
 export type FieldDescriptor =
     | NumberFieldDescriptor
     | TextFieldDescriptor
@@ -70,4 +106,7 @@ export type FieldDescriptor =
     | BoolFieldDescriptor
     | ColorFieldDescriptor
     | ReadonlyFieldDescriptor
-    | GuidFieldDescriptor;
+    | GuidFieldDescriptor
+    | RangeFieldDescriptor
+    | NestedFieldDescriptor
+    | ArrayFieldDescriptor;

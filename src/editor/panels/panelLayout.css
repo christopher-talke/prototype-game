@@ -713,6 +713,140 @@ html, body {
     margin-top: 2px;
 }
 
+.editor-form-range-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.editor-form-control-range {
+    flex: 1;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+.editor-form-range-readout {
+    min-width: 40px;
+    text-align: right;
+    color: var(--editor-text-dim);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+}
+
+.editor-form-row-nested,
+.editor-form-row-array {
+    grid-template-columns: 110px 1fr;
+    align-items: start;
+}
+
+.editor-form-nested {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--editor-panel-border);
+    background: #14141b;
+}
+
+.editor-form-nested-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 0;
+    color: var(--editor-text);
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 11px;
+    text-align: left;
+}
+
+.editor-form-nested-header:hover {
+    background: var(--editor-panel-border);
+}
+
+.editor-form-nested-caret {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 5px solid var(--editor-text-dim);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform 0.1s ease-out;
+}
+
+.editor-form-nested.expanded .editor-form-nested-caret {
+    transform: rotate(90deg);
+}
+
+.editor-form-nested-body {
+    padding: 6px 8px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid var(--editor-panel-border);
+}
+
+.editor-form-array {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-form-array-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.editor-form-array-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px;
+}
+
+.editor-form-array-row > .editor-form-row {
+    grid-template-columns: 40px 1fr;
+}
+
+.editor-form-array-remove {
+    background: transparent;
+    border: 1px solid var(--editor-panel-border);
+    color: var(--editor-text-dim);
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+}
+
+.editor-form-array-remove:hover {
+    color: #ff5050;
+    border-color: #ff5050;
+}
+
+.editor-form-array-empty {
+    color: var(--editor-text-dim);
+    font-size: 11px;
+    font-style: italic;
+    padding: 4px 0;
+}
+
+.editor-form-array-add {
+    align-self: flex-start;
+    background: var(--editor-panel-border);
+    border: 0;
+    color: var(--editor-text);
+    padding: 3px 8px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.editor-form-array-add:hover {
+    background: var(--editor-accent);
+}
+
 .editor-advanced-section {
     margin-top: 12px;
     border-top: 1px solid var(--editor-panel-border);

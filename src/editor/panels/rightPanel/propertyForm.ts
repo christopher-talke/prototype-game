@@ -58,6 +58,12 @@ function buildControl(field: FieldDescriptor): HTMLElement {
             return readonlyControl(field.value);
         case 'guid':
             return guidControl(field.value);
+        case 'range':
+            return rangeControl(field);
+        case 'nested':
+            return nestedControl(field);
+        case 'array':
+            return arrayControl(field);
     }
 }
 
@@ -200,6 +206,132 @@ function guidControl(value: string): HTMLElement {
     wrap.appendChild(copy);
 
     return wrap;
+}
+
+function rangeControl(field: Extract<FieldDescriptor, { type: 'range' }>): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'editor-form-range-wrap';
+
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.className = 'editor-form-control editor-form-control-range';
+    input.min = String(field.min);
+    input.max = String(field.max);
+    if (field.step !== undefined) input.step = String(field.step);
+    input.value = String(clamp(field.value, field.min, field.max));
+    if (field.disabled) input.disabled = true;
+
+    const readout = document.createElement('span');
+    readout.className = 'editor-form-range-readout';
+    readout.textContent = input.value;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastCommitted = parseFloat(input.value);
+
+    const commit = () => {
+        const next = parseFloat(input.value);
+        if (Number.isNaN(next) || next === lastCommitted) return;
+        lastCommitted = next;
+        field.onCommit(next);
+    };
+
+    input.addEventListener('input', () => {
+        readout.textContent = input.value;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(commit, DEBOUNCE_MS);
+    });
+    input.addEventListener('change', () => {
+        if (timer) clearTimeout(timer);
+        commit();
+    });
+
+    wrap.appendChild(input);
+    wrap.appendChild(readout);
+    return wrap;
+}
+
+function nestedControl(field: Extract<FieldDescriptor, { type: 'nested' }>): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'editor-form-nested';
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'editor-form-nested-header';
+    const caret = document.createElement('span');
+    caret.className = 'editor-form-nested-caret';
+    const headerLabel = document.createElement('span');
+    headerLabel.textContent = field.expanded ? 'Hide' : 'Show';
+    header.appendChild(caret);
+    header.appendChild(headerLabel);
+
+    const body = document.createElement('div');
+    body.className = 'editor-form-nested-body';
+
+    let expanded = field.expanded ?? false;
+    const applyExpanded = () => {
+        wrap.classList.toggle('expanded', expanded);
+        body.style.display = expanded ? '' : 'none';
+        headerLabel.textContent = expanded ? 'Hide' : 'Show';
+    };
+
+    for (const sub of field.fields) {
+        body.appendChild(renderField(sub));
+    }
+
+    header.addEventListener('click', () => {
+        expanded = !expanded;
+        applyExpanded();
+    });
+    applyExpanded();
+
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+    return wrap;
+}
+
+function arrayControl(field: Extract<FieldDescriptor, { type: 'array' }>): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'editor-form-array';
+
+    const list = document.createElement('div');
+    list.className = 'editor-form-array-list';
+
+    field.items.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'editor-form-array-row';
+        row.appendChild(renderField(item));
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'editor-form-array-remove';
+        remove.textContent = '\u00d7';
+        remove.title = 'Remove';
+        remove.addEventListener('click', () => field.onRemove(i));
+        row.appendChild(remove);
+
+        list.appendChild(row);
+    });
+
+    if (field.items.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'editor-form-array-empty';
+        empty.textContent = '(empty)';
+        list.appendChild(empty);
+    }
+
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'editor-form-array-add';
+    add.textContent = '+ Add';
+    add.addEventListener('click', () => field.onAdd());
+
+    wrap.appendChild(list);
+    wrap.appendChild(add);
+    return wrap;
+}
+
+function clamp(n: number, min: number, max: number): number {
+    return n < min ? min : n > max ? max : n;
 }
 
 function rgbToHex(c: { r: number; g: number; b: number }): string {

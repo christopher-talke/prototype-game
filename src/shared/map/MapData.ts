@@ -155,7 +155,11 @@ export type EntityStateFieldDescriptor =
     | { type: 'entityId' }
     | { type: 'teamId' }
     | { type: 'signalId' }
-    | { type: 'primitive' };
+    | { type: 'primitive' }
+    | { type: 'color' }
+    | { type: 'range'; min: number; max: number; step?: number }
+    | { type: 'nested'; fields: Record<string, EntityStateFieldDescriptor> }
+    | { type: 'array'; element: EntityStateFieldDescriptor };
 
 export interface EntityTypeDefinition {
     id: string;

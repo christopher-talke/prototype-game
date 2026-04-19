@@ -10,13 +10,13 @@
 
 import type {
     EntityPlacement,
-    EntityStateFieldDescriptor,
     Vec2,
 } from '@shared/map/MapData';
 
 import { nextDisplayName } from '../guid/displayNameCounter';
 import { newGuid } from '../guid/idFactory';
 import type { EditorWorkingState } from '../state/EditorWorkingState';
+import { defaultForEntityStateDescriptor } from './entityStateDefaults';
 import { cloneMapData } from './mapMutators';
 import { SnapshotCommand } from './SnapshotCommand';
 
@@ -38,8 +38,10 @@ export function buildCreateEntityCommand(
 ): CreateEntityResult | null {
     const before = JSON.stringify(state.map);
     const working = cloneMapData(state.map);
+    
     const layer = working.layers.find((l) => l.id === layerId);
     if (!layer) return null;
+
     const def = working.entityDefs.find((d) => d.id === defId);
     if (!def) return null;
 
@@ -51,7 +53,7 @@ export function buildCreateEntityCommand(
     if (def.stateSchema) {
         for (const [key, descriptor] of Object.entries(def.stateSchema)) {
             if (key in initialState) continue;
-            initialState[key] = defaultForDescriptor(descriptor);
+            initialState[key] = defaultForEntityStateDescriptor(descriptor);
         }
     }
 
@@ -72,14 +74,3 @@ export function buildCreateEntityCommand(
     };
 }
 
-function defaultForDescriptor(descriptor: EntityStateFieldDescriptor): unknown {
-    switch (descriptor.type) {
-        case 'primitive':
-            return 0;
-        case 'layerId':
-        case 'entityId':
-        case 'teamId':
-        case 'signalId':
-            return '';
-    }
-}
