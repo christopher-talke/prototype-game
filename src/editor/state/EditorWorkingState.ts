@@ -15,6 +15,8 @@ import type { MapData } from '@shared/map/MapData';
 
 import { buildFromMapData } from './buildFromMapData';
 import { type DisplayNameCounters, createCounters } from '../guid/displayNameCounter';
+import type { Group } from '../groups/Group';
+import { pruneGroupsAgainstItems } from '../groups/groupQueries';
 
 export type ItemKind = 'wall' | 'object' | 'entity' | 'decal' | 'light' | 'zone' | 'navHint';
 
@@ -43,6 +45,12 @@ export interface EditorWorkingState {
      * reload.
      */
     editorHiddenGUIDs: Set<string>;
+    /**
+     * Editor-only item groups. Persisted in IndexedDB editor state, never
+     * written to MapData. Keyed by group id. Groups may nest (members can be
+     * other group ids); same-floor constraint enforced at command time.
+     */
+    groups: Map<string, Group>;
 }
 
 /** Construct a new EditorWorkingState from a MapData. */
@@ -56,6 +64,7 @@ export function createWorkingState(map: MapData): EditorWorkingState {
         activeFloorId: map.floors[0]?.id ?? '',
         activeLayerId: map.layers[0]?.id ?? '',
         editorHiddenGUIDs: new Set(),
+        groups: new Map(),
     };
     buildFromMapData(state, map);
     return state;
@@ -85,4 +94,6 @@ export function replaceFromSnapshot(state: EditorWorkingState, snapshotJson: str
     for (const guid of state.editorHiddenGUIDs) {
         if (!state.byGUID.has(guid)) state.editorHiddenGUIDs.delete(guid);
     }
+
+    pruneGroupsAgainstItems(state);
 }

@@ -32,6 +32,8 @@ import { lightFormFields } from './rightPanel/forms/lightForm';
 import { navHintFormFields } from './rightPanel/forms/navHintForm';
 import { decalFormFields } from './rightPanel/forms/decalForm';
 import { multiSelectFormFields } from './rightPanel/forms/multiSelectForm';
+import { groupFormFields } from './rightPanel/forms/groupForm';
+import { findGroupForExactSelection } from '../groups/groupQueries';
 
 export interface RightPanelDeps {
     state: EditorWorkingState;
@@ -107,6 +109,12 @@ function rebuildBody(body: HTMLElement, deps: RightPanelDeps): void {
     const formHost = document.createElement('div');
     formHost.className = 'editor-properties-form-host';
     body.appendChild(formHost);
+
+    const group = findGroupForExactSelection(deps.state, selected);
+    if (group) {
+        renderPropertyForm(formHost, groupFormFields(deps.state, deps.stack, deps.selection, group));
+        return;
+    }
 
     if (selected.length === 1) {
         const guid = selected[0];

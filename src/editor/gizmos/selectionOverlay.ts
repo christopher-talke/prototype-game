@@ -6,20 +6,29 @@
  * Part of the editor layer.
  */
 
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 
 import type { EditorCamera } from '../viewport/EditorCamera';
 import type { SelectionStore } from '../selection/selectionStore';
 import type { EditorWorkingState } from '../state/EditorWorkingState';
 import type { CommandStack } from '../commands/CommandStack';
 import { boundsOfGUID, unionBounds } from '../selection/boundsOf';
+import { findGroupForExactSelection } from '../groups/groupQueries';
+import { LAYER_COLORS } from '@shared/render/layerColors';
 import { drawSelectionBBox } from './bboxRenderer';
 import { drawTransformHandles } from './transformHandles';
+
+const GROUP_LABEL_COLOR_FALLBACK = 0x00e5ff;
+const GROUP_LABEL_ALPHA = 0.8;
+const GROUP_LABEL_FONT_PX = 11;
+const GROUP_LABEL_PAD = 4;
 
 export class SelectionOverlay {
     private bboxGraphics = new Graphics();
     private handlesGraphics = new Graphics();
     private hoverGraphics = new Graphics();
+    private labelContainer = new Container();
+    private labelText: Text;
     private container = new Container();
     private unsubscribeSelection: (() => void) | null = null;
     private unsubscribeCamera: (() => void) | null = null;
@@ -33,7 +42,25 @@ export class SelectionOverlay {
         parent: Container,
     ) {
         this.container.label = 'editor.selectionOverlay';
-        this.container.addChild(this.hoverGraphics, this.bboxGraphics, this.handlesGraphics);
+        this.labelText = new Text({
+            text: '',
+            style: {
+                fill: GROUP_LABEL_COLOR_FALLBACK,
+                fontFamily: 'sans-serif',
+                fontSize: GROUP_LABEL_FONT_PX,
+                fontWeight: '500',
+                stroke: { color: 0x000000, width: 3 },
+            },
+        });
+        this.labelText.resolution = 2;
+        this.labelContainer.addChild(this.labelText);
+        this.labelContainer.visible = false;
+        this.container.addChild(
+            this.hoverGraphics,
+            this.bboxGraphics,
+            this.handlesGraphics,
+            this.labelContainer,
+        );
         parent.addChild(this.container);
 
         this.unsubscribeSelection = this.selection.subscribe(() => this.redraw());
@@ -70,6 +97,7 @@ export class SelectionOverlay {
     private drawSelection(): void {
         this.bboxGraphics.clear();
         this.handlesGraphics.clear();
+        this.labelContainer.visible = false;
         const guids = this.selection.selectedArray();
         if (guids.length === 0) return;
 
@@ -82,6 +110,8 @@ export class SelectionOverlay {
             return;
         }
 
+        const group = findGroupForExactSelection(this.state, guids);
+
         if (guids.length > 1) {
             for (const guid of guids) {
                 const itemAabb = boundsOfGUID(this.state, guid);
@@ -90,13 +120,28 @@ export class SelectionOverlay {
             }
         }
 
-        drawSelectionBBox(
-            this.bboxGraphics,
-            aabb,
-            { kind: guids.length === 1 ? 'single' : 'multi' },
-            false,
-        );
+        const kind = group ? 'multi' : (guids.length === 1 ? 'single' : 'multi');
+        drawSelectionBBox(this.bboxGraphics, aabb, { kind }, false);
         drawTransformHandles(this.handlesGraphics, aabb, this.camera.zoom);
+
+        if (group) {
+            const color = this.groupLabelColor();
+            this.labelText.text = group.name;
+            this.labelText.style.fill = color;
+            const zoom = this.camera.zoom > 0 ? this.camera.zoom : 1;
+            const inv = 1 / zoom;
+            this.labelContainer.scale.set(inv, inv);
+            this.labelContainer.alpha = GROUP_LABEL_ALPHA;
+            this.labelContainer.x = aabb.x;
+            this.labelContainer.y = aabb.y - (this.labelText.height + GROUP_LABEL_PAD) * inv;
+            this.labelContainer.visible = true;
+        }
+    }
+
+    private groupLabelColor(): number {
+        const layer = this.state.map.layers.find((l) => l.id === this.state.activeLayerId);
+        if (!layer) return GROUP_LABEL_COLOR_FALLBACK;
+        return LAYER_COLORS[layer.type]?.hex ?? GROUP_LABEL_COLOR_FALLBACK;
     }
 
     private allOnLockedLayer(guids: string[]): boolean {

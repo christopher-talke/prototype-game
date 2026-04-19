@@ -31,6 +31,8 @@ export interface MenuBarActions {
     duplicate: () => void;
     deleteSelection: () => void;
     selectAll: () => void;
+    groupSelection: () => void;
+    dissolveGroup: () => void;
     toggleGrid: () => void;
     toggleSnap: () => void;
     zoomIn: () => void;
@@ -81,6 +83,9 @@ export function mountMenuBar(container: HTMLElement, actions: MenuBarActions): M
                 'sep',
                 { label: 'Delete', shortcut: 'Delete', action: actions.deleteSelection },
                 { label: 'Select All', shortcut: 'Ctrl+A', action: actions.selectAll },
+                'sep',
+                { label: 'Group Selection', shortcut: 'Ctrl+Shift+G', action: actions.groupSelection },
+                { label: 'Dissolve Group', shortcut: 'Ctrl+Shift+U', action: actions.dissolveGroup },
             ],
         },
         {

@@ -19,11 +19,14 @@ import { buildDeleteItemsCommand } from '../commands/deleteItemsCommand';
 import type { DragController } from '../drag/dragController';
 import type { EditorMapRenderer } from '../rendering/editorMapRenderer';
 import type { SelectionStore } from '../selection/selectionStore';
+import type { GroupEnterState } from '../selection/groupEnterState';
 import type { EditorWorkingState } from '../state/EditorWorkingState';
 import { aabbContains, boundsOfGUID, unionBounds, type AABB } from '../selection/boundsOf';
+import { findTopmostGroup, groupMembersFlattened } from '../groups/groupQueries';
 import type { EditorCamera } from '../viewport/EditorCamera';
 import { hitTestHandle } from '../gizmos/handleHitTest';
 import { type HandleId } from '../gizmos/transformHandles';
+import { DoubleClickTracker } from '../input/DoubleClickTracker';
 import { CURSORS } from './cursors';
 import type { Tool, ToolKeyEvent, ToolPointerEvent } from './tool';
 
@@ -39,6 +42,7 @@ interface BoxSelectState {
 export interface SelectToolDeps {
     state: EditorWorkingState;
     selection: SelectionStore;
+    groupEnter: GroupEnterState;
     renderer: EditorMapRenderer;
     drag: DragController;
     stack: CommandStack;
@@ -53,6 +57,7 @@ export class SelectTool implements Tool {
 
     private box: BoxSelectState | null = null;
     private boxGraphics = new Graphics();
+    private doubleClick = new DoubleClickTracker();
 
     constructor(private readonly deps: SelectToolDeps) {
         this.boxGraphics.label = 'editor.boxSelect';
@@ -70,7 +75,7 @@ export class SelectTool implements Tool {
 
     onPointerDown(e: ToolPointerEvent): void {
         if (e.native.button !== 0) return;
-        const { selection, renderer, drag, camera, state } = this.deps;
+        const { selection, renderer, drag, camera, state, groupEnter } = this.deps;
 
         const guids = selection.selectedArray();
         if (guids.length >= 1) {
@@ -102,8 +107,29 @@ export class SelectTool implements Tool {
 
         const hit = renderer.hitTest(e.worldX, e.worldY);
         const additive = e.native.shiftKey;
+        const isDoubleClick = hit !== null && this.doubleClick.record(e.screenX, e.screenY);
 
         if (hit) {
+            const topGroup = findTopmostGroup(state, hit);
+            const entered = groupEnter.enteredId();
+
+            if (isDoubleClick && topGroup) {
+                groupEnter.enter(topGroup.id);
+                selection.select(hit);
+                return;
+            }
+
+            if (topGroup && topGroup.id !== entered && !isInsideEntered(state, hit, entered)) {
+                const flat = groupMembersFlattened(state, topGroup.id);
+                if (additive) {
+                    selection.selectMany(flat, true);
+                } else {
+                    selection.selectMany(flat);
+                }
+                drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+                return;
+            }
+
             if (additive) {
                 selection.toggle(hit);
                 return;
@@ -117,7 +143,10 @@ export class SelectTool implements Tool {
             return;
         }
 
-        if (!additive) selection.clear();
+        if (!additive) {
+            groupEnter.exit();
+            selection.clear();
+        }
         this.box = {
             pointerId: e.native.pointerId,
             additive,
@@ -168,6 +197,9 @@ export class SelectTool implements Tool {
             if (this.box) {
                 this.box = null;
                 this.boxGraphics.clear();
+            }
+            if (this.deps.groupEnter.enteredId() !== null) {
+                this.deps.groupEnter.exit();
             }
             return;
         }
@@ -244,6 +276,20 @@ export class SelectTool implements Tool {
         const cmd = buildDeleteItemsCommand(this.deps.state, guids);
         if (cmd) this.deps.stack.dispatch(cmd);
     }
+}
+
+/**
+ * True when `guid` is part of the flattened membership of `enteredGroupId`,
+ * meaning the user has already "entered" its parent group so further clicks
+ * should treat members individually.
+ */
+function isInsideEntered(
+    state: EditorWorkingState,
+    guid: string,
+    enteredGroupId: string | null,
+): boolean {
+    if (!enteredGroupId) return false;
+    return groupMembersFlattened(state, enteredGroupId).includes(guid);
 }
 
 function isScaleHandle(h: HandleId): boolean {

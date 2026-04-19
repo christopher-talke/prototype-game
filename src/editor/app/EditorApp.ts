@@ -19,7 +19,7 @@ import { deserializeCommand } from '../commands/deserialize';
 import { GridRenderer } from '../grid/GridRenderer';
 import { MapBoundsOverlay } from '../viewport/mapBoundsOverlay';
 import { KeyboardDispatcher } from '../input/KeyboardDispatcher';
-import { installPhase1Shortcuts, installPhase2Shortcuts, installPhase4Shortcuts } from '../input/shortcutMap';
+import { installPhase1Shortcuts, installPhase2Shortcuts, installPhase4Shortcuts, installPhase5Shortcuts } from '../input/shortcutMap';
 import { mountLeftPanel, type LeftPanelHandle } from '../panels/LeftPanel';
 import { type MenuBarActions, type MenuBarHandle, mountMenuBar } from '../panels/MenuBar';
 import { mountRightPanel, type RightPanelHandle } from '../panels/RightPanel';
@@ -51,6 +51,7 @@ import { WheelZoom } from '../viewport/wheelZoom';
 import { ZoomIndicator } from '../viewport/zoomIndicator';
 
 import { SelectionStore } from '../selection/selectionStore';
+import { GroupEnterState } from '../selection/groupEnterState';
 import { EditorMapRenderer } from '../rendering/editorMapRenderer';
 import { SelectionOverlay } from '../gizmos/selectionOverlay';
 import { DragOverlay } from '../drag/dragOverlay';
@@ -74,6 +75,9 @@ import { buildDuplicateItemsCommand } from '../commands/duplicateItemsCommand';
 import { buildDeleteItemsCommand } from '../commands/deleteItemsCommand';
 import { buildMoveToLayerCommand } from '../commands/moveToLayerCommand';
 import { buildSetLayerLockCommand } from '../commands/setLayerLockCommand';
+import { buildCreateGroupCommand, buildDissolveGroupCommand } from '../commands/groupCommands';
+import { findGroupForExactSelection } from '../groups/groupQueries';
+import { hydrateGroups, serializeGroups } from '../groups/hydrateGroups';
 import { copyToClipboard } from '../clipboard/clipboard';
 
 import { runCompile, errorLayerIds, type CompileResult, type CompileError } from '../compile/mapCompiler';
@@ -111,6 +115,7 @@ export class EditorApp {
     private dispatcher = new KeyboardDispatcher();
 
     private selection = new SelectionStore();
+    private groupEnter = new GroupEnterState();
     private dragOverlay = new DragOverlay();
     private renderer!: EditorMapRenderer;
     /** Holds subscriptions to selection/camera/stack; kept alive via field reference. */
@@ -192,6 +197,7 @@ export class EditorApp {
             onPersist: () => void this.persistCurrent(),
             onActiveLayerChange: () => this.renderer.rebuild(),
             onFloorChange: () => {
+                this.groupEnter.exit();
                 this.renderer.rebuild();
                 this.rebuildErrorOverlay();
             },
@@ -210,6 +216,10 @@ export class EditorApp {
         installPhase4Shortcuts(this.dispatcher, {
             compile: () => this.runCompile(),
             playTest: () => this.runPlayTest(),
+        });
+        installPhase5Shortcuts(this.dispatcher, {
+            groupSelection: () => this.runGroupSelection(),
+            dissolveGroup: () => this.runDissolveGroup(),
         });
 
         this.wirePointerEvents();
@@ -248,6 +258,8 @@ export class EditorApp {
             duplicate: () => this.runDuplicate(),
             deleteSelection: () => this.runDelete(),
             selectAll: () => this.runSelectAll(),
+            groupSelection: () => this.runGroupSelection(),
+            dissolveGroup: () => this.runDissolveGroup(),
             toggleGrid: () => this.grid.setVisible(!this.grid.isVisible()),
             toggleSnap: () => {
                 this.snap.toggle();
@@ -343,6 +355,7 @@ export class EditorApp {
             new SelectTool({
                 state: this.state,
                 selection: this.selection,
+                groupEnter: this.groupEnter,
                 renderer: this.renderer,
                 drag: this.drag,
                 stack: this.stack,
@@ -553,6 +566,22 @@ export class EditorApp {
         this.selection.selectMany(ids);
     }
 
+    private runGroupSelection(): void {
+        const members = this.selection.selectedArray();
+        const cmd = buildCreateGroupCommand(this.state, members);
+        if (!cmd) return;
+        this.stack.dispatch(cmd);
+    }
+
+    private runDissolveGroup(): void {
+        const selected = this.selection.selectedArray();
+        const group = findGroupForExactSelection(this.state, selected);
+        if (!group) return;
+        const cmd = buildDissolveGroupCommand(this.state, group.id);
+        if (!cmd) return;
+        this.stack.dispatch(cmd);
+    }
+
     private runMoveToLayer(layerId: string): void {
         const guids = this.selection.selectedArray();
         const cmd = buildMoveToLayerCommand(this.state, guids, layerId);
@@ -752,6 +781,7 @@ export class EditorApp {
         }
 
         this.persistedState.contentHash = hash;
+        hydrateGroups(this.state, persisted.groups);
         this.selection.clear();
         if (persisted.selectedItemGUIDs.length > 0) {
             const live = persisted.selectedItemGUIDs.filter((g) => this.state.byGUID.has(g));
@@ -832,6 +862,7 @@ export class EditorApp {
         this.persistedState.undoPointer = serializedStack.pointer;
         this.persistedState.selectedItemGUIDs = this.selection.selectedArray();
         this.persistedState.lastCompileResult = this.compileResult;
+        this.persistedState.groups = serializeGroups(this.state);
         await saveEditorState(this.currentFilePath, this.persistedState);
     }
 
@@ -840,6 +871,7 @@ export class EditorApp {
         this.snap.setEnabled(this.persistedState.snapEnabled);
         this.snap.setResolution(this.persistedState.snapResolution);
         this.grid.setVisible(this.persistedState.gridVisible);
+        hydrateGroups(this.state, this.persistedState.groups);
         const cam = this.persistedState.cameraPerFloor[this.state.activeFloorId];
         if (cam) this.camera.restore(cam);
         if (this.persistedState.selectedItemGUIDs.length > 0) {

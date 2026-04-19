@@ -13,6 +13,14 @@ import type { CompileResult } from '../compile/mapCompiler';
 
 import { STORE_EDITOR_STATE, idbGet, idbPut } from './IndexedDbStore';
 
+export interface SerializedGroup {
+    id: string;
+    name: string;
+    floorId: string;
+    memberIds: string[];
+    parentGroupId: string | null;
+}
+
 export interface CameraSnapshot {
     x: number;
     y: number;
@@ -44,7 +52,7 @@ export interface EditorStatePersisted {
     undoStack: SerializedCommand[];
     undoPointer: number;
     lastCompileResult: CompileResult | null;
-    groups: unknown[];
+    groups: SerializedGroup[];
     contentHash: string;
     paletteRecents: PaletteRecents;
 }
@@ -77,6 +85,7 @@ export async function loadEditorState(filePath: string): Promise<EditorStatePers
     if (!stored.paletteRecents) stored.paletteRecents = { object: [], entity: [] };
     // Migrate from old lastCompileErrors field (unknown[]) to lastCompileResult.
     if (stored.lastCompileResult === undefined) stored.lastCompileResult = null;
+    if (!Array.isArray(stored.groups)) stored.groups = [];
     return stored;
 }
 
