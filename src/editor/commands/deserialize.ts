@@ -18,6 +18,11 @@ import {
     deserializeDissolveGroupCommand,
     deserializeRenameGroupCommand,
 } from './groupCommands';
+import {
+    MOVE_MEMBER_COMMAND_TYPE,
+    deserializeMoveMemberCommand,
+} from './moveMemberCommand';
+import { COMPOSITE_COMMAND_TYPE, CompositeCommand } from './compositeCommand';
 
 /** Rehydrate an `EditorCommand` from its serialized form. */
 export function deserializeCommand(serialized: SerializedCommand): EditorCommand {
@@ -30,6 +35,13 @@ export function deserializeCommand(serialized: SerializedCommand): EditorCommand
             return deserializeDissolveGroupCommand(serialized);
         case RENAME_GROUP_COMMAND_TYPE:
             return deserializeRenameGroupCommand(serialized);
+        case MOVE_MEMBER_COMMAND_TYPE:
+            return deserializeMoveMemberCommand(serialized);
+        case COMPOSITE_COMMAND_TYPE: {
+            const payload = serialized.payload as { description: string; children: SerializedCommand[] };
+            const children = payload.children.map(deserializeCommand);
+            return new CompositeCommand(children, payload.description);
+        }
         default:
             throw new Error(`deserializeCommand: unknown type "${serialized.type}"`);
     }

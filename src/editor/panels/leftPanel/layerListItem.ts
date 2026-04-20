@@ -8,6 +8,7 @@
 import type { MapLayer } from '@shared/map/MapData';
 
 import { LAYER_COLORS } from '@shared/render/layerColors';
+import { beginInlineRename } from './inlineRename';
 
 export interface LayerListItemOptions {
     layer: MapLayer;
@@ -19,12 +20,18 @@ export interface LayerListItemOptions {
     onRename: (next: string) => void;
 }
 
+export interface LayerListItemHandle {
+    readonly el: HTMLElement;
+    beginRename: () => void;
+}
+
 /** Build a layer-row element. */
-export function buildLayerListItem(opts: LayerListItemOptions): HTMLElement {
+export function buildLayerListItem(opts: LayerListItemOptions): LayerListItemHandle {
     const colors = LAYER_COLORS[opts.layer.type];
 
     const row = document.createElement('div');
     row.className = 'editor-layer-row';
+    row.dataset.guid = opts.layer.id;
     if (opts.isActive) row.classList.add('active');
     row.style.borderLeftColor = colors.css;
 
@@ -70,39 +77,14 @@ export function buildLayerListItem(opts: LayerListItemOptions): HTMLElement {
 
     row.addEventListener('click', () => opts.onActivate());
 
+    const beginRename = (): void => {
+        beginInlineRename(name, opts.layer.label, opts.onRename);
+    };
+
     name.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        beginRename(name, opts.layer.label, opts.onRename);
+        beginRename();
     });
 
-    return row;
-}
-
-function beginRename(target: HTMLElement, current: string, commit: (next: string) => void): void {
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = current;
-    input.className = 'editor-layer-rename-input';
-    target.replaceWith(input);
-    input.focus();
-    input.select();
-
-    const finish = (save: boolean) => {
-        const next = input.value.trim();
-        const out = document.createElement('span');
-        out.className = 'editor-layer-name';
-        out.textContent = save && next ? next : current;
-        input.replaceWith(out);
-        if (save && next && next !== current) commit(next);
-    };
-    input.addEventListener('blur', () => finish(true));
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            input.blur();
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            finish(false);
-        }
-    });
+    return { el: row, beginRename };
 }

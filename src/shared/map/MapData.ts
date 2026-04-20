@@ -98,6 +98,9 @@ export type WallType =
 
 export interface Wall {
     id: string;
+    label?: string;
+    hidden?: boolean;
+    locked?: boolean;
     vertices: Vec2[];
     solid: boolean;
     bulletPenetrable: boolean;
@@ -124,6 +127,9 @@ export interface LightSourceDef {
 
 export interface LightPlacement {
     id: string;
+    label?: string;
+    hidden?: boolean;
+    locked?: boolean;
     position: Vec2;
     color: RGBColor;
     intensity: number;
@@ -144,6 +150,9 @@ export interface ObjectDefinition {
 
 export interface ObjectPlacement {
     id: string;
+    label?: string;
+    hidden?: boolean;
+    locked?: boolean;
     objectDefId: string;
     position: Vec2;
     rotation: number;
@@ -175,6 +184,9 @@ export interface EntityTypeDefinition {
 
 export interface EntityPlacement {
     id: string;
+    label?: string;
+    hidden?: boolean;
+    locked?: boolean;
     entityTypeId: string;
     position: Vec2;
     rotation: number;
@@ -183,6 +195,9 @@ export interface EntityPlacement {
 
 export interface DecalPlacement {
     id: string;
+    label?: string;
+    hidden?: boolean;
+    locked?: boolean;
     assetPath: string;
     position: Vec2;
     rotation: number;
@@ -245,6 +260,8 @@ export interface Zone {
     id: string;
     type: ZoneType;
     label: string;
+    hidden?: boolean;
+    locked?: boolean;
     polygon: Vec2[];
     floorId?: string;
     team?: TeamId;
@@ -256,6 +273,9 @@ export type NavHintType = 'cover' | 'choke' | 'flank' | 'danger' | 'objective';
 
 export interface NavHint {
     id: string;
+    label?: string;
+    hidden?: boolean;
+    locked?: boolean;
     type: NavHintType;
     position: Vec2;
     radius: number;

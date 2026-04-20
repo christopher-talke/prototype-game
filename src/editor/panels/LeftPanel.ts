@@ -1,25 +1,19 @@
 /**
- * Left panel shell. Phase 2: tab bar (Layers | Objects | Entities), floor
- * selector, layer list, item list, palettes.
+ * Left panel shell. Mounts the unified collapsible tree (floor selector,
+ * layer list, per-kind item sections, object/entity palettes).
  *
  * Part of the editor layer.
  */
 
 import { type PanelCollapse, loadPanelCollapse, savePanelCollapse } from './panelLayoutPersistence';
-import { mountFloorSelector } from './leftPanel/floorSelector';
-import { mountLayerList } from './leftPanel/layerList';
-import { mountItemList } from './leftPanel/itemList';
-import { mountObjectPalette } from '../palette/objectPalette';
-import { mountEntityPalette } from '../palette/entityPalette';
-import { mountKindList } from './leftPanel/itemList';
+import { mountUnifiedTree, type UnifiedTreeHandle } from './leftPanel/unifiedTree';
+import { mountBreadcrumb } from './leftPanel/breadcrumb';
 import type { CommandStack } from '../commands/CommandStack';
 import type { EditorWorkingState } from '../state/EditorWorkingState';
 import type { EditorStatePersisted } from '../persistence/editorStatePersistence';
 import type { SelectionStore } from '../selection/selectionStore';
 import type { EditorCamera } from '../viewport/EditorCamera';
 import type { ToolManager } from '../tools/toolManager';
-
-export type LeftPanelTab = 'layers' | 'objects' | 'entities' | 'zones' | 'lights' | 'nav';
 
 export interface LeftPanelDeps {
     state: EditorWorkingState;
@@ -40,9 +34,10 @@ export interface LeftPanelHandle {
     refreshLayers: () => void;
     refreshItems: () => void;
     refreshPalettes: () => void;
-    setTab: (tab: LeftPanelTab) => void;
+    beginRename: (guid: string) => void;
 }
 
+/** Mount the left panel into `container`. Returns the refresh handle. */
 export function mountLeftPanel(
     container: HTMLElement,
     root: HTMLElement,
@@ -58,64 +53,9 @@ export function mountLeftPanel(
     header.textContent = 'Structure';
     container.appendChild(header);
 
-    const tabBar = document.createElement('div');
-    tabBar.className = 'editor-tab-bar';
-    container.appendChild(tabBar);
-
-    const tabs: Array<{ id: LeftPanelTab; label: string; el: HTMLButtonElement }> = [];
-    for (const def of [
-        { id: 'layers' as const, label: 'Layers' },
-        { id: 'objects' as const, label: 'Objects' },
-        { id: 'entities' as const, label: 'Entities' },
-        { id: 'zones' as const, label: 'Zones' },
-        { id: 'lights' as const, label: 'Lights' },
-        { id: 'nav' as const, label: 'Nav' },
-    ]) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'editor-tab';
-        btn.textContent = def.label;
-        btn.addEventListener('click', () => setTab(def.id));
-        tabBar.appendChild(btn);
-        tabs.push({ id: def.id, label: def.label, el: btn });
-    }
-
     const body = document.createElement('div');
     body.className = 'editor-panel-body editor-left-body';
     container.appendChild(body);
-
-    const layersPane = document.createElement('div');
-    layersPane.className = 'editor-pane editor-pane-layers';
-    body.appendChild(layersPane);
-
-    const floorHost = document.createElement('div');
-    layersPane.appendChild(floorHost);
-
-    const layerListHost = document.createElement('div');
-    layersPane.appendChild(layerListHost);
-
-    const itemListHost = document.createElement('div');
-    layersPane.appendChild(itemListHost);
-
-    const objectsPane = document.createElement('div');
-    objectsPane.className = 'editor-pane editor-pane-objects';
-    body.appendChild(objectsPane);
-
-    const entitiesPane = document.createElement('div');
-    entitiesPane.className = 'editor-pane editor-pane-entities';
-    body.appendChild(entitiesPane);
-
-    const zonesPane = document.createElement('div');
-    zonesPane.className = 'editor-pane editor-pane-zones';
-    body.appendChild(zonesPane);
-
-    const lightsPane = document.createElement('div');
-    lightsPane.className = 'editor-pane editor-pane-lights';
-    body.appendChild(lightsPane);
-
-    const navPane = document.createElement('div');
-    navPane.className = 'editor-pane editor-pane-nav';
-    body.appendChild(navPane);
 
     const collapsedOnly = document.createElement('div');
     collapsedOnly.className = 'editor-panel-collapsed-only';
@@ -137,103 +77,30 @@ export function mountLeftPanel(
         chevron.textContent = next ? '>' : '<';
     });
 
-    const refreshFloors = mountFloorSelector(floorHost, {
-        state: deps.state,
-        camera: deps.camera,
-        persisted: deps.persisted,
-        selection: deps.selection,
-        onFloorChange: () => {
-            deps.onFloorChange();
-            refreshLayers();
-            refreshItems();
-        },
-        onPersist: deps.onPersist,
-    });
-
-    const refreshLayers = mountLayerList(layerListHost, {
+    const tree: UnifiedTreeHandle = mountUnifiedTree(body, {
         state: deps.state,
         stack: deps.stack,
-        onActiveLayerChange: () => {
-            deps.onActiveLayerChange();
-            refreshItems();
-        },
+        selection: deps.selection,
+        camera: deps.camera,
+        persisted: deps.persisted,
+        tools: deps.tools,
+        onHiddenChange: deps.onHiddenChange,
         onPersist: deps.onPersist,
+        onActiveLayerChange: deps.onActiveLayerChange,
+        onFloorChange: deps.onFloorChange,
         getErrorLayerIds: deps.getErrorLayerIds,
     });
 
-    const refreshItems = mountItemList(itemListHost, {
-        state: deps.state,
-        selection: deps.selection,
-        camera: deps.camera,
-        onHiddenChange: deps.onHiddenChange,
-    });
+    mountBreadcrumb(container, { state: deps.state, selection: deps.selection });
 
-    const kindListOpts = {
-        state: deps.state,
-        selection: deps.selection,
-        camera: deps.camera,
-        onHiddenChange: deps.onHiddenChange,
-    };
-    const refreshZoneList = mountKindList(zonesPane, ['zone'], kindListOpts);
-    const refreshLightList = mountKindList(lightsPane, ['light'], kindListOpts);
-    const refreshNavList = mountKindList(navPane, ['navHint'], kindListOpts);
-
-    const refreshObjectPalette = mountObjectPalette(objectsPane, {
-        state: deps.state,
-        recents: deps.persisted.paletteRecents,
-        onPick: (defId) => {
-            deps.tools.activate('object', { defId });
-            setTab('layers');
-        },
-    });
-
-    const refreshEntityPalette = mountEntityPalette(entitiesPane, {
-        state: deps.state,
-        recents: deps.persisted.paletteRecents,
-        onPick: (defId) => {
-            deps.tools.activate('entity', { defId });
-            setTab('layers');
-        },
-    });
-
-    const setTab = (tab: LeftPanelTab): void => {
-        for (const t of tabs) {
-            t.el.classList.toggle('active', t.id === tab);
-        }
-        layersPane.style.display = tab === 'layers' ? '' : 'none';
-        objectsPane.style.display = tab === 'objects' ? '' : 'none';
-        entitiesPane.style.display = tab === 'entities' ? '' : 'none';
-        zonesPane.style.display = tab === 'zones' ? '' : 'none';
-        lightsPane.style.display = tab === 'lights' ? '' : 'none';
-        navPane.style.display = tab === 'nav' ? '' : 'none';
-    };
-    setTab('layers');
-
-    const refreshAllItems = () => {
-        refreshItems();
-        refreshZoneList();
-        refreshLightList();
-        refreshNavList();
-    };
-
-    deps.selection.subscribe(refreshAllItems);
-    deps.stack.subscribe(() => {
-        refreshFloors();
-        refreshLayers();
-        refreshAllItems();
-        refreshObjectPalette();
-        refreshEntityPalette();
-    });
+    deps.stack.subscribe(() => tree.refresh());
 
     return {
-        refreshFloors,
-        refreshLayers,
-        refreshItems: refreshAllItems,
-        refreshPalettes: () => {
-            refreshObjectPalette();
-            refreshEntityPalette();
-        },
-        setTab,
+        refreshFloors: tree.refreshFloors,
+        refreshLayers: tree.refreshLayers,
+        refreshItems: tree.refresh,
+        refreshPalettes: tree.refreshPalettes,
+        beginRename: tree.beginRename,
     };
 }
 

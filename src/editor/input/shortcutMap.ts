@@ -76,9 +76,12 @@ export interface Phase5ShortcutActions {
     groupSelection: () => void;
     dissolveGroup: () => void;
     vertexEdit: () => void;
+    renameSelected: () => void;
+    cycleOverlapForward: () => void;
+    cycleOverlapBackward: () => void;
 }
 
-/** Register Phase 5 shortcuts: group creation, dissolution, vertex edit. */
+/** Register Phase 5 shortcuts: group creation, dissolution, vertex edit, rename, overlap cycle. */
 export function installPhase5Shortcuts(
     dispatcher: KeyboardDispatcher,
     actions: Phase5ShortcutActions,
@@ -86,6 +89,9 @@ export function installPhase5Shortcuts(
     dispatcher.bind('ctrl+shift+g', actions.groupSelection);
     dispatcher.bind('ctrl+shift+u', actions.dissolveGroup);
     dispatcher.bind('v', actions.vertexEdit);
+    dispatcher.bind('f2', actions.renameSelected);
+    dispatcher.bind('tab', actions.cycleOverlapForward);
+    dispatcher.bind('shift+tab', actions.cycleOverlapBackward);
 }
 
 export interface Phase4ShortcutActions {

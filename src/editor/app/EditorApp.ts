@@ -52,6 +52,8 @@ import { ZoomIndicator } from '../viewport/zoomIndicator';
 
 import { SelectionStore } from '../selection/selectionStore';
 import { GroupEnterState } from '../selection/groupEnterState';
+import { nextOverlapGuid } from '../selection/overlapCycle';
+import { boundsOfGUID } from '../selection/boundsOf';
 import { EditorMapRenderer } from '../rendering/editorMapRenderer';
 import { SelectionOverlay } from '../gizmos/selectionOverlay';
 import { VertexEditOverlay } from '../gizmos/vertexEditOverlay';
@@ -71,7 +73,7 @@ import { ToolSettingsStore } from '../tools/toolSettings';
 import { mountToolOptionsBar } from '../panels/ToolOptionsBar';
 import { openQuickPalette, closeQuickPalette } from '../palette/quickPalettePopup';
 import { openContextMenu, closeContextMenu } from '../contextMenu/contextMenu';
-import { itemMenu, emptyMenu, type EditorActions } from '../contextMenu/contextMenuActions';
+import { itemMenu, emptyMenu, buildSelectFromHereSubmenu, type EditorActions } from '../contextMenu/contextMenuActions';
 import { buildCutItemsCommand } from '../commands/cutItemsCommand';
 import { buildPasteItemsCommand } from '../commands/pasteItemsCommand';
 import { buildDuplicateItemsCommand } from '../commands/duplicateItemsCommand';
@@ -236,6 +238,9 @@ export class EditorApp {
             groupSelection: () => this.runGroupSelection(),
             dissolveGroup: () => this.runDissolveGroup(),
             vertexEdit: () => this.runEnterVertexEdit(),
+            renameSelected: () => this.runRenameSelected(),
+            cycleOverlapForward: () => this.cycleOverlap(1),
+            cycleOverlapBackward: () => this.cycleOverlap(-1),
         });
 
         this.wirePointerEvents();
@@ -363,7 +368,7 @@ export class EditorApp {
             selectAll: () => this.runSelectAll(),
             moveToLayer: (layerId) => this.runMoveToLayer(layerId),
             toggleLayerLock: () => this.runToggleLayerLock(),
-            openProperties: () => this.leftPanel.setTab('layers'),
+            openProperties: () => { /* left panel no longer has tabs; properties live in the right panel. */ },
         };
     }
 
@@ -525,6 +530,8 @@ export class EditorApp {
         }
         const target = { x: worldX, y: worldY };
         const hit = this.renderer.hitTest(worldX, worldY);
+        const allHits = this.renderer.hitTestAll(worldX, worldY);
+        const selectFromHere = buildSelectFromHereSubmenu(this.state, this.selection, allHits);
         const actions = this.buildEditorActions();
 
         const rect = this.viewportEl.getBoundingClientRect();
@@ -533,9 +540,9 @@ export class EditorApp {
 
         if (hit) {
             if (!this.selection.has(hit)) this.selection.select(hit);
-            openContextMenu(itemMenu(this.state, this.selection, actions, target), docX, docY);
+            openContextMenu(itemMenu(this.state, this.selection, actions, target, selectFromHere), docX, docY);
         } else {
-            openContextMenu(emptyMenu(actions, target), docX, docY);
+            openContextMenu(emptyMenu(actions, target, selectFromHere), docX, docY);
         }
     }
 
@@ -616,6 +623,26 @@ export class EditorApp {
 
     private runEnterVertexEdit(): void {
         this.tools.activate('vertexEdit');
+    }
+
+    private runRenameSelected(): void {
+        const guids = this.selection.selectedArray();
+        if (guids.length !== 1) return;
+        this.leftPanel.beginRename(guids[0]);
+    }
+
+    /** Tab / Shift-Tab cycles through items whose AABB contains the current selection's centroid. */
+    private cycleOverlap(step: 1 | -1): void {
+        if (this.selection.size() !== 1) return;
+        const guid = this.selection.selectedArray()[0];
+        const aabb = boundsOfGUID(this.state, guid);
+        if (aabb.width === 0 && aabb.height === 0) return;
+        const cx = aabb.x + aabb.width / 2;
+        const cy = aabb.y + aabb.height / 2;
+        const hits = this.renderer.hitTestAll(cx, cy);
+        const next = nextOverlapGuid(hits, guid, step);
+        if (!next) return;
+        this.selection.select(next);
     }
 
     private runMoveToLayer(layerId: string): void {
@@ -842,6 +869,7 @@ export class EditorApp {
         this.stack.subscribe(() => {
             this.selection.pruneAgainst(this.state);
             this.renderer.rebuild();
+            this.leftPanel.refreshItems();
             this.refreshErrorsAfterMutation();
             this.enforceVertexEditInvariants();
             const top = this.stack.serialize();

@@ -516,13 +516,188 @@ html, body {
     white-space: nowrap;
 }
 
-.editor-item-eye {
+.editor-item-eye,
+.editor-item-lock {
     background: transparent;
     border: 0;
     color: var(--editor-text-dim);
     cursor: pointer;
     width: 18px;
     padding: 0;
+}
+
+.editor-item-eye:hover,
+.editor-item-lock:hover {
+    color: var(--editor-text);
+}
+
+.editor-item-row.locked {
+    opacity: 0.85;
+}
+
+.editor-item-row.locked .editor-item-lock {
+    color: var(--editor-accent);
+}
+
+.editor-item-name mark {
+    background: #55501c;
+    color: var(--editor-text);
+    padding: 0;
+    border-radius: 1px;
+}
+
+/* Selection breadcrumb (left panel footer) */
+.editor-left-breadcrumb {
+    display: flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 4px 8px;
+    border-top: 1px solid var(--editor-panel-border);
+    background: #18181f;
+    color: var(--editor-text-dim);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#editor-left.collapsed .editor-left-breadcrumb {
+    display: none;
+}
+
+/* Unified tree */
+.editor-unified-tree {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.editor-tree-search {
+    background: #14141b;
+    color: var(--editor-text);
+    border: 1px solid var(--editor-panel-border);
+    padding: 4px 6px;
+    margin: 6px;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.editor-tree-search:focus {
+    outline: none;
+    border-color: var(--editor-accent);
+}
+
+.editor-tree-scroll {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.editor-tree-section {
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--editor-panel-border);
+}
+
+.editor-tree-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: #18181f;
+    color: var(--editor-text-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    user-select: none;
+}
+
+.editor-tree-section-header:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--editor-text);
+}
+
+.editor-tree-section-chevron {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    color: var(--editor-text-dim);
+    font-size: 10px;
+}
+
+.editor-tree-section-title {
+    flex: 1;
+}
+
+.editor-tree-section-count {
+    color: var(--editor-text-dim);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.editor-tree-section-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-tree-section-eye,
+.editor-tree-section-lock,
+.editor-tree-section-action {
+    background: transparent;
+    border: 0;
+    color: var(--editor-text-dim);
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.editor-tree-section-eye:hover,
+.editor-tree-section-lock:hover,
+.editor-tree-section-action:hover {
+    color: var(--editor-text);
+}
+
+.editor-tree-section-eye:disabled,
+.editor-tree-section-lock:disabled,
+.editor-tree-section-action:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.editor-tree-section-action {
+    border: 1px solid var(--editor-panel-border);
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* Drag-reorder visuals */
+.editor-item-dragging {
+    opacity: 0.4;
+}
+
+.editor-drop-before {
+    box-shadow: inset 0 2px 0 var(--editor-accent);
+}
+
+.editor-drop-after {
+    box-shadow: inset 0 -2px 0 var(--editor-accent);
+}
+
+.editor-drop-into {
+    box-shadow: inset 0 0 0 2px var(--editor-accent);
+}
+
+.editor-tree-floor {
+    border-bottom: 1px solid var(--editor-panel-border);
+}
+
+.editor-tree-palettes {
+    display: flex;
+    flex-direction: column;
 }
 
 /* Palettes */
@@ -891,14 +1066,19 @@ html, body {
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
     min-width: 200px;
     padding: 4px 0;
+    list-style: none;
+    margin: 0;
 }
 
 .editor-context-menu-item {
+    position: relative;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     padding: 4px 12px;
     color: var(--editor-text);
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .editor-context-menu-item.disabled {
@@ -918,6 +1098,26 @@ html, body {
 
 .editor-context-menu-item.enabled:hover .shortcut {
     color: #000;
+}
+
+.editor-context-menu-item.has-submenu::after {
+    content: '\25B6';
+    font-size: 9px;
+    margin-left: 8px;
+    opacity: 0.6;
+}
+
+/* Submenu: override position:fixed, hidden until parent is hovered */
+.editor-context-menu-item.has-submenu > .submenu {
+    display: none;
+    position: absolute;
+    top: -4px;
+    left: 100%;
+    margin-left: -1px;
+}
+
+.editor-context-menu-item.has-submenu:hover > .submenu {
+    display: block;
 }
 
 .editor-context-menu-sep {

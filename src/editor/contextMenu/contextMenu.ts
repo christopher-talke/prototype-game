@@ -63,14 +63,13 @@ function buildMenu(items: MenuItem[]): HTMLElement {
     for (const item of items) {
         if (item.separator) {
             const li = document.createElement('li');
-            li.className = 'editor-context-separator';
+            li.className = 'editor-context-menu-sep';
             ul.appendChild(li);
             continue;
         }
         const li = document.createElement('li');
-        li.className = 'editor-context-item';
         const enabled = item.enabled !== false;
-        if (!enabled) li.classList.add('disabled');
+        li.className = `editor-context-menu-item ${enabled ? 'enabled' : 'disabled'}`;
 
         const label = document.createElement('span');
         label.className = 'editor-context-label';
@@ -79,7 +78,7 @@ function buildMenu(items: MenuItem[]): HTMLElement {
 
         if (item.shortcut) {
             const shortcut = document.createElement('span');
-            shortcut.className = 'editor-context-shortcut';
+            shortcut.className = 'shortcut';
             shortcut.textContent = item.shortcut;
             li.appendChild(shortcut);
         }

@@ -23,6 +23,7 @@ import type { GroupEnterState } from '../selection/groupEnterState';
 import type { EditorWorkingState } from '../state/EditorWorkingState';
 import { aabbContains, boundsOfGUID, unionBounds, type AABB } from '../selection/boundsOf';
 import { findTopmostGroup, groupMembersFlattened } from '../groups/groupQueries';
+import { isItemLocked } from '../state/itemLockQuery';
 import type { EditorCamera } from '../viewport/EditorCamera';
 import { hitTestHandle } from '../gizmos/handleHitTest';
 import { type HandleId } from '../gizmos/transformHandles';
@@ -110,6 +111,7 @@ export class SelectTool implements Tool {
         const hit = renderer.hitTest(e.worldX, e.worldY);
         const additive = e.native.shiftKey;
         const isDoubleClick = hit !== null && this.doubleClick.record(e.screenX, e.screenY);
+        const hitLocked = hit !== null && isItemLocked(state, hit);
 
         if (hit) {
             const topGroup = findTopmostGroup(state, hit);
@@ -134,7 +136,9 @@ export class SelectTool implements Tool {
                 } else {
                     selection.selectMany(flat);
                 }
-                drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+                if (!hitLocked) {
+                    drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+                }
                 return;
             }
 
@@ -143,11 +147,15 @@ export class SelectTool implements Tool {
                 return;
             }
             if (selection.has(hit)) {
-                drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+                if (!hitLocked) {
+                    drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+                }
                 return;
             }
             selection.select(hit);
-            drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+            if (!hitLocked) {
+                drag.startMove(e.native.pointerId, e.worldX, e.worldY, selection.selectedArray());
+            }
             return;
         }
 

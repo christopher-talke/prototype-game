@@ -77,11 +77,25 @@ export function deleteItems(map: MapData, guids: string[]): ItemKind[] {
     return removed;
 }
 
-/** Mutate `map` in-place: rename the item by guid. No-op if guid is unknown. */
-export function setItemName(map: MapData, guid: string, name: string): void {
+/** Mutate `map` in-place: set the `label` of a placement item by guid. No-op if guid is unknown. */
+export function setItemLabel(map: MapData, guid: string, label: string): void {
     const found = findAnyItem(map, guid);
     if (!found) return;
-    (found.item as { name?: string }).name = name;
+    (found.item as { label?: string }).label = label;
+}
+
+/** Mutate `map` in-place: set the `hidden` flag on a placement item. No-op if guid is unknown. */
+export function setItemHidden(map: MapData, guid: string, hidden: boolean): void {
+    const found = findAnyItem(map, guid);
+    if (!found) return;
+    (found.item as { hidden?: boolean }).hidden = hidden;
+}
+
+/** Mutate `map` in-place: set the `locked` flag on a placement item. No-op if guid is unknown. */
+export function setItemLocked(map: MapData, guid: string, locked: boolean): void {
+    const found = findAnyItem(map, guid);
+    if (!found) return;
+    (found.item as { locked?: boolean }).locked = locked;
 }
 
 /** Find a layer by id (returns undefined if missing). */
@@ -107,6 +121,85 @@ export function moveItemsToLayer(map: MapData, guids: string[], targetLayerId: s
 /** Pure clone: produces a deep-cloned MapData via JSON. */
 export function cloneMapData(map: MapData): MapData {
     return JSON.parse(JSON.stringify(map)) as MapData;
+}
+
+export type ReorderPosition = 'before' | 'after';
+
+/**
+ * Mutate `map` in-place: move `movingGuid` within its backing array so it sits
+ * immediately before/after `targetGuid`. Returns true when the array order
+ * actually changed, false when both guids are not in the same array, when they
+ * are identical, or when the move is a no-op (already adjacent in the
+ * requested direction).
+ *
+ * Supports:
+ *  - layers within `map.layers` (same floor only)
+ *  - walls/objects/entities/decals/lights within a single layer
+ *  - zones within `map.zones`
+ *  - navHints within `map.navHints`
+ */
+export function reorderItem(
+    map: MapData,
+    movingGuid: string,
+    targetGuid: string,
+    position: ReorderPosition,
+): boolean {
+    if (movingGuid === targetGuid) return false;
+
+    const moving = locateReorderable(map, movingGuid);
+    const target = locateReorderable(map, targetGuid);
+    if (!moving || !target) return false;
+    if (moving.container !== target.container) return false;
+    if (moving.array !== target.array) return false;
+
+    const arr = moving.array;
+    const fromIdx = arr.findIndex((x) => x.id === movingGuid);
+    const prevTargetIdx = arr.findIndex((x) => x.id === targetGuid);
+    if (fromIdx < 0 || prevTargetIdx < 0) return false;
+
+    const [node] = arr.splice(fromIdx, 1);
+    let toIdx = arr.findIndex((x) => x.id === targetGuid);
+    if (position === 'after') toIdx += 1;
+    arr.splice(toIdx, 0, node);
+    return arr.findIndex((x) => x.id === movingGuid) !== fromIdx;
+}
+
+interface Reorderable {
+    array: Array<{ id: string }>;
+    /** Opaque key: identical for two items that may legally reorder relative to each other. */
+    container: string;
+}
+
+function locateReorderable(map: MapData, guid: string): Reorderable | null {
+    const layer = map.layers.find((l) => l.id === guid);
+    if (layer) {
+        return { array: map.layers as Array<{ id: string }>, container: `layers:${layer.floorId}` };
+    }
+    for (const l of map.layers) {
+        if (l.walls.some((w) => w.id === guid)) {
+            return { array: l.walls, container: `array:${l.id}:wall` };
+        }
+        if (l.objects.some((o) => o.id === guid)) {
+            return { array: l.objects, container: `array:${l.id}:object` };
+        }
+        if (l.entities.some((e) => e.id === guid)) {
+            return { array: l.entities, container: `array:${l.id}:entity` };
+        }
+        if (l.decals.some((d) => d.id === guid)) {
+            return { array: l.decals, container: `array:${l.id}:decal` };
+        }
+        if (l.lights.some((x) => x.id === guid)) {
+            return { array: l.lights, container: `array:${l.id}:light` };
+        }
+    }
+    const zone = map.zones.find((z) => z.id === guid);
+    if (zone) {
+        return { array: map.zones as Array<{ id: string }>, container: `zones:${zone.floorId ?? ''}` };
+    }
+    if (map.navHints.some((n) => n.id === guid)) {
+        return { array: map.navHints as Array<{ id: string }>, container: 'navHints' };
+    }
+    return null;
 }
 
 interface FoundItem {

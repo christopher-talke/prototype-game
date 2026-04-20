@@ -95,15 +95,26 @@ export class EditorMapRenderer {
             this.renderLayer(layer, layer.id === activeLayer);
         }
 
+        const hidden = this.state.editorHiddenGUIDs;
         for (const zone of this.state.map.zones) {
             if (zone.floorId && zone.floorId !== activeFloor) continue;
+            if (zone.hidden === true || hidden.has(zone.id)) continue;
             const c = buildZoneContainer(zone);
+            if (zone.locked === true) {
+                c.eventMode = 'none';
+                c.interactive = false;
+            }
             this.byGUID.set(zone.id, c);
             this.sublayers.zone.addChild(c);
         }
 
         for (const hint of this.state.map.navHints) {
+            if (hint.hidden === true || hidden.has(hint.id)) continue;
             const c = buildNavHintContainer(hint);
+            if (hint.locked === true) {
+                c.eventMode = 'none';
+                c.interactive = false;
+            }
             this.byGUID.set(hint.id, c);
             this.sublayers.navHint.addChild(c);
         }
@@ -133,6 +144,7 @@ export class EditorMapRenderer {
                 if (!c.visible || c.eventMode === 'none') continue;
                 const guid = c.label;
                 if (!guid) continue;
+                if (this.isItemHiddenOrLocked(guid)) continue;
                 const aabb = boundsOfGUID(this.state, guid);
                 if (aabb.width === 0 && aabb.height === 0) continue;
                 if (!aabbContainsPoint(aabb, worldX, worldY)) continue;
@@ -140,6 +152,67 @@ export class EditorMapRenderer {
             }
         }
         return null;
+    }
+
+    /** Every selectable item under the world point, ordered topmost-first. */
+    hitTestAll(worldX: number, worldY: number): string[] {
+        const sublayerOrder: Container[] = [
+            this.sublayers.zone,
+            this.sublayers.navHint,
+            this.sublayers.light,
+            this.sublayers.entity,
+            this.sublayers.object,
+            this.sublayers.wall,
+            this.sublayers.decal,
+        ];
+        return hitTestAllImpl(
+            this.state,
+            sublayerOrder,
+            worldX,
+            worldY,
+            (guid) => this.isItemHiddenOrLocked(guid),
+        );
+    }
+
+    private isItemHiddenOrLocked(guid: string): boolean {
+        const ref = this.state.byGUID.get(guid);
+        if (!ref) return false;
+        const map = this.state.map;
+        switch (ref.kind) {
+            case 'wall': {
+                const layer = map.layers.find((l) => l.id === ref.layerId);
+                const item = layer?.walls.find((w) => w.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+            case 'object': {
+                const layer = map.layers.find((l) => l.id === ref.layerId);
+                const item = layer?.objects.find((o) => o.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+            case 'entity': {
+                const layer = map.layers.find((l) => l.id === ref.layerId);
+                const item = layer?.entities.find((e) => e.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+            case 'decal': {
+                const layer = map.layers.find((l) => l.id === ref.layerId);
+                const item = layer?.decals.find((d) => d.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+            case 'light': {
+                const layer = map.layers.find((l) => l.id === ref.layerId);
+                const item = layer?.lights.find((l) => l.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+            case 'zone': {
+                const item = map.zones.find((z) => z.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+            case 'navHint': {
+                const item = map.navHints.find((n) => n.id === guid);
+                return item?.hidden === true || item?.locked === true;
+            }
+        }
     }
 
     destroy(): void {
@@ -164,7 +237,7 @@ export class EditorMapRenderer {
             this.addItem(layer, l, isActive, hidden, this.sublayers.light, buildLightFor);
     }
 
-    private addItem<T extends { id: string }>(
+    private addItem<T extends { id: string; hidden?: boolean; locked?: boolean }>(
         layer: MapLayer,
         item: T,
         isActive: boolean,
@@ -174,12 +247,12 @@ export class EditorMapRenderer {
     ): void {
         const ctx: BuildContext = { state: this.state, cache: this.cache };
         const c = builder.call(this, item, ctx);
-        const flags = flagsFor(layer, item.id, hidden);
+        const flags = flagsFor(layer, item, hidden);
         if (!applyVisibility(c, flags)) {
             c.destroy({ children: true });
             return;
         }
-        applyBehindGlass(c, isActive, layer.locked);
+        applyBehindGlass(c, isActive, layer.locked || item.locked === true);
         this.byGUID.set(item.id, c);
         target.addChild(c);
     }
@@ -303,6 +376,37 @@ function buildWallFor(w: Wall): Container {
 
 function buildLightFor(l: LightPlacement): Container {
     return buildLightContainer(l);
+}
+
+/**
+ * Pure hit-testing routine shared by `EditorMapRenderer.hitTestAll`. Walks
+ * `sublayerOrder` front-to-back (as provided) and inside each sublayer walks
+ * children from highest index to lowest, collecting every GUID whose AABB
+ * contains the world point. Skips children that are invisible, have no label,
+ * or are reported hidden/locked by `isHiddenOrLocked`.
+ */
+export function hitTestAllImpl(
+    state: EditorWorkingState,
+    sublayerOrder: Container[],
+    worldX: number,
+    worldY: number,
+    isHiddenOrLocked: (guid: string) => boolean,
+): string[] {
+    const out: string[] = [];
+    for (const sl of sublayerOrder) {
+        for (let i = sl.children.length - 1; i >= 0; i--) {
+            const c = sl.children[i];
+            if (!c.visible || c.eventMode === 'none') continue;
+            const guid = c.label;
+            if (!guid) continue;
+            if (isHiddenOrLocked(guid)) continue;
+            const aabb = boundsOfGUID(state, guid);
+            if (aabb.width === 0 && aabb.height === 0) continue;
+            if (!aabbContainsPoint(aabb, worldX, worldY)) continue;
+            out.push(guid);
+        }
+    }
+    return out;
 }
 
 function applyDeltaTransform(container: Container, delta: DragDelta): void {

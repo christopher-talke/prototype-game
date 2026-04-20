@@ -13,8 +13,9 @@ import type { MapData, MapLayer } from '@shared/map/MapData';
 import type { EditorWorkingState, ItemKind, ItemRef } from './EditorWorkingState';
 import { seedCounterFromNames } from '../guid/displayNameCounter';
 
-interface WithIdAndName {
+interface WithIdLabel {
     id: string;
+    label?: string;
     name?: string;
 }
 
@@ -24,11 +25,16 @@ export function buildFromMapData(state: EditorWorkingState, map: MapData): void 
 
     const indexItem = (
         kind: ItemKind,
-        item: WithIdAndName,
+        item: WithIdLabel,
         layerId: string | undefined,
         floorId: string | undefined,
     ) => {
-        const name = typeof item.name === 'string' ? item.name : item.id;
+        const name =
+            typeof item.label === 'string'
+                ? item.label
+                : typeof item.name === 'string'
+                    ? item.name
+                    : item.id;
         const ref: ItemRef = {
             kind,
             guid: item.id,
@@ -82,7 +88,7 @@ function indexLayerItems(
     layer: MapLayer,
     indexItem: (
         kind: ItemKind,
-        item: WithIdAndName,
+        item: WithIdLabel,
         layerId: string | undefined,
         floorId: string | undefined,
     ) => void,

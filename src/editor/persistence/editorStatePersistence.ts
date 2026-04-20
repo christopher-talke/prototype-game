@@ -55,6 +55,8 @@ export interface EditorStatePersisted {
     groups: SerializedGroup[];
     contentHash: string;
     paletteRecents: PaletteRecents;
+    /** Per-section collapse state for the left-panel unified tree. `true` means collapsed. */
+    treeCollapse: Record<string, boolean>;
 }
 
 /** Default persisted state for a freshly opened file with no IDB entry. */
@@ -75,6 +77,7 @@ export function defaultEditorState(): EditorStatePersisted {
         groups: [],
         contentHash: '',
         paletteRecents: { object: [], entity: [] },
+        treeCollapse: {},
     };
 }
 
@@ -86,6 +89,7 @@ export async function loadEditorState(filePath: string): Promise<EditorStatePers
     // Migrate from old lastCompileErrors field (unknown[]) to lastCompileResult.
     if (stored.lastCompileResult === undefined) stored.lastCompileResult = null;
     if (!Array.isArray(stored.groups)) stored.groups = [];
+    if (!stored.treeCollapse || typeof stored.treeCollapse !== 'object') stored.treeCollapse = {};
     return stored;
 }
 

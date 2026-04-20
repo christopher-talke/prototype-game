@@ -12,7 +12,9 @@ import type { EditorWorkingState } from '../../state/EditorWorkingState';
 import { buildSetLayerVisibilityCommand } from '../../commands/setLayerVisibilityCommand';
 import { buildSetLayerLockCommand } from '../../commands/setLayerLockCommand';
 import { buildRenameLayerCommand } from '../../commands/renameLayerCommand';
+import { buildDragReorderCommand } from '../../commands/buildDragReorderCommand';
 import { buildLayerListItem } from './layerListItem';
+import { wireDragReorder } from './rowDragReorder';
 
 export interface LayerListOptions {
     state: EditorWorkingState;
@@ -21,6 +23,8 @@ export interface LayerListOptions {
     onPersist: () => void;
     /** Returns the set of layer IDs that have at least one compile error. */
     getErrorLayerIds?: () => Set<string>;
+    /** Shared rename-callbacks registry; keyed by layer id. */
+    renameCallbacks?: Map<string, () => void>;
 }
 
 /** Build the layer list. Returns refresh fn. */
@@ -34,7 +38,7 @@ export function mountLayerList(container: HTMLElement, opts: LayerListOptions): 
         const errorIds = opts.getErrorLayerIds?.() ?? new Set<string>();
         for (const layer of layers) {
             const hasError = errorIds.has(layer.id);
-            const row = buildLayerListItem({
+            const handle = buildLayerListItem({
                 hasError,
                 layer,
                 isActive: layer.id === opts.state.activeLayerId,
@@ -58,7 +62,18 @@ export function mountLayerList(container: HTMLElement, opts: LayerListOptions): 
                     if (cmd) opts.stack.dispatch(cmd);
                 },
             });
-            container.appendChild(row);
+            wireDragReorder(handle.el, {
+                guid: layer.id,
+                container: `layers:${layer.floorId}`,
+                node: 'layer',
+            }, {
+                onDrop: (src, position) => {
+                    const cmd = buildDragReorderCommand(opts.state, src.guid, layer.id, position);
+                    if (cmd) opts.stack.dispatch(cmd);
+                },
+            });
+            opts.renameCallbacks?.set(layer.id, handle.beginRename);
+            container.appendChild(handle.el);
         }
     };
 
