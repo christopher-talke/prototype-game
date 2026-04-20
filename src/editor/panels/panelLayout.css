@@ -1158,6 +1158,39 @@ html, body {
     border-color: var(--editor-accent);
 }
 
+.editor-modal-section {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--editor-text-dim);
+    border-bottom: 1px solid var(--editor-panel-border);
+    padding-bottom: 4px;
+    margin-top: 6px;
+}
+
+.editor-modal-section:first-child {
+    margin-top: 0;
+}
+
+.editor-modal-rgb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.editor-modal-rgb-label {
+    font-size: 10px;
+    color: var(--editor-text-dim);
+    min-width: 10px;
+    text-align: right;
+}
+
+.editor-modal-rgb-input {
+    width: 52px;
+    flex: none;
+}
+
 .editor-signal-list {
     display: flex;
     flex-direction: column;

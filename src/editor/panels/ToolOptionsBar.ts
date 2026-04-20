@@ -25,6 +25,7 @@ const WALL_MODES: { id: WallDrawMode; label: string }[] = [
     { id: 'rect', label: 'Rect' },
     { id: 'line', label: 'Line' },
     { id: 'polygon', label: 'Polygon' },
+    { id: 'rotatedRect', label: 'Rot Rect' },
 ];
 
 const WALL_TYPES: WallType[] = ['concrete', 'metal', 'crate', 'sandbag', 'barrier', 'pillar'];

@@ -11,7 +11,7 @@
 
 import type { NavHintType, WallType, ZoneType } from '@shared/map/MapData';
 
-export type WallDrawMode = 'rect' | 'line' | 'polygon';
+export type WallDrawMode = 'rect' | 'line' | 'polygon' | 'rotatedRect';
 export type ZoneDrawMode = 'rect' | 'polygon';
 
 export interface WallToolSettings {

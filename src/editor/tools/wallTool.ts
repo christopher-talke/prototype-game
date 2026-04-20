@@ -1,9 +1,12 @@
 /**
- * Wall Draw tool. Three modes driven by ToolSettings.wall.mode:
- *   rect:    click-drag axis-aligned rectangle (Shift = square)
- *   line:    two clicks -> thin rectangle of configured thickness
- *   polygon: click vertices, close by clicking near the first vertex or Enter.
- *            Enforces convex CW; refuses to commit concave polygons.
+ * Wall Draw tool. Four modes driven by ToolSettings.wall.mode:
+ *   rect:        click-drag axis-aligned rectangle (Shift = square)
+ *   line:        two clicks -> thin rectangle of configured thickness
+ *   polygon:     click vertices, close by clicking near the first vertex or
+ *                Enter. Enforces convex CW; refuses to commit concave polygons.
+ *   rotatedRect: three clicks -> first corner, second corner along an
+ *                arbitrary "width" axis, then a third point whose signed
+ *                perpendicular distance from the axis sets height.
  *
  * All preview rendering goes into a Graphics on overlayParent. All commits
  * dispatch through SnapshotCommand via buildCreateWallCommand.
@@ -24,6 +27,8 @@ import {
     isConvexCW,
     lineWallVertices,
     rectangleVertices,
+    rotatedRectangleVertices,
+    signedPerpendicularDistance,
     squareFromDrag,
 } from '../geometry/polygon';
 import type { SelectionStore } from '../selection/selectionStore';
@@ -49,10 +54,14 @@ export interface WallToolDeps {
 type RectState = { kind: 'rect'; pointerId: number; anchor: Vec2; current: Vec2; shift: boolean };
 type LineState = { kind: 'line'; first: Vec2 };
 type PolyState = { kind: 'polygon'; vertices: Vec2[]; cursor: Vec2 };
+type RotRectState =
+    | { kind: 'rotatedRect'; phase: 'awaiting-second'; a: Vec2; cursor: Vec2 }
+    | { kind: 'rotatedRect'; phase: 'awaiting-third'; a: Vec2; b: Vec2; cursor: Vec2 };
 
-type WallGesture = RectState | LineState | PolyState | null;
+type WallGesture = RectState | LineState | PolyState | RotRectState | null;
 
 const POLY_CLOSE_RADIUS_WORLD = 10;
+const ROT_RECT_MIN_HEIGHT_WORLD = 1;
 
 export class WallTool implements Tool {
     readonly id = 'wall';
@@ -118,6 +127,32 @@ export class WallTool implements Tool {
             poly.vertices.push(pt);
             poly.cursor = pt;
             this.redraw();
+            return;
+        }
+
+        if (mode === 'rotatedRect') {
+            if (!this.gesture || this.gesture.kind !== 'rotatedRect') {
+                this.gesture = { kind: 'rotatedRect', phase: 'awaiting-second', a: pt, cursor: pt };
+                this.redraw();
+                return;
+            }
+            if (this.gesture.phase === 'awaiting-second') {
+                if (pt.x === this.gesture.a.x && pt.y === this.gesture.a.y) return;
+                this.gesture = {
+                    kind: 'rotatedRect',
+                    phase: 'awaiting-third',
+                    a: this.gesture.a,
+                    b: pt,
+                    cursor: pt,
+                };
+                this.redraw();
+                return;
+            }
+            // awaiting-third -> commit
+            const { a, b } = this.gesture;
+            const h = signedPerpendicularDistance(pt, a, b);
+            if (Math.abs(h) < ROT_RECT_MIN_HEIGHT_WORLD) return;
+            this.dispatchCreate(rotatedRectangleVertices(a, b, h));
         }
     }
 
@@ -131,6 +166,8 @@ export class WallTool implements Tool {
             // second-point preview is tracked via cursor; store on the state
             (this.gesture as LineState & { cursor?: Vec2 }).cursor = pt;
         } else if (this.gesture.kind === 'polygon') {
+            this.gesture.cursor = pt;
+        } else if (this.gesture.kind === 'rotatedRect') {
             this.gesture.cursor = pt;
         }
         this.redraw();
@@ -293,6 +330,27 @@ export class WallTool implements Tool {
             if (conv.offendingIndex !== null && conv.offendingIndex < vertices.length) {
                 const v = vertices[conv.offendingIndex];
                 g.rect(v.x - 3, v.y - 3, 6, 6).fill({ color: 0xff3030, alpha: 1 });
+            }
+            return;
+        }
+
+        if (this.gesture.kind === 'rotatedRect') {
+            if (this.gesture.phase === 'awaiting-second') {
+                const { a, cursor } = this.gesture;
+                drawDashedLine(g, a, cursor, colour, 0.8);
+                drawVertices(g, [a], colour);
+                return;
+            }
+            // awaiting-third
+            const { a, b, cursor } = this.gesture;
+            g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ color: colour, width: 1, alpha: 0.8 });
+            const h = signedPerpendicularDistance(cursor, a, b);
+            if (Math.abs(h) >= ROT_RECT_MIN_HEIGHT_WORLD) {
+                const vertices = rotatedRectangleVertices(a, b, h);
+                drawPreviewPolygon(g, vertices, colour);
+                drawVertices(g, vertices, colour);
+            } else {
+                drawVertices(g, [a, b], colour);
             }
         }
     }

@@ -116,6 +116,55 @@ export function lineWallVertices(a: Vec2, b: Vec2, thickness: number): Vec2[] {
 }
 
 /**
+ * Four CW vertices of a rotated rectangle. `a` is the first corner,
+ * `b` is the opposite corner along the arbitrary "width" axis, and
+ * `signedHeight` is the signed perpendicular extrusion distance; its
+ * sign selects which side of the ab axis the rectangle grows onto.
+ * Winding is normalised to CW before return.
+ *
+ * Zero-length axis (a === b) returns four identical points; callers
+ * should guard against this before dispatching a create command.
+ */
+export function rotatedRectangleVertices(a: Vec2, b: Vec2, signedHeight: number): Vec2[] {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) {
+        return [
+            { x: a.x, y: a.y },
+            { x: a.x, y: a.y },
+            { x: a.x, y: a.y },
+            { x: a.x, y: a.y },
+        ];
+    }
+    const nx = -dy / len;
+    const ny = dx / len;
+    const v: Vec2[] = [
+        { x: a.x, y: a.y },
+        { x: b.x, y: b.y },
+        { x: b.x + nx * signedHeight, y: b.y + ny * signedHeight },
+        { x: a.x + nx * signedHeight, y: a.y + ny * signedHeight },
+    ];
+    return enforceCW(v);
+}
+
+/**
+ * Signed perpendicular distance from `p` to the infinite line through `a -> b`.
+ * Positive on the (-dy, dx) side of the axis in Y-down. Returns 0 when the
+ * axis has zero length. Used by the rotated rectangle preview to project the
+ * third click onto the axis perpendicular.
+ */
+export function signedPerpendicularDistance(p: Vec2, a: Vec2, b: Vec2): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return 0;
+    const nx = -dy / len;
+    const ny = dx / len;
+    return (p.x - a.x) * nx + (p.y - a.y) * ny;
+}
+
+/**
  * Adjust `b` so that the rectangle from `a -> b` is a square. The larger of
  * |dx|, |dy| wins; the sign of the smaller is preserved.
  */

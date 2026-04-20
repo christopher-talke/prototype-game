@@ -513,6 +513,7 @@ export class EditorApp {
         });
 
         window.addEventListener('keydown', (e) => {
+            if (isEditableTarget(e.target)) return;
             this.tools.onKeyDown({ native: e });
         });
     }
@@ -970,6 +971,13 @@ export class EditorApp {
 
 function isAbortError(err: unknown): boolean {
     return err instanceof DOMException && err.name === 'AbortError';
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return target.isContentEditable;
 }
 
 /**
